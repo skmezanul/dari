@@ -27,7 +27,7 @@ public class EmbeddedElasticsearchServer {
 
         try {
             LOGGER.info("Setting up new ELK embedded node");
-            Node node = new MyNode(
+            node = new MyNode(
                     Settings.builder()
                             .put("transport.type", "netty4")
                             .put("http.type", "netty4")
@@ -67,7 +67,9 @@ public class EmbeddedElasticsearchServer {
      */
     public static synchronized void shutdown() {
         try {
-            node.close();
+            if (node != null) {
+                node.close();
+            }
         } catch (Exception e) {
             LOGGER.warn("EmbeddedElasticsearchServer cannot shutdown");
         }

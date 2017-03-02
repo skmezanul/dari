@@ -8,6 +8,7 @@ import org.apache.commons.lang3.time.DateUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
 import java.util.List;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -21,25 +22,20 @@ public class SearchElasticTest extends AbstractElasticTest {
 
     private static final String FOO = "foo";
 
-    private ElasticsearchDatabase database;
+    //private ElasticsearchDatabase database;
 
     @Before
     public void before() {
 
-        this.database = new ElasticsearchDatabase();
-        database.initialize("", getDatabaseSettings());
+        //this.database = new ElasticsearchDatabase();
+        //database.initialize("", getDatabaseSettings());
     }
 
     @After
     public void deleteModels() {
-        Query.from(SearchElasticModel.class).deleteAll();
-        try {
-            database.commitTransaction(database.openConnection(), true);
-        } catch (Exception error) {
-            LOGGER.info("commit @After failed");
-        }
+        Query.from(SearchElasticModel.class).deleteAllImmediately();
+        Query.from(SearchElasticOverlapModel.class).deleteAllImmediately();
     }
-
 
     @Test
     public void testOne() throws Exception {
@@ -48,8 +44,6 @@ public class SearchElasticTest extends AbstractElasticTest {
         search.name = "Bill";
         search.message = "tough";
         search.save();
-
-        database.commitTransaction(database.openConnection(), true);
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -73,8 +67,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .where("one matches ?", FOO)
@@ -94,8 +86,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.map.put(FOO, FOO);
             model.save();
         });
-
-        database.commitTransaction(database.openConnection(), true);
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -118,8 +108,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .where("list matches ?", FOO)
@@ -141,12 +129,10 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         // note this is different from h2, but seems better since it is specific.
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
-                .where("map.foo matches ?", FOO)
+                .where("map matches ?", FOO)
                 .selectAll();
 
         assertThat("Size of result", fooResult, hasSize(1));
@@ -162,8 +148,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.set.add(FOO);
             model.save();
         });
-
-        database.commitTransaction(database.openConnection(), true);
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -181,13 +165,10 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "f*").count(), equalTo(3L));
         assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "fo*").count(), equalTo(2L));
         assertThat(Query.from(SearchElasticModel.class).where("one matches ?", "foo*").count(), equalTo(1L));
     }
-
 
     @Test
     public void sortRelevant() throws Exception {
@@ -218,8 +199,6 @@ public class SearchElasticTest extends AbstractElasticTest {
         model.eid = "3";
         model.save();
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .where("_any matches ?", FOO)
@@ -242,8 +221,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .sortAscending("one")
@@ -256,9 +233,6 @@ public class SearchElasticTest extends AbstractElasticTest {
 
     @Test(expected = UnsupportedIndexException.class)
     public void testSortStringOneField() throws Exception {
-        database.openConnection();
-        database.deleteIndex();
-        database.defaultMap();
 
         Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
             SearchElasticModel model = new SearchElasticModel();
@@ -266,27 +240,20 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
-                .sortAscending("one")
+                .sortAscending("neverIndexed")
                 .selectAll();
     }
 
     @Test(expected = Query.NoFieldException.class)
     public void testSortStringNoSuchField() throws Exception {
-        //database.openConnection();
-        //database.deleteIndex();
-        //database.defaultMap();
 
         Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
             SearchElasticModel model = new SearchElasticModel();
             model.f = f;
             model.save();
         });
-
-        database.commitTransaction(database.openConnection(), true);
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -306,8 +273,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         }
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .sortAscending("f")
@@ -325,8 +290,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.f = f;
             model.save();
         });
-
-        database.commitTransaction(database.openConnection(), true);
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -346,19 +309,15 @@ public class SearchElasticTest extends AbstractElasticTest {
         search.message = "Welcome";
         search.save();
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> r = Query
                 .from(SearchElasticModel.class)
                 .where("eid matches ?", "111111")
                 .selectAll();
 
         assertThat(r, notNullValue());
-        if (r != null) {
-            assertThat(r, hasSize(1));
-            assertEquals("Bill", r.get(0).getName());
-            assertEquals("Welcome", r.get(0).getMessage());
-        }
+        assertThat(r, hasSize(1));
+        assertEquals("Bill", r.get(0).getName());
+        assertEquals("Welcome", r.get(0).getMessage());
     }
 
     @Test
@@ -372,8 +331,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.setReference(ref);
             model.save();
         });
-
-        database.commitTransaction(database.openConnection(), true);
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -394,8 +351,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<Grouping<SearchElasticModel>> groupings = Query.from(SearchElasticModel.class).groupBy("f");
 
         assertThat("check size", groupings, hasSize(3));
@@ -405,20 +360,20 @@ public class SearchElasticTest extends AbstractElasticTest {
 
             assertThat(
                     keyLetter + " check",
-                    (long) g.getCount(),
+                    g.getCount(),
                     is((long) Math.round(Float.parseFloat(keyLetter))));
         });
 
         List<Grouping<SearchElasticModel>> ranges = Query.from(SearchElasticModel.class).groupBy("num(1,4,1)");
         assertThat("check size", ranges, hasSize(3));
         assertThat("1st check " + ranges.get(0).getKeys().get(0),
-                (long) ranges.get(0).getCount(),
+                ranges.get(0).getCount(),
                 is((long) 1));
         assertThat("2nd check " + ranges.get(1).getKeys().get(0),
-                (long) ranges.get(1).getCount(),
+                ranges.get(1).getCount(),
                 is((long) 2));
         assertThat("3rd check " + ranges.get(2).getKeys().get(0),
-                (long) ranges.get(2).getCount(),
+                ranges.get(2).getCount(),
                 is((long) 3));
 
     }
@@ -430,8 +385,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.post_date = d;
             model.save();
         });
-
-        database.commitTransaction(database.openConnection(), true);
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -452,8 +405,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .sortOldest(2.0, "post_date")
@@ -473,8 +424,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
-        database.commitTransaction(database.openConnection(), true);
-
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .sortOldest(2.0, "post_date").sortRelevant(10.0, "post_date matches ?", new java.util.Date())
@@ -484,6 +433,67 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check 0 and 1 order", fooResult.get(0).post_date.getTime(), lessThan(fooResult.get(1).post_date.getTime()));
         assertThat("check 1 and 2 order", fooResult.get(1).post_date.getTime(), lessThan(fooResult.get(2).post_date.getTime()));
         assertThat("check 2 and 3 order", fooResult.get(2).post_date.getTime(), lessThan(fooResult.get(3).post_date.getTime()));
+    }
+
+    @Test
+    public void testOverlapElasticTypes() throws Exception {
+        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.f = f;
+            model.save();
+        });
+
+        Stream.of("1.0","2.0","3.0").forEach(f -> {
+            SearchElasticOverlapModel model2 = new SearchElasticOverlapModel();
+            model2.f = f;
+            model2.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .selectAll();
+
+        List<SearchElasticOverlapModel> fooResult2 = Query
+                .from(SearchElasticOverlapModel.class)
+                .selectAll();
+
+        assertThat("check size SearchElasticModel", fooResult, hasSize(3));
+
+        assertThat("check size SearchElasticOverlapModel", fooResult2, hasSize(3));
+    }
+
+    @Test
+    public void testSortOverlapElasticTypes() throws Exception {
+        Stream.of(1.0f,3.0f,2.0f).forEach(f -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.f = f;
+            model.save();
+        });
+
+        Stream.of("a","c","b").forEach(f -> {
+            SearchElasticOverlapModel model2 = new SearchElasticOverlapModel();
+            model2.f = f;
+            model2.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("f")
+                .selectAll();
+
+        assertThat("check size all", fooResult, hasSize(3));
+        assertThat("check 0 and 1 order",  fooResult.get(0).f, lessThan(fooResult.get(1).f));
+        assertThat("check 1 and 2 order", fooResult.get(1).f, lessThan(fooResult.get(2).f));
+
+        List<SearchElasticOverlapModel> fooResult2 = Query
+                .from(SearchElasticOverlapModel.class)
+                .sortAscending("f")
+                .selectAll();
+
+        assertThat("check size all", fooResult2, hasSize(3));
+        assertThat("check 0 and 1 order",  fooResult2.get(0).f, lessThan(fooResult2.get(1).f));
+        assertThat("check 1 and 2 order", fooResult2.get(1).f, lessThan(fooResult2.get(2).f));
+
     }
 
 

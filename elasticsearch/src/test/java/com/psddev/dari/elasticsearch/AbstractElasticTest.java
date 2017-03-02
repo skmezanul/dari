@@ -26,6 +26,8 @@ public abstract class AbstractElasticTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractElasticTest.class);
 
+    private static boolean initialize = true;
+
     /**
      *
      */
@@ -155,7 +157,10 @@ public abstract class AbstractElasticTest {
         Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
         assertThat(clusterName, notNullValue());
         String version = ElasticsearchDatabase.getVersion(nodeHost);
-        assertEquals(version.substring(0, 2), "5.");
+        if (version.length() > 2) {
+            version = version.substring(0, 2);
+        }
+        assertEquals(version, "5.");
     }
 
     /**
@@ -163,20 +168,27 @@ public abstract class AbstractElasticTest {
      */
     @BeforeClass
     public static void createDatabase() {
-        Settings.setOverride(ElasticsearchDatabase.DEFAULT_DATABASE_NAME, ElasticsearchDatabase.DATABASE_NAME);
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "class", ElasticsearchDatabase.class.getName());
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, "elasticsearch_a");
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "9300");
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
-        String nodeHost = getNodeHost();
-        if (!ElasticsearchDatabase.checkAlive(nodeHost)) {
-            // ok create embedded since it is not already running for test
-            EmbeddedElasticsearchServer.setup();
+        if (initialize) {
+            initialize = false;
+
+
+            Settings.setOverride(ElasticsearchDatabase.DEFAULT_DATABASE_NAME, ElasticsearchDatabase.DATABASE_NAME);
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "class", ElasticsearchDatabase.class.getName());
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, "elasticsearch_a");
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "9300");
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
+            String nodeHost = getNodeHost();
+            if (!ElasticsearchDatabase.checkAlive(nodeHost)) {
+                // ok create embedded since it is not already running for test
+                EmbeddedElasticsearchServer.setup();
+            }
+            String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
+            deleteIndex((String) Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING), nodeHost);
+            deleteIndex(Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING) + "*", nodeHost);
+            // create base index1
+            createIndexandMapping((String) Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING), nodeHost);
         }
-        String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
-        deleteIndex((String)Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING), nodeHost);
-        createIndexandMapping((String)Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING), nodeHost);
     }
 }

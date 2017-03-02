@@ -47,7 +47,7 @@ public class RegionElasticIndexTest extends AbstractElasticIndexTest<RegionElast
             model().embeddedAll(model().all(value(i % 2 == 0 ? i : size - i))).create();
         }
 
-        List models = query().where("embeddedOne.one != missing").sortClosest("embeddedOne.one", new Location(0, 0)).selectAll();
+        List models = query().where("embeddedOne/one != missing").sortClosest("embeddedOne/one", new Location(0, 0)).selectAll();
     }
 
     @Override

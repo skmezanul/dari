@@ -10,50 +10,45 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class SearchElasticModel extends Record {
+/**
+ * Switch the types from SearchElasticModel
+ * This looks weird on purpose - Elastic types cannot overlap
+ */
+public class SearchElasticOverlapModel extends Record {
 
     @Indexed
-    public String one;
-    public String getOne() {
+    public Float one;
+    public Float getOne() {
         return one;
     }
-    public void setOne(String one) {
+    public void setOne(Float one) {
         this.one = one;
     }
 
     @Indexed
-    public String neverIndexed;
-    public String getNeverIndexed() {
-        return neverIndexed;
-    }
-    public void setNeverIndexed(String neverIndexed) {
-        this.neverIndexed = neverIndexed;
-    }
-
-    @Indexed
-    public String eid;
-    public String getEid() {
+    public Float eid;
+    public Float getEid() {
         return eid;
     }
-    public void setEid(String eid) {
+    public void setEid(Float eid) {
         this.eid = eid;
     }
 
     @Indexed
-    public Integer num;
-    public Integer getNum() {
+    public String num;
+    public String getNum() {
         return num;
     }
-    public void setNum(Integer num) {
+    public void setNum(String num) {
         this.num = num;
     }
 
     @Indexed
-    public Float f;
-    public Float getF() {
+    public String f;
+    public String getF() {
         return f;
     }
-    public void setF(Float f) {
+    public void setF(String f) {
         this.f = f;
     }
 
@@ -94,20 +89,20 @@ public class SearchElasticModel extends Record {
     }
 
     @Indexed
-    public final Set<String> set = new HashSet<>();
+    public final Set<Float> set = new HashSet<>();
 
     @Indexed
-    public final List<String> list = new ArrayList<>();
+    public final List<Float> list = new ArrayList<>();
 
     @Indexed
-    public final Map<String, String> map = new HashMap<>();
+    public final Map<Float, Float> map = new HashMap<>();
 
     @Indexed
-    public SearchElasticModel reference;
-    public SearchElasticModel getReference() {
+    public SearchElasticOverlapModel reference;
+    public SearchElasticOverlapModel getReference() {
         return reference;
     }
-    public void setReference(SearchElasticModel reference) {
+    public void setReference(SearchElasticOverlapModel reference) {
         this.reference = reference;
     }
 

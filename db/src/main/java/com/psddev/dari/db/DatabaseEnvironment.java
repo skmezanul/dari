@@ -260,19 +260,14 @@ public class DatabaseEnvironment implements ObjectStruct {
                     .from(ObjectType.class)
                     .using(database)
                     .selectAll();
+            int typesSize = types.size();
+            LOGGER.info("Loading [{}] types from [{}]", typesSize, database.getName());
 
             // Load all types from the database first.
-            int typesSize = 0;
-            for (Object t : types) {
-                if (t instanceof ObjectType) {
-                    ObjectType type = (ObjectType) t;
-                    type.getFields().size(); // Pre-fetch.
-                    temporaryTypes.add(type);
-                    typesSize++;
-                }
+            for (ObjectType type : types) {
+                type.getFields().size(); // Pre-fetch.
+                temporaryTypes.add(type);
             }
-
-            LOGGER.info("Loading [{}] types from [{}]", typesSize, database.getName());
 
             if (initializeClasses) {
 

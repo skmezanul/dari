@@ -2,6 +2,7 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Query;
+import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.util.TypeDefinition;
 import org.junit.After;
 import org.junit.Before;
@@ -206,10 +207,8 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         model().embeddedOne(model()).create();
         model().embeddedOne(model()).create();
         model().embeddedOne(model().one(value(0))).create();
-        //assertCount(1L, "embeddedOne/one = missing");
-        //assertCount(1L, "embeddedOne/one != missing");
-        assertCount(2L, "embeddedOne.one = missing");
-        assertCount(1L, "embeddedOne.one != missing");
+        assertCount(2L, "embeddedOne/one = missing");
+        assertCount(1L, "embeddedOne/one != missing");
     }
 
     @Test
@@ -217,10 +216,8 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         model().embeddedSet(model()).create();
         model().embeddedSet(model()).create();
         model().embeddedSet(model().set(value(0))).create();
-        //assertCount(1L, "embeddedSet/set = missing");
-        //assertCount(1L, "embeddedSet/set != missing");
-        assertCount(2L, "embeddedSet.set = missing");
-        assertCount(1L, "embeddedSet.set != missing");
+        assertCount(2L, "embeddedSet/set = missing");
+        assertCount(1L, "embeddedSet/set != missing");
     }
 
     @Test
@@ -228,8 +225,8 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         model().embeddedList(model()).create();
         model().embeddedList(model()).create();
         model().embeddedList(model().list(value(0))).create();
-        assertCount(2L, "embeddedList.list = missing");
-        assertCount(1L, "embeddedList.list != missing");
+        assertCount(2L, "embeddedList/list = missing");
+        assertCount(1L, "embeddedList/list != missing");
     }
 
     protected void createMissingCompoundTestModels() {
@@ -498,7 +495,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         }
     }
 
-    @Test(expected = Query.NoFieldException.class)
+    @Test(expected = UnsupportedIndexException.class)
     public void sortClosestReferenceOneOneJunkSort() {
         for (int i = 0, size = 26; i < size; ++ i) {
             M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
@@ -521,14 +518,13 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
 
     }
 
-
     @Test
     public void sortClosestEmbeddedOneOne() {
         for (int i = 0, size = 26; i < size; ++ i) {
             model().embeddedAll(model().all(value(i % 2 == 0 ? i : size - i))).create();
         }
 
-        List<M> models = query().where("embeddedOne.one != missing").sortClosest("embeddedOne.one", new Location(0, 0)).selectAll();
+        List<M> models = query().where("embeddedOne/one != missing").sortClosest("embeddedOne/one", new Location(0, 0)).selectAll();
 
         assertThat(models, hasSize(total));
 

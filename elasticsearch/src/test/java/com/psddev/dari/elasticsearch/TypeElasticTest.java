@@ -18,8 +18,6 @@ import static org.junit.Assert.assertThat;
 
 public class TypeElasticTest extends AbstractElasticTest {
 
-    private ElasticsearchDatabase database;
-
     @BeforeClass
     public static void createModels()  {
         IntStream.range(0, 5).forEach(i -> new Foo().save());

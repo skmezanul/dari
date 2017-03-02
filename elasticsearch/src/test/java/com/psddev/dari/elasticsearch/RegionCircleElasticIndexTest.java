@@ -14,8 +14,7 @@ public class RegionCircleElasticIndexTest extends AbstractElasticIndexTest<Regio
 
     @Override
     protected Region value(int index) {
-        //return Region.sphericalCircle(0.0d, 0.0d, index + 1);
-        Region r = new Region();
+        Region r = Region.empty();
         r.addCircle(new Region.Circle(0.0, 0.0, 1d + index));
         r.addCircle(new Region.Circle(2.0, 2.0, 1d + index + 1));
         return r;
