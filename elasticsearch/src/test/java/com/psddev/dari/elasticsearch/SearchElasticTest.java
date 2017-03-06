@@ -1,5 +1,6 @@
 package com.psddev.dari.elasticsearch;
 
+import com.psddev.dari.db.Database;
 import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.UnsupportedIndexException;
@@ -9,6 +10,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Date;
 import java.util.List;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -22,19 +24,19 @@ public class SearchElasticTest extends AbstractElasticTest {
 
     private static final String FOO = "foo";
 
-    //private ElasticsearchDatabase database;
+    private static boolean searchElasticOverlapModelIndex = false;
 
     @Before
     public void before() {
 
-        //this.database = new ElasticsearchDatabase();
-        //database.initialize("", getDatabaseSettings());
     }
 
     @After
     public void deleteModels() {
         Query.from(SearchElasticModel.class).deleteAllImmediately();
-        Query.from(SearchElasticOverlapModel.class).deleteAllImmediately();
+        if (searchElasticOverlapModelIndex) {
+            Query.from(SearchElasticOverlapModel.class).deleteAllImmediately();
+        }
     }
 
     @Test
@@ -398,6 +400,60 @@ public class SearchElasticTest extends AbstractElasticTest {
     }
 
     @Test
+    public void testDateLessthan() throws Exception {
+        Date begin = new java.util.Date();
+        Stream.of(begin,
+                DateUtils.addHours(begin, -5),
+                DateUtils.addDays(begin, -5),
+                DateUtils.addDays(begin, -10)).forEach(d -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.post_date = d;
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("post_date lessthan ?", begin)
+                .selectAll();
+
+        // should not include the to:
+        assertThat("check size", fooResult, hasSize(3));
+
+        List<SearchElasticModel> fooResult1 = Query
+                .from(SearchElasticModel.class)
+                .where("post_date lessthan ?", DateUtils.addSeconds(begin, 1))
+                .selectAll();
+        assertThat("check size", fooResult1, hasSize(4));
+    }
+
+    @Test
+    public void testDateGreaterthan() throws Exception {
+        Date begin = new java.util.Date();
+        Stream.of(begin,
+                DateUtils.addHours(begin, 1),
+                DateUtils.addDays(begin, 1),
+                DateUtils.addDays(begin, 2)).forEach(d -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.post_date = d;
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("post_date greaterthan ?", begin)
+                .selectAll();
+
+        // should not include the from:
+        assertThat("check size", fooResult, hasSize(3));
+
+        List<SearchElasticModel> fooResult1 = Query
+                .from(SearchElasticModel.class)
+                .where("post_date greaterthan ?", DateUtils.addSeconds(begin, -1))
+                .selectAll();
+        assertThat("check size", fooResult1, hasSize(4));
+    }
+
+    @Test
     public void testDateOldestBoost() throws Exception {
         Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
             SearchElasticModel model = new SearchElasticModel();
@@ -436,6 +492,51 @@ public class SearchElasticTest extends AbstractElasticTest {
     }
 
     @Test
+    public void testNumberSort() throws Exception {
+        SearchElasticModel model = new SearchElasticModel();
+        model.num = 1;
+        model.b = 0x30;
+        model.d = 1.0;
+        model.f = 1.0f;
+        model.l = 1L;
+        model.shortType = 1;
+        model.save();
+
+        SearchElasticOverlapModel model2 = new SearchElasticOverlapModel();
+        model2.num = 2;
+        model2.b = 0x31;
+        model2.d = 2.0;
+        model2.f = "b";
+        model2.l = 2L;
+        model2.shortType = 2;
+        model2.save();
+        searchElasticOverlapModelIndex = true;
+
+        SearchElasticModel model3 = new SearchElasticModel();
+        model3.num = 3;
+        model3.b = 0x32;
+        model3.d = 3.0;
+        model3.f = 3.0f;
+        model3.l = 3L;
+        model3.shortType = 3;
+        model3.save();
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("f")
+                .selectAll();
+
+        List<SearchElasticOverlapModel> fooResult2 = Query
+                .from(SearchElasticOverlapModel.class)
+                .sortAscending("f")
+                .selectAll();
+
+        assertThat("check size SearchElasticModel", fooResult, hasSize(2));
+
+        assertThat("check size SearchElasticOverlapModel", fooResult2, hasSize(1));
+    }
+
+    @Test
     public void testOverlapElasticTypes() throws Exception {
         Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
             SearchElasticModel model = new SearchElasticModel();
@@ -448,6 +549,7 @@ public class SearchElasticTest extends AbstractElasticTest {
             model2.f = f;
             model2.save();
         });
+        searchElasticOverlapModelIndex = true;
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -475,6 +577,7 @@ public class SearchElasticTest extends AbstractElasticTest {
             model2.f = f;
             model2.save();
         });
+        searchElasticOverlapModelIndex = true;
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
@@ -494,6 +597,23 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check 0 and 1 order",  fooResult2.get(0).f, lessThan(fooResult2.get(1).f));
         assertThat("check 1 and 2 order", fooResult2.get(1).f, lessThan(fooResult2.get(2).f));
 
+    }
+
+    @Test
+    public void testTimeout() throws Exception {
+        Stream.of(new java.util.Date()).forEach(d -> {
+            SearchElasticModel model = new SearchElasticModel();
+            model.post_date = d;
+            model.save();
+        });
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortOldest(2.0, "post_date")
+                .timeout(500.0)
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(1));
     }
 
 

@@ -34,15 +34,35 @@ public class SearchElasticOverlapModel extends Record {
         this.eid = eid;
     }
 
+    // these are Number checks
     @Indexed
-    public String num;
-    public String getNum() {
+    public Integer num;
+    public Integer getNum() {
         return num;
     }
-    public void setNum(String num) {
+    public void setNum(Integer num) {
         this.num = num;
     }
 
+    @Indexed
+    public Byte b;
+    public Byte getB() {
+        return b;
+    }
+    public void setB(Byte b) {
+        this.b = b;
+    }
+
+    @Indexed
+    public Double d;
+    public Double getD() {
+        return d;
+    }
+    public void setD(Double d) {
+        this.d = d;
+    }
+
+    // this is a string for testing
     @Indexed
     public String f;
     public String getF() {
@@ -50,6 +70,24 @@ public class SearchElasticOverlapModel extends Record {
     }
     public void setF(String f) {
         this.f = f;
+    }
+
+    @Indexed
+    public Long l;
+    public Long getL() {
+        return l;
+    }
+    public void setL(Long l) {
+        this.l = l;
+    }
+
+    @Indexed
+    public Short shortType;
+    public Short getShortType() {
+        return shortType;
+    }
+    public void setShortType(Short shortType) {
+        this.shortType = shortType;
     }
 
     @Indexed

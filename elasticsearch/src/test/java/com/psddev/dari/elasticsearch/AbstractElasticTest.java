@@ -143,7 +143,7 @@ public abstract class AbstractElasticTest {
         settings.put(ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING));
         settings.put(ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING));
         settings.put(ElasticsearchDatabase.HOSTNAME_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING));
-        settings.put(ElasticsearchDatabase.SEARCH_MAX_ROWS_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SEARCH_MAX_ROWS_SETTING));
+        settings.put(ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING));
         settings.put(ElasticsearchDatabase.SEARCH_TIMEOUT_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SEARCH_TIMEOUT_SETTING));
         return settings;
     }
@@ -178,6 +178,8 @@ public abstract class AbstractElasticTest {
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "9300");
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, "1000");
+
             String nodeHost = getNodeHost();
             if (!ElasticsearchDatabase.checkAlive(nodeHost)) {
                 // ok create embedded since it is not already running for test

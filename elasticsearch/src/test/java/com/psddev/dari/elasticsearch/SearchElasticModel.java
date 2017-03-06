@@ -39,6 +39,7 @@ public class SearchElasticModel extends Record {
         this.eid = eid;
     }
 
+    // these are Number checks
     @Indexed
     public Integer num;
     public Integer getNum() {
@@ -49,12 +50,48 @@ public class SearchElasticModel extends Record {
     }
 
     @Indexed
+    public Byte b;
+    public Byte getB() {
+        return b;
+    }
+    public void setB(Byte b) {
+        this.b = b;
+    }
+
+    @Indexed
+    public Double d;
+    public Double getD() {
+        return d;
+    }
+    public void setD(Double d) {
+        this.d = d;
+    }
+
+    @Indexed
     public Float f;
     public Float getF() {
         return f;
     }
     public void setF(Float f) {
         this.f = f;
+    }
+
+    @Indexed
+    public Long l;
+    public Long getL() {
+        return l;
+    }
+    public void setL(Long l) {
+        this.l = l;
+    }
+
+    @Indexed
+    public Short shortType;
+    public Short getShortType() {
+        return shortType;
+    }
+    public void setShortType(Short shortType) {
+        this.shortType = shortType;
     }
 
     @Indexed
