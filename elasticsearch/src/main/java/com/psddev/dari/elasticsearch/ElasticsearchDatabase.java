@@ -76,6 +76,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -459,6 +460,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             indexNames.add(getIndexName() + u.toString().replaceAll("-",""));
         }
         String[] indexIdStrings = indexNames.toArray(new String[0]);
+        checkIndexes(indexIdStrings);
 
         SearchResponse response;
         QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
@@ -581,6 +583,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    private void checkIndexes(String[] indexNames) {
+
+        for (String newIndexname : indexNames) {
+            boolean indexExists = client.admin().indices()
+                    .prepareExists(newIndexname)
+                    .execute().actionGet().isExists();
+            if (!indexExists) {
+                LOGGER.debug("ELK doWrites creating index [{}]", newIndexname);
+                defaultMap(newIndexname);
+            }
+        }
+    }
+
     /**
      *
      * Read partial results from Elastic - convert Query to SearchRequestBuilder
@@ -618,6 +633,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             indexNames.add(getIndexName() + u.toString().replaceAll("-",""));
         }
         String[] indexIdStrings = indexNames.toArray(new String[0]);
+        checkIndexes(indexIdStrings);
 
         SearchResponse response;
         QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
@@ -2010,22 +2026,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
         try {
-
             /* verify all indexes exist */
+            Set<String> indexSet = new HashSet<>();
 
             if (saves != null) {
                 for (State state : saves) {
 
                     String documentType = state.getTypeId().toString();
                     String newIndexname = indexName + documentType.replaceAll("-", "");
-
-                    boolean indexExists = client.admin().indices()
-                            .prepareExists(newIndexname)
-                            .execute().actionGet().isExists();
-                    if (!indexExists) {
-                        LOGGER.debug("ELK doWrites creating index [{}]", newIndexname);
-                        defaultMap(newIndexname);
-                    }
+                    indexSet.add(newIndexname);
                 }
             }
 
@@ -2034,22 +2043,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     String documentType = state.getTypeId().toString();
                     String newIndexname = indexName + documentType.replaceAll("-", "");
-
-                    boolean indexExists = client.admin().indices()
-                            .prepareExists(newIndexname)
-                            .execute().actionGet().isExists();
-                    if (!indexExists) {
-                        LOGGER.debug("ELK doWrites creating index [{}]", newIndexname);  //BILL
-                        defaultMap(newIndexname);
-                    }
+                    indexSet.add(newIndexname);
                 }
             }
+
+            checkIndexes(indexSet.toArray(new String[indexSet.size()]));
 
             BulkRequestBuilder bulk = client.prepareBulk(); // this forces .setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL);
 
             String indexName = getIndexName();
-
-            /* use this for the prefix - but add type to index and search indexName* */
 
             if (saves != null) {
                     for (State state : saves) {
