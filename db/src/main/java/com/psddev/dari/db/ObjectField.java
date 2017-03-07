@@ -123,6 +123,7 @@ public class ObjectField extends Record {
     private static final String DISPLAY_NAME_KEY = "label";
     private static final String INTERNAL_NAME_KEY = "name";
     private static final String INTERNAL_TYPE_KEY = "type";
+    private static final String IGNORED_IF_EMBEDDED = "ignoredIfEmbedded";
     private static final String IS_DENORMALIZED_KEY = "isDenormalized";
     private static final String DENORMALIZED_FIELDS_KEY = "denormalizedFields";
     private static final String IS_EMBEDDED_KEY = "isEmbedded";
@@ -133,8 +134,10 @@ public class ObjectField extends Record {
     private static final String STEP_KEY = "step";
     private static final String MAXIMUM_KEY = "maximum";
     private static final String PATTERN_KEY = "pattern";
+    private static final String PATTERN_VALIDATION_MESSAGE = "patternValidationMessage";
     private static final String DEFAULT_VALUE_KEY = "defaultValue";
     private static final String PREDICATE_KEY = "predicate";
+    private static final String PREDICATE_VALIDATION_MESSAGE = "predicateValidationMessage";
     private static final String RAW_KEY = "raw";
     private static final String VALUES_KEY = "values";
     private static final String GROUPS_KEY = "groups";
@@ -160,6 +163,7 @@ public class ObjectField extends Record {
     @InternalName("type")
     private String internalType;
 
+    private boolean ignoredIfEmbedded;
     private boolean isDenormalized;
     private Set<String> denormalizedFields;
     private boolean isEmbedded;
@@ -170,8 +174,10 @@ public class ObjectField extends Record {
     private Number step;
     private Number maximum;
     private String pattern;
+    private String patternValidationMessage;
     private Object defaultValue;
     private String predicate;
+    private String predicateValidationMessage;
     private boolean raw;
     private Set<Value> values;
 
@@ -202,6 +208,7 @@ public class ObjectField extends Record {
         displayName = field.displayName;
         internalName = field.internalName;
         internalType = field.internalType;
+        ignoredIfEmbedded = field.ignoredIfEmbedded;
         isDenormalized = field.isDenormalized;
         isEmbedded = field.isEmbedded;
         isRequired = field.isRequired;
@@ -211,8 +218,10 @@ public class ObjectField extends Record {
         step = field.step;
         maximum = field.maximum;
         pattern = field.pattern;
+        patternValidationMessage = field.patternValidationMessage;
         defaultValue = field.defaultValue;
         predicate = field.predicate;
+        predicateValidationMessage = field.predicateValidationMessage;
         raw = field.raw;
         types = field.types != null ? new LinkedHashSet<ObjectType>(field.types) : null;
         genericArgumentIndex = field.genericArgumentIndex;
@@ -249,6 +258,7 @@ public class ObjectField extends Record {
         displayName = (String) definition.remove(DISPLAY_NAME_KEY);
         internalName = (String) definition.remove(INTERNAL_NAME_KEY);
         internalType = (String) definition.remove(INTERNAL_TYPE_KEY);
+        ignoredIfEmbedded = Boolean.TRUE.equals(definition.remove(IGNORED_IF_EMBEDDED));
         isDenormalized = Boolean.TRUE.equals(definition.remove(IS_DENORMALIZED_KEY));
         denormalizedFields = ObjectUtils.to(SET_STRING_TYPE_REF, definition.remove(DENORMALIZED_FIELDS_KEY));
         isEmbedded = Boolean.TRUE.equals(definition.remove(IS_EMBEDDED_KEY));
@@ -259,8 +269,10 @@ public class ObjectField extends Record {
         step = (Number) definition.remove(STEP_KEY);
         maximum = (Number) definition.remove(MAXIMUM_KEY);
         pattern = (String) definition.remove(PATTERN_KEY);
+        patternValidationMessage = (String) definition.remove(PATTERN_VALIDATION_MESSAGE);
         defaultValue = definition.remove(DEFAULT_VALUE_KEY);
         predicate = (String) definition.remove(PREDICATE_KEY);
+        predicateValidationMessage = (String) definition.remove(PREDICATE_VALIDATION_MESSAGE);
         raw = Boolean.TRUE.equals(definition.remove(RAW_KEY));
         groups = ObjectUtils.to(SET_STRING_TYPE_REF, definition.remove(GROUPS_KEY));
 
@@ -350,6 +362,7 @@ public class ObjectField extends Record {
         definition.put(DISPLAY_NAME_KEY, displayName);
         definition.put(INTERNAL_NAME_KEY, internalName);
         definition.put(INTERNAL_TYPE_KEY, internalType);
+        definition.put(IGNORED_IF_EMBEDDED, ignoredIfEmbedded);
         definition.put(IS_DENORMALIZED_KEY, isDenormalized);
         definition.put(DENORMALIZED_FIELDS_KEY, denormalizedFields);
         definition.put(IS_EMBEDDED_KEY, isEmbedded);
@@ -360,8 +373,10 @@ public class ObjectField extends Record {
         definition.put(STEP_KEY, step);
         definition.put(MAXIMUM_KEY, maximum);
         definition.put(PATTERN_KEY, pattern);
+        definition.put(PATTERN_VALIDATION_MESSAGE, patternValidationMessage);
         definition.put(DEFAULT_VALUE_KEY, defaultValue);
         definition.put(PREDICATE_KEY, predicate);
+        definition.put(PREDICATE_VALIDATION_MESSAGE, predicateValidationMessage);
         definition.put(RAW_KEY, raw);
         definition.put(VALUES_KEY, valueDefinitions.isEmpty() ? null : valueDefinitions);
         definition.put(GROUPS_KEY, groups);
@@ -471,6 +486,14 @@ public class ObjectField extends Record {
     /** Sets the internal type. */
     public void setInternalType(String internalType) {
         this.internalType = internalType;
+    }
+
+    public boolean isIgnoredIfEmbedded() {
+        return ignoredIfEmbedded;
+    }
+
+    public void setIgnoredIfEmbedded(boolean ignoredIfEmbedded) {
+        this.ignoredIfEmbedded = ignoredIfEmbedded;
     }
 
     /** Returns {@code true} if the field value should be denormalized. */
@@ -671,6 +694,14 @@ public class ObjectField extends Record {
 
     public void setPredicate(String predicate) {
         this.predicate = predicate;
+    }
+
+    public String getPredicateValidationMessage() {
+        return predicateValidationMessage;
+    }
+
+    public void setPredicateValidationMessage(String predicateValidationMessage) {
+        this.predicateValidationMessage = predicateValidationMessage;
     }
 
     public boolean isRaw() {
@@ -898,7 +929,10 @@ public class ObjectField extends Record {
         if (!ObjectUtils.isBlank(predicate)
                 && RECORD_TYPE.equals(internalType)
                 && !PredicateParser.Static.evaluate(value, predicate, state)) {
-            state.addError(this, String.format("Must match %s!", predicate));
+            String validationMessage = getPredicateValidationMessage();
+            state.addError(this, !StringUtils.isBlank(validationMessage)
+                    ? validationMessage
+                    : String.format("Must match %s!", predicate));
         }
 
         if (COLLECTION_CLASS_TO_TYPE.values().contains(internalType)) {
@@ -940,7 +974,11 @@ public class ObjectField extends Record {
             }
             String pattern = getPattern();
             if (!(ObjectUtils.isBlank(pattern) || StringUtils.matches(string, pattern))) {
-                state.addError(this, String.format("Must match %s pattern!", pattern));
+                String patternMessage = getPredicateValidationMessage();
+
+                state.addError(this, !StringUtils.isBlank(patternMessage)
+                        ? patternMessage
+                        : String.format("Must match %s pattern!", pattern));
             }
         }
     }

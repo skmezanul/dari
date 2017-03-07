@@ -41,4 +41,16 @@
         <differenceType>7012</differenceType>
         <method>java.lang.Object convertReadKey(com.psddev.dari.db.SqlDatabase, com.psddev.dari.db.ObjectIndex, java.lang.String)</method>
     </difference>
+
+    <difference>
+         <className>com/psddev/dari/db/Recordable$Regex</className>
+         <differenceType>7012</differenceType>
+         <method>java.lang.String validationMessage()</method>
+     </difference>
+
+    <difference>
+         <className>com/psddev/dari/db/Recordable$Where</className>
+         <differenceType>7012</differenceType>
+         <method>java.lang.String validationMessage()</method>
+     </difference>
 </differences>

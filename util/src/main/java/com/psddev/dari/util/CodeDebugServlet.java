@@ -19,14 +19,12 @@ import java.util.TreeSet;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 
-@DebugFilter.Path("code")
-public class CodeDebugServlet extends HttpServlet {
+public class CodeDebugServlet extends DebugServlet {
 
     private static final long serialVersionUID = 1L;
 
@@ -36,6 +34,16 @@ public class CodeDebugServlet extends HttpServlet {
 
     private static final String WEB_INF_CLASSES_PATH = "/WEB-INF/classes/";
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<Map<String, Object>>() { };
+
+    @Override
+    public String getName() {
+        return "Code Playground";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("code");
+    }
 
     @Override
     protected void service(

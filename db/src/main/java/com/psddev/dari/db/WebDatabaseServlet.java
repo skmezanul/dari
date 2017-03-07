@@ -2,18 +2,18 @@ package com.psddev.dari.db;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.psddev.dari.util.CompactMap;
-import com.psddev.dari.util.DebugFilter;
+import com.psddev.dari.util.DebugServlet;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.WebPageContext;
@@ -22,11 +22,18 @@ import com.psddev.dari.util.WebPageContext;
  * Servlet that provides the APIs for a {@linkplain WebDatabase
  * web database}.
  */
-@DebugFilter.Path("db-web")
 @SuppressWarnings("serial")
-public class WebDatabaseServlet extends HttpServlet {
+public class WebDatabaseServlet extends DebugServlet {
 
-    // --- HttpServlet support ---
+    @Override
+    public String getName() {
+        return null;
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-web");
+    }
 
     @Override
     protected void service(

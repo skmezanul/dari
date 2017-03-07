@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -16,10 +17,10 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.psddev.dari.util.DebugServlet;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.joda.time.DateTime;
@@ -33,16 +34,23 @@ import com.psddev.dari.util.TaskExecutor;
 import com.psddev.dari.util.WebPageContext;
 
 /** Debug servlet for importing/exporting data. */
-@DebugFilter.Path("db-bootstrap")
 @SuppressWarnings("serial")
-public class BootstrapDebugServlet extends HttpServlet {
+public class BootstrapDebugServlet extends DebugServlet {
 
     public static final String LIVE_DOWNLOAD_BUTTON_TEXT = "Live Download";
     public static final String SNAPSHOT_BUTTON_TEXT = "Save Snapshot";
     public static final String IMPORT_BUTTON_TEXT = "Import";
     public static final String DELETE_AND_IMPORT_BUTTON_TEXT = "Delete and Import";
 
-    // --- HttpServlet support ---
+    @Override
+    public String getName() {
+        return "Database: Bootstrap";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("db-bootstrap");
+    }
 
     @Override
     protected void service(

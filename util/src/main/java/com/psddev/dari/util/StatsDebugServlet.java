@@ -2,22 +2,32 @@ package com.psddev.dari.util;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /** Debug servlet that reports application {@link Stats}. */
-@DebugFilter.Path("stats")
 @SuppressWarnings("serial")
-public class StatsDebugServlet extends HttpServlet {
+public class StatsDebugServlet extends DebugServlet {
 
     private enum Type {
         COUNT,
         DURATION
+    }
+
+    @Override
+    public String getName() {
+        return "Stats";
+    }
+
+    @Override
+    public List<String> getPaths() {
+        return Collections.singletonList("stats");
     }
 
     @Override

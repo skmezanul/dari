@@ -189,6 +189,18 @@ public interface Recordable {
         boolean value() default true;
     }
 
+    /**
+     * Specifies whether the target field should be ignored when the object
+     * is embedded in another.
+     */
+    @Documented
+    @ObjectField.AnnotationProcessorClass(IgnoredIfEmbeddedProcessor.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ ElementType.FIELD, ElementType.METHOD })
+    @interface IgnoredIfEmbedded {
+        boolean value() default true;
+    }
+
     /** Specifies whether the target field value is indexed. */
     @Documented
     @Retention(RetentionPolicy.RUNTIME)
@@ -330,6 +342,7 @@ public interface Recordable {
     @Target(ElementType.FIELD)
     public @interface Regex {
         String value();
+        String validationMessage() default "";
     }
 
     /** Specifies whether the target field value is required. */
@@ -374,6 +387,17 @@ public interface Recordable {
     }
 
     /**
+     * Specifies the type ID of the target type during initial bootstrap. It
+     * has no effect if one has already been assigned.
+     */
+    @Documented
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.TYPE)
+    public @interface TypeId {
+        String value();
+    }
+
+    /**
      * Specifies the processor class(es) to run after the type is initialized.
      */
     @Documented
@@ -408,6 +432,7 @@ public interface Recordable {
     @Target(ElementType.FIELD)
     public @interface Where {
         String value();
+        String validationMessage() default "";
     }
 
     // --- Deprecated ---
@@ -728,6 +753,13 @@ class GroupsProcessor implements
     }
 }
 
+class IgnoredIfEmbeddedProcessor implements ObjectField.AnnotationProcessor<Recordable.IgnoredIfEmbedded> {
+    @Override
+    public void process(ObjectType type, ObjectField field, Recordable.IgnoredIfEmbedded annotation) {
+        field.setIgnoredIfEmbedded(annotation.value());
+    }
+}
+
 class InternalNameProcessor implements ObjectType.AnnotationProcessor<Recordable.InternalName> {
     @Override
     public void process(ObjectType type, Recordable.InternalName annotation) {
@@ -849,6 +881,10 @@ class RegexProcessor implements ObjectField.AnnotationProcessor<Annotation> {
         field.setPattern(annotation instanceof Recordable.FieldPattern
                 ? ((Recordable.FieldPattern) annotation).value()
                 : ((Recordable.Regex) annotation).value());
+
+        if (annotation instanceof Recordable.Regex) {
+            field.setPredicateValidationMessage(((Recordable.Regex) annotation).validationMessage());
+        }
     }
 }
 
@@ -921,6 +957,7 @@ class WhereProcessor implements ObjectField.AnnotationProcessor<Recordable.Where
     @Override
     public void process(ObjectType type, ObjectField field, Recordable.Where annotation) {
         field.setPredicate(annotation.value());
+        field.setPredicateValidationMessage(annotation.validationMessage());
     }
 }
 
