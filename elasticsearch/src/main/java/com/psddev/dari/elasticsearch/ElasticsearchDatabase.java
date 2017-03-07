@@ -586,13 +586,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private void checkIndexes(String[] indexNames) {
 
         for (String newIndexname : indexNames) {
-            boolean indexExists = client.admin().indices()
-                    .prepareExists(newIndexname)
-                    .execute().actionGet().isExists();
-            if (!indexExists) {
-                LOGGER.debug("ELK doWrites creating index [{}]", newIndexname);
-                defaultMap(newIndexname);
-            }
+            defaultMap(newIndexname);
+            LOGGER.debug("ELK doWrites creating index [{}]", newIndexname);
         }
     }
 
@@ -614,10 +609,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             return new PaginatedResult<>(offset, limit, 0, items);
         }
 
-        Set<UUID> typeIds = query.getConcreteTypeIds(this);
+        Set<UUID> typeIds = new HashSet<UUID>();
 
-        if (!query.isFromAll() && typeIds.size() == 0) {
-            return new PaginatedResult<>(offset, limit, 0, items);
+        if (!query.isFromAll()) {
+            typeIds = query.getConcreteTypeIds(this);
+            if (typeIds.size() == 0) {
+                return new PaginatedResult<>(offset, limit, 0, items);
+            }
         }
 
         if (query.getGroup() != null && typeIds.size() == 0) {
@@ -1367,9 +1365,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private QueryBuilder predicateToQueryBuilder(Predicate predicate, Query<?> query) {
         if (predicate == null) {
+            LOGGER.info("predicate: [null]");
             return QueryBuilders.matchAllQuery();
         }
-        LOGGER.info("predicate: [{}]", query.getPredicate());
+        LOGGER.info("predicate: [{}]", predicate.toString());
         if (predicate instanceof CompoundPredicate) {
             CompoundPredicate compound = (CompoundPredicate) predicate;
             List<Predicate> children = compound.getChildren();
@@ -1411,6 +1410,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         ComparisonPredicate nComparison = new ComparisonPredicate(comparison.getOperator(),
                                 comparison.isIgnoreCase(), pKey, comparison.getValues());
                         Query n = Query.fromAll().where(nComparison).and("_id contains ?", ids);
+                        LOGGER.info("returning subQuery ids [{}]", ids.size());
                         return predicateToQueryBuilder(n.getPredicate(), query);
                     }
                 } else {
@@ -1732,6 +1732,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         BoolQueryBuilder builder = QueryBuilders.boolQuery();
         if (items.size() == 0) {
+            LOGGER.info("builder: {mustNot matchAllQuery}", builder.toString());
             return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery());
         }
         for (T item : items) {
@@ -1752,8 +1753,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         if (builder.hasClauses()) {
+            LOGGER.info("builder: {}", builder.toString());
             return builder;
         } else {
+            LOGGER.info("builder: {matchAllQuery}");
             return QueryBuilders.matchAllQuery();
         }
     }
@@ -1777,7 +1780,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * This is similar to a dynamic schema when creating new types/indexes
      *
      */
-    public void defaultMap(String indexName) {
+    public synchronized void defaultMap(String indexName) {
         String json = "{\n"
                 + "      \"dynamic_templates\": [\n"
                 + "        {\n"
@@ -1829,15 +1832,22 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 + "    }\n";
 
         if (client != null) {
-            CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", json);
-            CreateIndexResponse createIndexResponse = cirb.execute().actionGet();
+            boolean indexExists = client.admin().indices()
+                    .prepareExists(indexName)
+                    .execute().actionGet().isExists();
+            if (!indexExists) {
+                CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", json);
+                CreateIndexResponse createIndexResponse = cirb.execute().actionGet();
+                if (!createIndexResponse.isAcknowledged()) {
+                    LOGGER.warn("Could not create index " + indexName);
+                }
 
-            ClusterHealthResponse yellow = client.admin().cluster().prepareHealth(indexName)
-                    .setWaitForYellowStatus()
-                    .setTimeout(TimeValue.timeValueSeconds(5))
-                    .get();
+                ClusterHealthResponse yellow = client.admin().cluster().prepareHealth(indexName)
+                        .setWaitForYellowStatus()
+                        .setTimeout(TimeValue.timeValueSeconds(10))
+                        .get();
+            }
         }
-
     }
 
     /**

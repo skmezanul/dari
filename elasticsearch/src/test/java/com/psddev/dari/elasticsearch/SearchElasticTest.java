@@ -634,5 +634,24 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check size", fooResult, hasSize(1));
     }
 
+   @Test
+    public void testComplexQuery() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");;
+        model.save();
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("(loginTokens/token notequalsall missing and (f equalsany missing and num equalsany missing "
+                        + "and set equalsany missing and list equalsany missing and _type notequalsall ?"
+                        + ") and _any matchesany '*')", UUID.fromString("68a66f18-b668-418b-af69-8dafa632529"))
+                .selectAll();
+
+        // _type notequalsall ?
+
+        assertThat("check size", fooResult, hasSize(1));
+    }
+
 
 }
