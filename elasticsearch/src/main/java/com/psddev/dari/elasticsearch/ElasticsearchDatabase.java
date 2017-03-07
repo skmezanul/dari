@@ -492,7 +492,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 ab.addRange(i, i + gap);
             }
             srb.addAggregation(ab);
-            LOGGER.debug("ELK readPartialGrouped typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+            LOGGER.info("ELK readPartialGrouped typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
 
@@ -657,7 +657,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             srb.addSort(sb);
         }
 
-        LOGGER.debug("ELK srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.info("ELK srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
 
@@ -665,7 +665,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             items.add(createSavedObjectWithHit(hit, query));
         }
 
-        LOGGER.debug("ELK PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+        LOGGER.info("ELK PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
         return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
     }
@@ -1369,7 +1369,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (predicate == null) {
             return QueryBuilders.matchAllQuery();
         }
-        LOGGER.debug("predicate: [{}]", query.getPredicate());
+        LOGGER.info("predicate: [{}]", query.getPredicate());
         if (predicate instanceof CompoundPredicate) {
             CompoundPredicate compound = (CompoundPredicate) predicate;
             List<Predicate> children = compound.getChildren();
@@ -1396,27 +1396,29 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             List<Object> values = comparison.getValues();
 
             String operator = comparison.getOperator();
+            String simpleKey = null;
 
             // this specific one needs to be reduced */
             if (pKey.indexOf('/') != -1) {
                 Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, pKey);
-                if ("text".equals(mappedKey.getInternalType())) {
-                    String index = mappedKey.getIndexKey(null);
-                    pKey = pKey.substring(slash + 1) + "." + RAW_FIELD;
-                }
-            }
+                if (mappedKey.hasSubQuery()) {
+                    // ELK like Solr does not support joins in 5.2. Might be memory issue and slow!
+                    // to do this requires query, take results and send to other query. Sample tests do this.
 
-            if (pKey.indexOf('/') != -1) {
-                // ELK does not support joins in 5.2. Might be memory issue and slow!
-                // to do this requires query, take results and send to other query. Sample tests do this.
-
-                List<String> ids = referenceSwitcher(pKey, query);
-                if (ids != null && ids.size() > 0) {
-                    pKey = pKey.substring(slash + 1);
-                    ComparisonPredicate nComparison = new ComparisonPredicate(comparison.getOperator(),
-                            comparison.isIgnoreCase(), pKey, comparison.getValues());
-                    Query n = Query.fromAll().where(nComparison).and("_id contains ?", ids);
-                    return predicateToQueryBuilder(n.getPredicate(), query);
+                    List<String> ids = referenceSwitcher(pKey, query);
+                    if (ids != null && ids.size() > 0) {
+                        pKey = pKey.substring(slash + 1);
+                        ComparisonPredicate nComparison = new ComparisonPredicate(comparison.getOperator(),
+                                comparison.isIgnoreCase(), pKey, comparison.getValues());
+                        Query n = Query.fromAll().where(nComparison).and("_id contains ?", ids);
+                        return predicateToQueryBuilder(n.getPredicate(), query);
+                    }
+                } else {
+                    // fields().size not the same as array in keys "/"
+                    List<String> keyArr = Arrays.asList(pKey.split("/"));
+                    if (mappedKey.getFields().size() != keyArr.size()) {
+                        simpleKey = mappedKey.getField().getInternalName();
+                    }
                 }
             }
 
@@ -1429,9 +1431,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     for (Object v : values) {
                         if (v == null) {
                             LOGGER.info(operator + " requires value!");
-                            return QueryBuilders.matchAllQuery(); // BILL
+                            return QueryBuilders.matchAllQuery();
                             //throw new IllegalArgumentException(operator + " requires value");
-                        } else if (!(v instanceof String)) {
+                        } else if (v instanceof String || v instanceof UUID) {
+                            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+                            String checkField = specialFields.get(mappedKey);
+                            if (checkField == null) {
+                                if (simpleKey != null) {
+                                    dotKey = mappedKey.getField().getInternalName() + "." + RAW_FIELD;
+                                } else {
+                                    dotKey = dotKey + "." + RAW_FIELD;
+                                }
+                            }
+                        } else {
                             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
                             String checkField = specialFields.get(mappedKey);
                             if (checkField == null) {
@@ -2068,7 +2080,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             convertLocationToName(t, LOCATION_FIELD);
                             convertRegionToName(t, REGION_FIELD);
 
-                            LOGGER.debug("ELK doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                            LOGGER.info("ELK doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                         } catch (Exception error) {

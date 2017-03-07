@@ -1,6 +1,7 @@
 package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Record;
+import com.psddev.dari.db.Recordable;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -138,6 +139,11 @@ public class SearchElasticModel extends Record {
 
     @Indexed
     public final Map<String, String> map = new HashMap<>();
+
+
+    @Recordable.Embedded
+    @Recordable.Indexed
+    public SearchElasticObjectModel loginTokens = new SearchElasticObjectModel();
 
     @Indexed
     public SearchElasticModel reference;

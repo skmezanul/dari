@@ -15,6 +15,7 @@ import java.util.List;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -611,6 +612,23 @@ public class SearchElasticTest extends AbstractElasticTest {
                 .from(SearchElasticModel.class)
                 .sortOldest(2.0, "post_date")
                 .timeout(500.0)
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(1));
+    }
+
+    // loginTokens/token equalsany '68a66f18-b668-418b-af69-8dafa6325298'
+
+    @Test
+    public void testLogin() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");;
+        model.save();
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("loginTokens/token equalsany ?",UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298"))
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(1));
