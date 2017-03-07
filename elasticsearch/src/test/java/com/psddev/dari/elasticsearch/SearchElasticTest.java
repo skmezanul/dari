@@ -455,6 +455,17 @@ public class SearchElasticTest extends AbstractElasticTest {
     }
 
     @Test
+    public void testSortAscending() throws Exception {
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .sortAscending("_id")
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(0));
+    }
+
+    @Test
     public void testDateOldestBoost() throws Exception {
         Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
             SearchElasticModel model = new SearchElasticModel();
@@ -616,8 +627,6 @@ public class SearchElasticTest extends AbstractElasticTest {
 
         assertThat("check size", fooResult, hasSize(1));
     }
-
-    // loginTokens/token equalsany '68a66f18-b668-418b-af69-8dafa6325298'
 
     @Test
     public void testLogin() throws Exception {

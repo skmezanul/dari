@@ -112,7 +112,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
 
     public static final String ID_FIELD = "_id";
-    public static final String UID_FIELD = "_uid";  // special for aggregations
+    public static final String UID_FIELD = "_uid";  // special for aggregations/sort
     public static final String TYPE_ID_FIELD = "_type";
     public static final String ALL_FIELD = "_all";
     public static final int INITIAL_FETCH_SIZE = 1000;
@@ -524,7 +524,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setSize(0);
 
             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, fields[0]);
-            String elkField = specialFields.get(mappedKey);
+            String elkField = specialSortFields.get(mappedKey);
             if (elkField == null) {
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
@@ -685,12 +685,24 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Check special fields for Elastic
+     * Check special fields for Elastic - sorting
+     *
+     */
+    private final Map<Query.MappedKey, String> specialSortFields; {
+        Map<Query.MappedKey, String> m = new HashMap<>();
+        m.put(Query.MappedKey.ID, UID_FIELD);
+        m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
+        m.put(Query.MappedKey.ANY, ALL_FIELD);
+        specialSortFields = m;
+    }
+
+    /**
+     * Check special fields for Elastic - non sorting
      *
      */
     private final Map<Query.MappedKey, String> specialFields; {
         Map<Query.MappedKey, String> m = new HashMap<>();
-        m.put(Query.MappedKey.ID, UID_FIELD);
+        m.put(Query.MappedKey.ID, ID_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
         m.put(Query.MappedKey.ANY, ALL_FIELD);
         specialFields = m;
@@ -791,7 +803,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private String getFieldType(String key, Query<?> query) {
         if (key.equals(UID_FIELD) || key.equals(ID_FIELD) || key.equals(TYPE_ID_FIELD)) {
-            return null;
+            return "string";
         }
         if (key.endsWith("." + RAW_FIELD)) {
             key = key.replaceAll("\\." + RAW_FIELD, "");
@@ -803,7 +815,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             key = key.replaceAll("\\." + REGION_FIELD, "");
         }
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-        String elkField = specialFields.get(mappedKey);
+        String elkField = specialSortFields.get(mappedKey);
 
         if (elkField == null) {
             String internalType = mappedKey.getInternalType();
@@ -864,7 +876,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boolean isOldest = Sorter.OLDEST_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(1);
                     Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
-                    String elkField = specialFields.get(mappedKey);
+                    String elkField = specialSortFields.get(mappedKey);
 
                     if (elkField == null) {
                         String internalType = mappedKey.getInternalType();
@@ -1008,7 +1020,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             for (String k : keyArr) {
                 if (!isReference(k, query)) {
                     Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, k);
-                    elkField = specialFields.get(mappedKey);
+                    elkField = specialSortFields.get(mappedKey);
                     if (elkField == null) {
                         String internalType = mappedKey.getInternalType();
                         if (internalType != null) {
@@ -1033,15 +1045,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
             elkField = (newKey == null ? queryKey : newKey);
         } else {
+            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
             int dot = queryKey.lastIndexOf('.');
             String typeKey = queryKey;
             if (dot != -1) {
                 typeKey = queryKey.substring(dot + 1);
             }
             // check the type of the ending field
-            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, typeKey);
+            //mappedKey = mapFullyDenormalizedKey(query, typeKey);
 
-            elkField = specialFields.get(mappedKey);
+            elkField = specialSortFields.get(mappedKey);
 
             /* skip for special */
             if (elkField == null) {
@@ -1108,7 +1121,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
             elkFields = queryKey;
         }
-        elkField = specialFields.get(mappedKey);
+        elkField = specialSortFields.get(mappedKey);
         if (elkField == null) {
             String internalType = mappedKey.getInternalType();
             if (internalType != null) {
@@ -1427,12 +1440,21 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             switch (operator) {
                 case PredicateParser.EQUALS_ANY_OPERATOR :
+                case PredicateParser.NOT_EQUALS_ALL_OPERATOR :
                     String geoType = null;
                     for (Object v : values) {
                         if (v == null) {
                             LOGGER.info(operator + " requires value!");
                             return QueryBuilders.matchAllQuery();
                             //throw new IllegalArgumentException(operator + " requires value");
+                        } else if (Query.MISSING_VALUE.equals(v)) {
+                            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+                            String checkField = specialFields.get(mappedKey);
+                            if (checkField == null) {
+                                if (simpleKey != null) {
+                                    dotKey = mappedKey.getField().getInternalName();
+                                }
+                            }
                         } else if (v instanceof String || v instanceof UUID) {
                             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
                             String checkField = specialFields.get(mappedKey);
@@ -1466,41 +1488,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     String finalGeoType = geoType;
                     String finalKey = dotKey;
-                    return combine(operator, values, BoolQueryBuilder::should, v -> Query.MISSING_VALUE.equals(v)
-                            ? QueryBuilders.existsQuery(finalKey)
-                            : geoLocation(v, finalGeoType, finalKey, ShapeRelation.WITHIN));
-
-                case PredicateParser.NOT_EQUALS_ALL_OPERATOR :
-                    String geoTypeNotEq = null;
-                    for (Object v : values) {
-                        if (v == null) {
-                            throw new IllegalArgumentException(operator + " requires value");
-                        } else if (!(v instanceof String)) {
-                            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-                            String checkField = specialFields.get(mappedKey);
-                            if (checkField == null) {
-                                String internalType = mappedKey.getInternalType();
-                                if (v instanceof Boolean) {
-                                    if (internalType != null && "location".equals(internalType)) {
-                                        throw new IllegalArgumentException(key + " boolean cannot be location");
-                                    }
-                                    if (internalType != null && "region".equals(internalType)) {
-                                        throw new IllegalArgumentException(key + " boolean cannot be region");
-                                    }
-                                } else if (internalType != null && "region".equals(internalType)) {
-                                    geoTypeNotEq = "polygon";
-                                } else if (internalType != null && "location".equals(internalType)) {
-                                    geoTypeNotEq = "location";
-                                }
-                            }
-                        }
+                    if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
+                        return combine(operator, values, BoolQueryBuilder::should, v -> Query.MISSING_VALUE.equals(v)
+                                ? QueryBuilders.existsQuery(finalKey)
+                                : geoLocation(v, finalGeoType, finalKey, ShapeRelation.WITHIN));
+                    } else {
+                        return combine(operator, values, BoolQueryBuilder::mustNot, v -> Query.MISSING_VALUE.equals(v)
+                                ? QueryBuilders.existsQuery(finalKey)
+                                : geoLocation(v, finalGeoType, finalKey, ShapeRelation.WITHIN));
                     }
-
-                    String finalGeoTypeNotEq = geoTypeNotEq;
-                    String finalKeyNotEq = dotKey;
-                    return combine(operator, values, BoolQueryBuilder::mustNot, v -> Query.MISSING_VALUE.equals(v)
-                            ? QueryBuilders.existsQuery(finalKeyNotEq)
-                            : geoLocation(v, finalGeoTypeNotEq, finalKeyNotEq, ShapeRelation.WITHIN));
 
                 case PredicateParser.LESS_THAN_OPERATOR :
                     for (Object v : values) {
@@ -1846,6 +1842,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setWaitForYellowStatus()
                         .setTimeout(TimeValue.timeValueSeconds(10))
                         .get();
+
+                try {
+                    commitTransaction(client, false);
+                } catch (Exception e) {
+                    LOGGER.info("Refreshing Index");
+                }
             }
         }
     }
