@@ -157,7 +157,7 @@ public abstract class AbstractElasticTest {
         Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
         assertThat(clusterName, notNullValue());
         String version = ElasticsearchDatabase.getVersion(nodeHost);
-        if (version.length() > 2) {
+        if (version != null && version.length() > 2) {
             version = version.substring(0, 2);
         }
         assertEquals(version, "5.");

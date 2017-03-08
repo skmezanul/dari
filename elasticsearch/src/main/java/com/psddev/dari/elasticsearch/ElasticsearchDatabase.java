@@ -455,7 +455,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 ? new String[]{}
                 : typeIds.stream().map(UUID::toString).toArray(String[]::new);
 
-        List<String> indexNames = new ArrayList<String>();
+        List<String> indexNames = new ArrayList<>();
         for (UUID u : typeIds) {
             indexNames.add(getIndexName() + u.toString().replaceAll("-", ""));
         }
@@ -609,7 +609,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             return new PaginatedResult<>(offset, limit, 0, items);
         }
 
-        Set<UUID> typeIds = new HashSet<UUID>();
+        Set<UUID> typeIds = new HashSet<>();
 
         if (!query.isFromAll()) {
             typeIds = query.getConcreteTypeIds(this);
@@ -737,6 +737,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 /* check fields separate */
                 if (properties.get("fields") != null) {
                     if (properties.get("fields") instanceof Map) {
+                        @SuppressWarnings("unchecked")
                         Map<String, Object> fields = (Map<String, Object>) properties.get("fields");
                         if (fields.get(key.get(length)) != null) {
                             if (length == key.size() - 1) {
@@ -747,6 +748,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
                 if (properties.get("properties") != null) {
                     if (properties.get("properties") instanceof Map) {
+                        @SuppressWarnings("unchecked")
                         Map<String, Object> p = (Map<String, Object>) properties.get("properties");
                         return findElasticMap(p, key, length);
                     }
@@ -785,6 +787,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             && response.getMappings().get(indexName + typeId.replaceAll("-", "")).get(typeId) != null) {
                         Map<String, Object> source = response.getMappings().get(indexName + typeId.replaceAll("-", "")).get(typeId).sourceAsMap();
                         if (source.get("properties") instanceof Map) {
+                            @SuppressWarnings("unchecked")
                             Map<String, Object> properties = (Map<String, Object>) source.get("properties");
                             List<String> items = Arrays.asList(field.split("\\."));
                             if (!findElasticMap(properties, items, 0)) {
@@ -988,6 +991,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 if (itemMap.get("isEmbedded") != null && !((Boolean) itemMap.get("isEmbedded"))) {
                                     List l = (List) itemMap.get("valueTypes");
                                     if (l.size() == 1 && l.get(0) != null && l.get(0) instanceof Map) {
+                                        @SuppressWarnings("unchecked")
                                         Map<String, Object> o = (Map<String, Object>) l.get(0);
                                         if (o.get(StateSerializer.REFERENCE_KEY) != null) {
                                             return true;
@@ -1051,12 +1055,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } else {
             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
             int dot = queryKey.lastIndexOf('.');
-            String typeKey = queryKey;
-            if (dot != -1) {
-                typeKey = queryKey.substring(dot + 1);
-            }
-            // check the type of the ending field
-            //mappedKey = mapFullyDenormalizedKey(query, typeKey);
 
             elkField = specialSortFields.get(mappedKey);
 
@@ -1197,13 +1195,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (list.get(j) instanceof Record) {
                             Map<String, Object> itemMap = ((Record) list.get(j)).getState().getSimpleValues(false);
                             if (itemMap.get(keyArr[i]) instanceof Map && itemMap.get(keyArr[i]) != null) {
+                                @SuppressWarnings("unchecked")
                                 Map<String, Object> o = (Map<String, Object>) itemMap.get(keyArr[i]);
                                 if (o.get(StateSerializer.REFERENCE_KEY) != null) {
                                     allids.add((String) o.get(StateSerializer.REFERENCE_KEY));
                                 }
                             } else if (itemMap.get(keyArr[i]) instanceof List && itemMap.get(keyArr[i]) != null) {
+                                @SuppressWarnings("unchecked")
                                 List<Object> subList = (List<Object>) itemMap.get(keyArr[i]);
                                 for (Object sub : subList) {
+                                    @SuppressWarnings("unchecked")
                                     Map<String, Object> s = (Map<String, Object>) sub;
                                     if (s.get(StateSerializer.REFERENCE_KEY) != null) {
                                         allids.add((String) s.get(StateSerializer.REFERENCE_KEY));
@@ -1675,14 +1676,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
 
-                    String geoType1 = null;
-                    if (internalType != null && "region".equals(internalType)) {
-                        geoType1 = "polygon";
-                    } else if (internalType != null && "location".equals(internalType)) {
-                        geoType1 = "location";
-                    }
-
-                    //geoLocation(v, finalGeoType1, finalKey1, ShapeRelation.CONTAINS
                     String finalSimpleKey1 = simpleKey;
                     if (internalType != null && "region".equals(internalType)) {
                         return combine(operator, values, BoolQueryBuilder::should, v -> "*".equals(v)
@@ -2031,6 +2024,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             Object value = pair.getValue();
 
             if (value instanceof Map) {
+                @SuppressWarnings("unchecked")
                 Map<String, Object> valueMap = (Map<String, Object>) value;
                 if (valueMap.size() == 2) {
                     if (valueMap.get("x") != null && valueMap.get("y") != null) {
@@ -2042,6 +2036,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             } else if (value instanceof List) {
                 for (Object item : (List<?>) value) {
                     if (item instanceof Map) {
+                        @SuppressWarnings("unchecked")
                         Map<String, Object> valueMap = (Map<String, Object>) item;
                         if (valueMap.size() == 2) {
                             if (valueMap.get("x") != null && valueMap.get("y") != null) {

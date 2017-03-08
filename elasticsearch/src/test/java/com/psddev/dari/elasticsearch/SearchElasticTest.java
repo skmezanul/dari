@@ -1,6 +1,5 @@
 package com.psddev.dari.elasticsearch;
 
-import com.psddev.dari.db.Database;
 import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.UnsupportedIndexException;
@@ -650,7 +649,7 @@ public class SearchElasticTest extends AbstractElasticTest {
     public void testLogin() throws Exception {
 
         SearchElasticModel model = new SearchElasticModel();
-        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");;
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
         model.save();
 
         List<SearchElasticModel> fooResult = Query
@@ -665,7 +664,7 @@ public class SearchElasticTest extends AbstractElasticTest {
     public void testComplexQuery() throws Exception {
 
         SearchElasticModel model = new SearchElasticModel();
-        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");;
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
         model.save();
 
         List<SearchElasticModel> fooResult = Query

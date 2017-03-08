@@ -2,13 +2,7 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Record;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 public class SearchElasticObjectModel extends Record {
@@ -27,7 +21,7 @@ public class SearchElasticObjectModel extends Record {
     public Date getExpireTimestamp() {
         return expireTimestamp;
     }
-    public void setExpireTimestamp(Date neverIndexed) {
+    public void setExpireTimestamp(Date expireTimestamp) {
         this.expireTimestamp = expireTimestamp;
     }
 

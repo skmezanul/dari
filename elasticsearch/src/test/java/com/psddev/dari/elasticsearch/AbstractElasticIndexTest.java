@@ -137,7 +137,8 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
                 if (item.getState().getSimpleValues() instanceof Map) {
                     Map<String, Object> m = item.getState().getSimpleValues();
                     if (m.get(keyArr[i]) != null) {
-                        if (m instanceof Map) {
+                        if (m.get(keyArr[i]) instanceof Map) {
+                            @SuppressWarnings("unchecked")
                             Map<String, Object> o = (Map<String, Object>) m.get(keyArr[i]);
                             if (o.get("_ref") != null) {
                                 allids.add((String) o.get("_ref"));
@@ -164,7 +165,8 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         for (M item : list) {
             Map<String,Object> m = item.getState().getSimpleValues();
             if (m.get("referenceOne") != null) {
-                if (m instanceof Map) {
+                if (m.get("referenceOne") instanceof Map) {
+                    @SuppressWarnings("unchecked")
                     Map<String, Object> o = (Map<String, Object>) m.get("referenceOne");
                     if (o.get("_ref") != null) {
                         allids.add((String) o.get("_ref"));
