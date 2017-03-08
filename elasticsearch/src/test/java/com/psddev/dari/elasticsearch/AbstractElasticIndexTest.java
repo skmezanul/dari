@@ -453,6 +453,19 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         }
     }
 
+    protected void createEmbeddedTestModels() {
+        for (int i = 0, size = 26; i < size; ++ i) {
+            model().embeddedAll(model().all(value(i % 2 == 0 ? i : size - i))).create();
+        }
+    }
+
+    protected void createReferenceTestModels() {
+        for (int i = 0, size = 26; i < size; ++i) {
+            M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
+            model().referenceAll(reference).create();
+        }
+    }
+
     protected void assertOrder(boolean reverse, Query<M> query) {
         List<M> models = query.selectAll();
 

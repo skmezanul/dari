@@ -1,8 +1,10 @@
 package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Grouping;
+import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.UnsupportedIndexException;
+import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.Settings;
 import org.apache.commons.lang3.time.DateUtils;
 import org.junit.After;
@@ -10,6 +12,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -678,6 +681,55 @@ public class SearchElasticTest extends AbstractElasticTest {
 
         assertThat("check size", fooResult, hasSize(1));
     }
+
+    @Test
+    public void testQuery() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.one = "test";
+        model.save();
+        SearchElasticModel model1 = new SearchElasticModel();
+        model1.one = "test";
+        model1.save();
+
+        Query<SearchElasticModel> query = Query.from(SearchElasticModel.class);
+
+        List<SearchElasticModel> selectAll = query.selectAll();
+        assertThat("check selectAll", selectAll, hasSize(2));
+
+        PaginatedResult<SearchElasticModel> select = query.select(0, 10);
+        assertEquals(2, select.getCount());
+
+        SearchElasticModel first = query.first();
+        assertThat("check size", first, notNullValue());
+
+        Iterable<SearchElasticModel> iter = query.iterable(10);
+        int i = 0;
+        for (SearchElasticModel s : iter) {
+            i++;
+        }
+        assertThat("check iter", i, is(2));
+
+        List<Grouping<SearchElasticModel>> groupBy = Query.from(SearchElasticModel.class).groupBy("one");
+        Iterator<Grouping<SearchElasticModel>> iGroup = groupBy.iterator();
+
+        while(iGroup.hasNext()) {
+            Grouping element = iGroup.next();
+            assertEquals(2, element.getCount());
+        }
+
+        Query<SearchElasticModel> searchQuery = Query.from(SearchElasticModel.class).where("one = ?", "test");
+
+        List<SearchElasticModel> search = searchQuery.selectAll();
+        assertThat("check where", search, hasSize(2));
+
+        ObjectType type = ObjectType.getInstance(SearchElasticModel.class);
+
+        List<Object> search2 = Query.fromType(type).selectAll();
+        assertThat("check fromType", search2, hasSize(2));
+    }
+
+    //@Indexed(unique = true) test then Groupby to see how many
 
 
 }

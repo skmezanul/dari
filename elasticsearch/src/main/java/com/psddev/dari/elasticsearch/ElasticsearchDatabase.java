@@ -817,6 +817,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (key.endsWith("." + REGION_FIELD)) {
             key = key.replaceAll("\\." + REGION_FIELD, "");
         }
+        key = key.replaceAll("\\.", "/");
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
         String elkField = specialSortFields.get(mappedKey);
 
@@ -1033,7 +1034,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         String internalType = mappedKey.getInternalType();
                         if (internalType != null) {
                             if ("text".equals(internalType)) {
-                                elkField = queryKey + "." + RAW_FIELD;
+                                elkField = k + "." + RAW_FIELD;
                             } else if ("location".equals(internalType)) {
                                 elkField = k + "." + LOCATION_FIELD;
                                 throw new IllegalArgumentException(elkField + " cannot sort Location on Ascending/Descending");
@@ -1049,6 +1050,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (!mappedKey.hasSubQuery() && mappedKey.getInternalType() != null) {
                         newKey = ((newKey == null) ? elkField : (newKey + "." + elkField));
                     }
+                } else {
+
                 }
             }
             elkField = (newKey == null ? queryKey : newKey);
@@ -1133,6 +1136,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 if ("region".equals(internalType)) {
                     elkField = elkFields + "." + REGION_FIELD;
                     throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
+                }
+                if ("text".equals(internalType)) {
+                    throw new IllegalArgumentException(elkField + " cannot sort Location on text in Elastic Search");
                 }
             }
             if (elkField == null) {
@@ -2110,7 +2116,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             convertLocationToName(t, LOCATION_FIELD);
                             convertRegionToName(t, REGION_FIELD);
 
-                            LOGGER.debug("ELK doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                            LOGGER.info("ELK doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                         } catch (Exception error) {
