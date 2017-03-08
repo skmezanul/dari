@@ -2116,7 +2116,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             convertLocationToName(t, LOCATION_FIELD);
                             convertRegionToName(t, REGION_FIELD);
 
-                            LOGGER.info("ELK doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                            LOGGER.debug("ELK doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                         } catch (Exception error) {
