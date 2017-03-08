@@ -457,7 +457,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         List<String> indexNames = new ArrayList<String>();
         for (UUID u : typeIds) {
-            indexNames.add(getIndexName() + u.toString().replaceAll("-",""));
+            indexNames.add(getIndexName() + u.toString().replaceAll("-", ""));
         }
         String[] indexIdStrings = indexNames.toArray(new String[0]);
         checkIndexes(indexIdStrings);
@@ -628,7 +628,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         List<String> indexNames = new ArrayList<>();
         for (UUID u : typeIds) {
-            indexNames.add(getIndexName() + u.toString().replaceAll("-",""));
+            indexNames.add(getIndexName() + u.toString().replaceAll("-", ""));
         }
         String[] indexIdStrings = indexNames.toArray(new String[0]);
         checkIndexes(indexIdStrings);
@@ -1340,8 +1340,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
         }
 
-        String type=geoType;
-        key=dotKey;
+        String type = geoType;
+        key = dotKey;
 
         if (type != null && "location".equals(type)) {
             if (v instanceof Location) {
@@ -1727,14 +1727,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Check String for UUID
      */
     private boolean isUUID(Object obj) {
-        try{
+        try {
             if (obj instanceof UUID) {
                 return true;
             } else if (obj instanceof String) {
                 UUID.fromString((String) obj);
                 return true;
             }
-        } catch (IllegalArgumentException exception){
+        } catch (IllegalArgumentException exception) {
             return false;
         }
         return false;
