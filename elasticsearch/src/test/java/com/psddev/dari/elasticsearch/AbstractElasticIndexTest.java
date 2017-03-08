@@ -505,7 +505,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         List<M> models = query().where("referenceOne/one != missing").sortClosest("referenceOne/junk", new Location(0, 0)).selectAll();
     }
 
-    @Test(expected = Query.NoFieldException.class)
+    @Test
     public void sortClosestReferenceOneOneJunkExistsWhere() {
         for (int i = 0, size = 26; i < size; ++ i) {
             M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();

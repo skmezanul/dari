@@ -58,7 +58,7 @@ public class RegionElasticIndexTest extends AbstractElasticIndexTest<RegionElast
     }
 
     @Override
-    @Test(expected = Query.NoFieldException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void sortClosestReferenceOneOneJunkExistsWhere() {
         for (int i = 0, size = 26; i < size; ++ i) {
             RegionElasticIndexModel reference = model().all(value(i % 2 == 0 ? i : size - i)).create();

@@ -330,7 +330,6 @@ public class SearchElasticTest extends AbstractElasticTest {
             ref.f = f;
             ref.save();
             SearchElasticModel model = new SearchElasticModel();
-            //model.f = f;
             model.setReference(ref);
             model.save();
         });
@@ -343,6 +342,25 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check size", fooResult, hasSize(6));
         assertThat("check 0 and 1 order", fooResult.get(0).f, lessThan(fooResult.get(1).f));
         assertThat("check 1 and 2 order", fooResult.get(1).f, lessThan(fooResult.get(2).f));
+    }
+
+    @Test
+    public void testReferenceGetTypeRef() throws Exception {
+        SearchElasticModel ref = new SearchElasticModel();
+        ref.f = 1.0f;
+        ref.save();
+        SearchElasticModel model = new SearchElasticModel();
+        model.setReference(ref);
+        model.save();
+
+        // [user equalsany 0000015a-ab7e-d2d3-a97f-bffedfc30000]
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("reference equalsany ?", ref.getId())
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(1));
     }
 
     @Test
