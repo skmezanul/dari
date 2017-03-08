@@ -1050,8 +1050,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (!mappedKey.hasSubQuery() && mappedKey.getInternalType() != null) {
                         newKey = ((newKey == null) ? elkField : (newKey + "." + elkField));
                     }
-                } else {
-
                 }
             }
             elkField = (newKey == null ? queryKey : newKey);
