@@ -752,9 +752,10 @@ public class SearchElasticTest extends AbstractElasticTest {
 
     @Test
     public void testModification() {
+        Date begin = new java.util.Date();
         SearchElasticModel model1 = new SearchElasticModel();
         model1.one = "test";
-        model1.as(ElasticModification.class).setUpdateDate(new java.util.Date());
+        model1.as(ElasticModification.class).setUpdateDate(begin);
         model1.save();
 
         List<SearchElasticModel> sem = Query.from(SearchElasticModel.class).selectAll();
@@ -762,6 +763,12 @@ public class SearchElasticTest extends AbstractElasticTest {
 
         List<SearchElasticModel> sem2 = Query.from(SearchElasticModel.class)
                 .where("cms.content.updateDate > ?", DateUtils.addHours(new java.util.Date(), -1))
+                .sortAscending("cms.content.updateDate")
+                .selectAll();
+        assertThat("check testModification", sem2, hasSize(1));
+
+        List<SearchElasticModel> sem3 = Query.from(SearchElasticModel.class)
+                .where("cms.content.updateDate = ?", begin)
                 .sortAscending("cms.content.updateDate")
                 .selectAll();
         assertThat("check testModification", sem2, hasSize(1));

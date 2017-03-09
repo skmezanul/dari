@@ -1372,7 +1372,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (isUUID(v) && isReference(dotKey, query)) {
                         return QueryBuilders.termQuery(dotKey + "._ref", v);
                     } else {
-                        dotKey = dotKey + "." + RAW_FIELD;
+                        String internalType = mappedKey.getInternalType();
+                        if (!"number".equals(internalType)) {
+                            dotKey = dotKey + "." + RAW_FIELD;
+                        }
                     }
                 }
             }
