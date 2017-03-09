@@ -36,13 +36,11 @@ class ElasticsearchDatabaseConnection {
     /**
      * getClient synchronized and calls PreBuiltTransportClient
      *
-     * @param nodeSettings can be null and will set nodeSettings
-     * @param nodes list of nodes
      * @return {code null} is error
      */
     public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes) {
-        if (nodeSettings == null) {
-            LOGGER.warn("ELK openConnection Missing nodeSettings");
+        if (nodeSettings == null || nodes.size() == 0) {
+            LOGGER.warn("Elasticsearch openConnection missing nodeSettings/nodes");
             nodeSettings = Settings.builder()
                     .put("client.transport.sniff", true).build();
         }
@@ -53,13 +51,13 @@ class ElasticsearchDatabaseConnection {
                     client.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.hostname), n.port));
                 }
                 if (!isAlive(client)) {
-                    LOGGER.warn("ELK openConnection Not Alive!");
+                    LOGGER.warn("Elasticsearch openConnection Not Alive!");
                     return null;
                 }
                 return client;
             } catch (Exception error) {
                 LOGGER.warn(
-                        String.format("ELK openConnection Cannot open ES Exception [%s: %s]",
+                        String.format("Elasticsearch openConnection Cannot open ES Exception [%s: %s]",
                                 error.getClass().getName(),
                                 error.getMessage()),
                         error);
@@ -68,7 +66,7 @@ class ElasticsearchDatabaseConnection {
         } else {
             try {
                 if (!isAlive(client)) {
-                    LOGGER.warn("ELK openConnection Not Alive!");
+                    LOGGER.warn("Elasticsearch openConnection Not Alive!");
                     client = new PreBuiltTransportClient(nodeSettings);
                     for (ElasticsearchDatabase.Node n : nodes) {
                         client.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.hostname), n.port));
@@ -76,7 +74,7 @@ class ElasticsearchDatabaseConnection {
                 }
             } catch (Exception error) {
                 LOGGER.warn(
-                        String.format("ELK openConnection Cannot open ES Exception [%s: %s]",
+                        String.format("Elasticsearch openConnection Cannot open ES Exception [%s: %s]",
                                 error.getClass().getName(),
                                 error.getMessage()),
                         error);

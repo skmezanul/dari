@@ -12,7 +12,6 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
 public class SearchArticleElasticIndexTest extends AbstractElasticIndexTest<SearchArticleElasticIndexModel, String> {
@@ -111,31 +110,10 @@ public class SearchArticleElasticIndexTest extends AbstractElasticIndexTest<Sear
     }
 
     @Override
-    @Test(expected = IllegalArgumentException.class)
-    public void containsNull() {
-        createCompareTestModels();
-        query().and("one contains ?", (Object) null).count();
-    }
-
-    @Override
-    @Test(expected = IllegalArgumentException.class)
-    public void startsWithNull() {
-        createCompareTestModels();
-        query().and("one startsWith ?", (Object) null).count();
-    }
-
-    @Override
     @Test
     public void gt() {
         createCompareTestModels();
         query().where("one > ?", value(0)).count();
-    }
-
-    @Override
-    @Test(expected = IllegalArgumentException.class)
-    public void gtNull() {
-        createCompareTestModels();
-        query().and("one > ?", (Object) null).count();
     }
 
     @Override
@@ -146,13 +124,6 @@ public class SearchArticleElasticIndexTest extends AbstractElasticIndexTest<Sear
     }
 
     @Override
-    @Test(expected = IllegalArgumentException.class)
-    public void geNull() {
-        createCompareTestModels();
-        query().and("one >= ?", (Object) null).count();
-    }
-
-    @Override
     @Test
     public void lt() {
         createCompareTestModels();
@@ -160,24 +131,10 @@ public class SearchArticleElasticIndexTest extends AbstractElasticIndexTest<Sear
     }
 
     @Override
-    @Test(expected = IllegalArgumentException.class)
-    public void ltNull() {
-        createCompareTestModels();
-        query().and("one < ?", (Object) null).count();
-    }
-
-    @Override
     @Test
     public void le() {
         createCompareTestModels();
         query().where("one <= ?", value(0)).count();
-    }
-
-    @Override
-    @Test(expected = IllegalArgumentException.class)
-    public void leNull() {
-        createCompareTestModels();
-        query().and("one <= ?", (Object) null).count();
     }
 
     @Override

@@ -26,7 +26,7 @@ public class EmbeddedElasticsearchServer {
     public static synchronized void setup() {
 
         try {
-            LOGGER.info("Setting up new ELK embedded node");
+            LOGGER.info("Setting up new Elasticsearch embedded node");
             node = new MyNode(
                     Settings.builder()
                             .put("transport.type", "netty4")

@@ -1,6 +1,10 @@
 package com.psddev.dari.elasticsearch;
 
+import com.psddev.dari.db.Database;
+import com.psddev.dari.db.DatabaseEnvironment;
 import com.psddev.dari.db.Grouping;
+import com.psddev.dari.db.ObjectField;
+import com.psddev.dari.db.ObjectIndex;
 import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.UnsupportedIndexException;
@@ -11,6 +15,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -236,9 +241,8 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check 1 and 2 order", fooResult.get(1).one, lessThan(fooResult.get(2).one));
     }
 
-    @Test(expected = UnsupportedIndexException.class)
+    @Test
     public void testSortStringOneField() throws Exception {
-
         Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
             SearchElasticModel model = new SearchElasticModel();
             model.f = f;
@@ -249,6 +253,8 @@ public class SearchElasticTest extends AbstractElasticTest {
                 .from(SearchElasticModel.class)
                 .sortAscending("neverIndexed")
                 .selectAll();
+
+         assertThat("check size", fooResult, hasSize(3));
     }
 
     @Test(expected = Query.NoFieldException.class)
@@ -729,7 +735,156 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check fromType", search2, hasSize(2));
     }
 
-    //@Indexed(unique = true) test then Groupby to see how many
+    @Test
+    public void testGlobals() {
+        SearchElasticModel model1 = new SearchElasticModel();
+        model1.one = "test";
+        model1.save();
 
+        List<SearchElasticModel> query = Query.from(SearchElasticModel.class).selectAll();
 
+        Database defaultDatabase = Database.Static.getDefault();
+        DatabaseEnvironment environment = defaultDatabase.getEnvironment();
+        List<ObjectIndex> globalIndexes = environment.getIndexes();
+        List<ObjectField> globalFields = environment.getFields();
+        assertThat(globalFields.isEmpty(), is(false));
+    }
+
+    @Test
+    public void testModification() {
+        SearchElasticModel model1 = new SearchElasticModel();
+        model1.one = "test";
+        model1.as(ElasticModification.class).setUpdateDate(new java.util.Date());
+        model1.save();
+
+        List<SearchElasticModel> sem = Query.from(SearchElasticModel.class).selectAll();
+        assertThat("check testModification", sem, hasSize(1));
+
+        List<SearchElasticModel> sem2 = Query.from(SearchElasticModel.class)
+                .where("cms.content.updateDate > ?", DateUtils.addHours(new java.util.Date(), -1))
+                .sortAscending("cms.content.updateDate")
+                .selectAll();
+        assertThat("check testModification", sem2, hasSize(1));
+    }
+
+    @Test
+    public void testMatchesAll() {
+        SearchElasticModel model1 = new SearchElasticModel();
+        model1.one = "test headline story";
+        model1.save();
+
+        SearchElasticModel model2 = new SearchElasticModel();
+        model2.one = "another story";
+        model2.save();
+
+        List<SearchElasticModel> sem = Query.from(SearchElasticModel.class).where("one matchesany ?", "headline").selectAll();
+        assertThat("check matchesany", sem, hasSize(1));
+
+        List<SearchElasticModel> sem1 = Query.from(SearchElasticModel.class).where("one matchesall ?", "headline").selectAll();
+        assertThat("check matchesall", sem1, hasSize(1));
+
+        List<String> many = new ArrayList<>();
+        many.add("test");
+        many.add("headline");
+        List<SearchElasticModel> sem2 = Query.from(SearchElasticModel.class).where("one matchesany ?", many).selectAll();
+        assertThat("check matchesany", sem2, hasSize(1));
+        List<SearchElasticModel> sem3 = Query.from(SearchElasticModel.class).where("one matchesall ?", many).selectAll();
+        assertThat("check matchesall", sem3, hasSize(1));
+
+        List<String> many2 = new ArrayList<>();
+        many.add("test");
+        many.add("story");
+        List<SearchElasticModel> sem4 = Query.from(SearchElasticModel.class).where("one matchesany ?", many).selectAll();
+        assertThat("check matchesany", sem4, hasSize(2));
+        List<SearchElasticModel> sem5 = Query.from(SearchElasticModel.class).where("one matchesall ?", many).selectAll();
+        assertThat("check matchesall", sem5, hasSize(1));
+    }
+
+    @Test
+    public void testMatchesAllCase() {
+        SearchElasticModel model1 = new SearchElasticModel();
+        model1.one = "TeSt HeAdLiNe StOrY";
+        model1.save();
+
+        SearchElasticModel model2 = new SearchElasticModel();
+        model2.one = "AnOtHeR StOrY";
+        model2.save();
+
+        List<SearchElasticModel> zeroAny = Query.from(SearchElasticModel.class).where("one matchesany ?", (Object) null).selectAll();
+        assertThat("check matchesany", zeroAny, hasSize(0));
+
+        List<SearchElasticModel> zeroAll = Query.from(SearchElasticModel.class).where("one matchesany ?", (Object) null).selectAll();
+        assertThat("check matchesany", zeroAll, hasSize(0));
+
+        List<SearchElasticModel> sem = Query.from(SearchElasticModel.class).where("one matchesany ?", "headline").selectAll();
+        assertThat("check matchesany", sem, hasSize(1));
+
+        List<SearchElasticModel> sem1 = Query.from(SearchElasticModel.class).where("one matchesall ?", "headline").selectAll();
+        assertThat("check matchesall", sem1, hasSize(1));
+
+        List<String> many = new ArrayList<>();
+        many.add("test");
+        many.add("headline");
+        List<SearchElasticModel> sem2 = Query.from(SearchElasticModel.class).where("one matchesany ?", many).selectAll();
+        assertThat("check matchesany", sem2, hasSize(1));
+        List<SearchElasticModel> sem3 = Query.from(SearchElasticModel.class).where("one matchesall ?", many).selectAll();
+        assertThat("check matchesall", sem3, hasSize(1));
+
+        List<String> many2 = new ArrayList<>();
+        many.add("test");
+        many.add("story");
+        List<SearchElasticModel> sem4 = Query.from(SearchElasticModel.class).where("one matchesany ?", many).selectAll();
+        assertThat("check matchesany", sem4, hasSize(2));
+        List<SearchElasticModel> sem5 = Query.from(SearchElasticModel.class).where("one matchesall ?", many).selectAll();
+        assertThat("check matchesall", sem5, hasSize(1));
+    }
+
+    @Test
+    public void testSortNumber() {
+
+        SearchElasticModel model1 = new SearchElasticModel();
+        model1.f = 1.0f;
+        model1.d = 1.0d;
+        model1.num = 100;
+        model1.l = 100L;
+        model1.shortType = (short) 5;
+        model1.save();
+
+        SearchElasticModel model2 = new SearchElasticModel();
+        model2.f = 1.1f;
+        model2.d = 1.1d;
+        model2.num = 200;
+        model2.l = 200L;
+        model2.shortType = (short) 6;
+        model2.save();
+
+        SearchElasticModel model3 = new SearchElasticModel();
+        model3.save();
+
+        List<SearchElasticModel> floatNumber = Query.from(SearchElasticModel.class).sortAscending("f").selectAll();
+        assertThat("check sort float", floatNumber, hasSize(3));
+        assertThat("check 0 and 1 order",  floatNumber.get(0).f, lessThan(floatNumber.get(1).f));
+        assertThat(floatNumber.get(2).f, nullValue());
+
+        List<SearchElasticModel> doubleNumber = Query.from(SearchElasticModel.class).sortAscending("d").selectAll();
+        assertThat("check sort double", doubleNumber, hasSize(3));
+        assertThat("check 0 and 1 order",  doubleNumber.get(0).d, lessThan(doubleNumber.get(1).d));
+        assertThat(doubleNumber.get(2).d, nullValue());
+
+        List<SearchElasticModel> intNumber = Query.from(SearchElasticModel.class).sortAscending("num").selectAll();
+        assertThat("check sort int", intNumber, hasSize(3));
+        assertThat("check 0 and 1 order",  intNumber.get(0).num, lessThan(intNumber.get(1).num));
+        assertThat(intNumber.get(2).num, nullValue());
+
+        List<SearchElasticModel> longNumber = Query.from(SearchElasticModel.class).sortAscending("l").selectAll();
+        assertThat("check sort long", longNumber, hasSize(3));
+        assertThat("check 0 and 1 order",  longNumber.get(0).l, lessThan(longNumber.get(1).l));
+        assertThat(longNumber.get(2).l, nullValue());
+
+        List<SearchElasticModel> shortNumber = Query.from(SearchElasticModel.class).sortAscending("shortType").selectAll();
+        assertThat("check sort short", shortNumber, hasSize(3));
+        assertThat("check 0 and 1 order",  shortNumber.get(0).shortType, lessThan(shortNumber.get(1).shortType));
+        assertThat(shortNumber.get(2).shortType, nullValue());
+    }
 }
+

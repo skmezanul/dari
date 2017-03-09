@@ -80,6 +80,27 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertMissing("set", 2L);
     }
 
+    /**
+     * All null return nothing
+     */
+    @Test
+    public void equalsNull() {
+        createCompareTestModels();
+        assertCount(0, "one equalsany ?", (Object) null);
+    }
+
+    @Test
+    public void notEqualsNull() {
+        createCompareTestModels();
+        assertCount(0, "one notequalsall ?", (Object) null);
+    }
+
+    @Test
+    public void notEqualsCompoundNull() {
+        createCompareTestModels();
+        assertCount(5, "_any matchesany * or one notequalsall ?", (Object) null);
+    }
+
     @Test
     public void missingList() {
         model().create();
@@ -345,7 +366,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         query().where("one contains ?", value(0)).count();
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void containsNull() {
         createCompareTestModels();
         assertCount(0, "one contains ?", (Object) null);
@@ -381,7 +402,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(2L, "one > ?", value(2));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void gtNull() {
         createCompareTestModels();
         assertCount(0, "one > ?", (Object) null);
@@ -399,7 +420,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(3L, "one >= ?", value(2));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void geNull() {
         createCompareTestModels();
         assertCount(0, "one >= ?", (Object) null);
@@ -417,7 +438,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(2L, "one < ?", value(2));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void ltNull() {
         createCompareTestModels();
         assertCount(0, "one < ?", (Object) null);
@@ -435,7 +456,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         assertCount(3L, "one <= ?", value(2));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void leNull() {
         createCompareTestModels();
         assertCount(0, "one <= ?", (Object) null);
