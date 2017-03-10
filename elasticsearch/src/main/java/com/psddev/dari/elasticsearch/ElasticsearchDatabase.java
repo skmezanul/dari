@@ -130,15 +130,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final int CACHE_MAX_INDEX_SIZE = 2500;
     private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
 
-    private static final LoadingCache<String, String> createIndexCache =
+    private static final LoadingCache<String, String> CreateIndexCache =
             CacheBuilder.newBuilder()
                     .maximumSize(CACHE_MAX_INDEX_SIZE)
                     .expireAfterAccess(CACHE_TIMEOUT_MIN, TimeUnit.MINUTES)
-                    .build(new CacheLoader<String, String>(){
+                    .build(new CacheLoader<String, String>() {
 
                         @Override
                         public String load(String indexId) throws Exception {
-                            TransportClient client = ElasticsearchDatabaseConnection.getClient(nodeSettings, clusterNodes);
+                            TransportClient client = ElasticsearchDatabaseConnection.getClient(nodeSettings, ClusterNodes);
                             defaultMap(client, indexId);
                             LOGGER.info("Elasticsearch creating index [{}]", indexId);
                             return "setIndex";
@@ -151,7 +151,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String REGION_FIELD = "_polygon";
     public static final String RAW_FIELD = "raw";
 
-    private static final List<Node> clusterNodes = new ArrayList<>();
+    private static final List<Node> ClusterNodes = new ArrayList<>();
     private static Settings nodeSettings;
 
     private String clusterName;
@@ -245,7 +245,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             return this.client;
         }
         try {
-            this.client = ElasticsearchDatabaseConnection.getClient(nodeSettings, clusterNodes);
+            this.client = ElasticsearchDatabaseConnection.getClient(nodeSettings, ClusterNodes);
             return this.client;
         } catch (Exception error) {
             LOGGER.warn(
@@ -312,7 +312,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         n.hostname = clusterHostname;
         n.port = Integer.parseInt(clusterPort);
 
-        clusterNodes.add(n);
+        ClusterNodes.add(n);
 
         this.indexName = indexName;
 
@@ -606,7 +606,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         try {
             for (String newIndexname : indexNames) {
-                createIndexCache.get(newIndexname);
+                CreateIndexCache.get(newIndexname);
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -1538,13 +1538,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String finalSimpleKey = simpleKey;
                     if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
-                                v == null ? QueryBuilders.matchAllQuery() :
-                                Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey) :
-                                    geoLocation(operator, finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
+                                v == null ? QueryBuilders.matchAllQuery()
+                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey)
+                                    : geoLocation(operator, finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::mustNot, v ->
-                                v == null ? QueryBuilders.matchAllQuery() :
-                                Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey) :
+                                v == null ? QueryBuilders.matchAllQuery()
+                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey) :
                                     geoLocation(operator, finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
                     }
 
@@ -1572,8 +1572,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     String finalLessThanKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
-                                    v == null ? QueryBuilders.matchAllQuery() :
-                                    (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalLessThanKey + ".x").lt(((Location) v).getX()))
+                                    v == null ? QueryBuilders.matchAllQuery()
+                                    : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalLessThanKey + ".x").lt(((Location) v).getX()))
                                         .must(QueryBuilders.rangeQuery(finalLessThanKey + ".y").lt(((Location) v).getY())) :
                                     QueryBuilders.rangeQuery(finalLessThanKey).lt(v)));
 
@@ -1599,11 +1599,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
 
-
                     String finalLessThanEqKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
-                            v == null ? QueryBuilders.matchAllQuery() :
-                            (v instanceof Location
+                            v == null ? QueryBuilders.matchAllQuery()
+                            : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalLessThanEqKey + ".x").lte(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(finalLessThanEqKey + ".y").lte(((Location) v).getY()))
                                     : QueryBuilders.rangeQuery(finalLessThanEqKey).lte(v)));
@@ -1631,8 +1630,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     String finalGreaterThanKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
-                            v == null ? QueryBuilders.matchAllQuery() :
-                            (v instanceof Location
+                            v == null ? QueryBuilders.matchAllQuery()
+                            : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalGreaterThanKey + ".x").gt(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(finalGreaterThanKey + ".y").gt(((Location) v).getY()))
                                     : QueryBuilders.rangeQuery(finalGreaterThanKey).gt(v)));
@@ -1661,8 +1660,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     String finalGreaterThanEqKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
-                            v == null ? QueryBuilders.matchAllQuery() :
-                            (v instanceof Location
+                            v == null ? QueryBuilders.matchAllQuery()
+                            : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalGreaterThanEqKey + ".x").gte(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(finalGreaterThanEqKey + ".y").gte(((Location) v).getY()))
                                     : QueryBuilders.rangeQuery(finalGreaterThanEqKey).gte(v)));
@@ -1681,8 +1680,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     String finalStartsWithKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::should, v ->
-                            v == null ? QueryBuilders.matchAllQuery() :
-                            QueryBuilders.prefixQuery(finalStartsWithKey, v.toString()));
+                            v == null ? QueryBuilders.matchAllQuery()
+                            : QueryBuilders.prefixQuery(finalStartsWithKey, v.toString()));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
@@ -1716,8 +1715,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String finalSimpleKey1 = simpleKey;
                     if (internalType != null && "region".equals(internalType)) {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
-                                v == null ? QueryBuilders.matchAllQuery() :
-                                "*".equals(v)
+                                v == null ? QueryBuilders.matchAllQuery()
+                                : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
                                 : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(geoShapeIntersects(dotKey + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
@@ -1727,8 +1726,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(dotKey + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
-                                v == null ? QueryBuilders.matchAllQuery() :
-                                "*".equals(v)
+                                v == null ? QueryBuilders.matchAllQuery()
+                                : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
                                 : QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(dotKey + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
@@ -1742,8 +1741,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     String finalMatchesKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
-                            v == null ? QueryBuilders.matchAllQuery() :
-                            "*".equals(v)
+                            v == null ? QueryBuilders.matchAllQuery()
+                            : "*".equals(v)
                             ? QueryBuilders.matchAllQuery()
                             : QueryBuilders.matchPhrasePrefixQuery(finalMatchesKey, v));
 
