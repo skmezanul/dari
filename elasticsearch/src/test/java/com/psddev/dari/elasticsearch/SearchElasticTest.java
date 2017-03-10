@@ -342,7 +342,7 @@ public class SearchElasticTest extends AbstractElasticTest {
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
-                .sortAscending("reference/f")
+                .sortAscending("f")
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(6));
@@ -890,5 +890,26 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check 0 and 1 order",  shortNumber.get(0).shortType, lessThan(shortNumber.get(1).shortType));
         assertThat(shortNumber.get(2).shortType, nullValue());
     }
+
+    @Test
+    public void testSortTypeFieldAll() {
+        SearchElasticModel model1 = new SearchElasticModel();
+        model1.one = "test headline story";
+        model1.save();
+
+        SearchElasticModel model2 = new SearchElasticModel();
+        model2.one = "another story";
+        model2.save();
+
+        String sort = ObjectType.getInstance(SearchElasticModel.class).getInternalName() + "/one";
+
+        List<SearchElasticModel> sem = Query.from(SearchElasticModel.class).sortAscending(sort).selectAll();
+        assertThat("check matchesany", sem, hasSize(2));
+        assertThat("check 0 and 1 order",  sem.get(0).one, lessThan(sem.get(1).one));
+        assertThat("equals check", sem.get(0).one, is("another story"));
+        assertThat("equals check", sem.get(1).one, is("test headline story"));
+    }
+
+    // add denormalized and Indexed Method tests
 }
 

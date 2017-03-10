@@ -144,12 +144,6 @@ public class SearchArticleElasticIndexTest extends AbstractElasticIndexTest<Sear
 
     @Override
     @Test
-    public void sortAscendingReferenceOneOne() {
-        super.sortAscendingReferenceOneOne();
-    }
-
-    @Override
-    @Test
     public void sortAscendingEmbeddedOneOne() {
         super.sortAscendingEmbeddedOneOne();
     }

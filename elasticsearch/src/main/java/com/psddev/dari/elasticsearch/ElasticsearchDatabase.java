@@ -1121,33 +1121,37 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (slash != -1) {
             List<String> keyArr = Arrays.asList(queryKey.split("/"));
             String newKey = null;
-            for (String k : keyArr) {
-                if (!isReference(k, query)) {
-                    Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, k);
-                    elkField = specialSortFields.get(mappedKey);
-                    if (elkField == null) {
-                        String internalType = mappedKey.getInternalType();
-                        if (internalType != null) {
-                            if ("text".equals(internalType)) {
-                                elkField = k + "." + RAW_FIELD;
-                            } else if ("location".equals(internalType)) {
-                                elkField = k + "." + LOCATION_FIELD;
-                                throw new IllegalArgumentException(elkField + " cannot sort Location on Ascending/Descending");
-                            } else if ("region".equals(internalType)) {
-                                elkField = k + "." + REGION_FIELD;
-                                throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
+            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
+            // do not allow subQuery on Sort, need to add denormalized support
+            if (mappedKey.hasSubQuery()) {
+                throw new IllegalArgumentException(queryKey + " cannot sort subquery (create denormalized fields) on Ascending/Descending");
+            } else {
+                elkField = specialSortFields.get(mappedKey);
+                if (elkField == null) {
+                    for (ObjectField f : mappedKey.getFields()) {
+                        if (!isReference(f.getInternalName(), query)) {
+                            if (mappedKey.getInternalType() != null) {
+                                elkField = f.getInternalName();
+                                newKey = ((newKey == null) ? elkField : (newKey + "." + elkField));
                             }
                         }
-                        if (elkField == null) {
-                            elkField = k;
+                    }
+                    String internalType = mappedKey.getInternalType();
+                    if (internalType != null) {
+                        if ("text".equals(internalType)) {
+                            newKey = newKey + "." + RAW_FIELD;
+                        } else if ("location".equals(internalType)) {
+                            newKey = newKey + "." + LOCATION_FIELD;
+                            throw new IllegalArgumentException(elkField + " cannot sort Location on Ascending/Descending");
+                        } else if ("region".equals(internalType)) {
+                            newKey = newKey + "." + REGION_FIELD;
+                            throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
                         }
                     }
-                    if (!mappedKey.hasSubQuery() && mappedKey.getInternalType() != null) {
-                        newKey = ((newKey == null) ? elkField : (newKey + "." + elkField));
-                    }
                 }
+
+                elkField = (newKey == null ? queryKey : newKey);
             }
-            elkField = (newKey == null ? queryKey : newKey);
         } else {
             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
             int dot = queryKey.lastIndexOf('.');
