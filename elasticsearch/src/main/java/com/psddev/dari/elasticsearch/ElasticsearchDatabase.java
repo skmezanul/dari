@@ -75,6 +75,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -164,7 +166,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * The amount of rows per subquery(join) Elastic Search wrapped
      *
      * @see #readAll(Query)
-     *
      */
     public void setSubQueryResolveLimit(int subQueryResolveLimit) {
 
@@ -213,7 +214,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * Get the ClusterName for Elastic
-     *
      */
     public String getClusterName() {
         return clusterName;
@@ -221,7 +221,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * Get the indexName for Elastic
-     *
      */
     public String getIndexName() {
         return indexName;
@@ -238,6 +237,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * The Elastic TransportClient using ElasticsearchDatabaseConnection.getClient()
+     *
      * @return {@code null} indicates could not get client connection
      */
     @Override
@@ -270,7 +270,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * Initialize all the settings for Elastic
-     *
      */
     @Override
     protected void doInitialize(String settingsKey, Map<String, Object> settings) {
@@ -327,7 +326,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * Override to not support in Elastic.
-     *
      */
     @Override
     public Date readLastUpdate(Query<?> query) {
@@ -364,8 +362,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (j.getJSONObject("version") != null) {
                         JSONObject jo = j.getJSONObject("version");
                         String version = jo.getString("number");
-                        if (!"5.2.0".equals(version)) {
-                            LOGGER.warn("Warning: Elasticsearch {} version is not 5.2.0", version);
+                        if (!"5.2.2".equals(version)) {
+                            LOGGER.warn("Warning: Elasticsearch {} version is not 5.2.2", version);
                         }
                         return version;
                     }
@@ -439,7 +437,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * Grab a connection and check it
-     *
      */
     public boolean isAlive() {
         TransportClient client = openConnection();
@@ -494,8 +491,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (groupingMatcher.find()) {
             String field = groupingMatcher.group(1);
             Double start = ObjectUtils.to(Double.class, groupingMatcher.group(2).trim());
-            Double end   = ObjectUtils.to(Double.class, groupingMatcher.group(3).trim());
-            Double gap   = ObjectUtils.to(Double.class, groupingMatcher.group(4).trim());
+            Double end = ObjectUtils.to(Double.class, groupingMatcher.group(3).trim());
+            Double gap = ObjectUtils.to(Double.class, groupingMatcher.group(4).trim());
 
             if (typeIds.size() > 0) {
                 srb = client.prepareSearch(indexIdStrings)
@@ -623,7 +620,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     *
      * Read partial results from Elastic - convert Query to SearchRequestBuilder
      *
      * @see #getSubQueryResolveLimit()
@@ -687,7 +683,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             srb.addSort(sb);
         }
 
-        LOGGER.info("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
 
@@ -695,14 +691,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             items.add(createSavedObjectWithHit(hit, query));
         }
 
-        LOGGER.info("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+        LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
         return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
     }
 
     /**
      * Take the saved object and convert to objectState and swap it
-     *
      */
     private <T> T createSavedObjectWithHit(SearchHit hit, Query<T> query) {
         T object = createSavedObject(hit.getType(), hit.getId(), query);
@@ -718,7 +713,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * Check special fields for Elastic - sorting
-     *
      */
     private final Map<Query.MappedKey, String> specialSortFields; {
         Map<Query.MappedKey, String> m = new HashMap<>();
@@ -730,7 +724,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * Check special fields for Elastic - non sorting
-     *
      */
     private final Map<Query.MappedKey, String> specialFields; {
         Map<Query.MappedKey, String> m = new HashMap<>();
@@ -752,7 +745,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             List<ObjectField> of = mappedKey.getFields();
             if (of != null) {
                 for (ObjectField f : of) {
-                    LOGGER.info("key {} mappedKey isInternalCollectionType: {} {} {}", key, f.isInternalCollectionType() ? "true" : "false",
+                    LOGGER.debug("key {} mappedKey isInternalCollectionType: {} {} {}", key, f.isInternalCollectionType() ? "true" : "false",
                             f.getInternalName() != null ? f.getInternalName() : "", f.getInternalType() != null ? f.getInternalType() : "");
                 }
             }
@@ -772,7 +765,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Return true if found it, else false
      *
      * @see #checkElasticMappingField
-     *
      */
     private boolean findElasticMap(Map<String, Object> properties, List<String> key, int length) {
         if (properties != null) {
@@ -809,11 +801,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     *  Check types for field in Elastic mapping
+     * Check types for field in Elastic mapping
      *
-     * @see #findElasticMap
      * @return true if the field exists
      * @throws IOException the Elastic could fail on getting _mapping on the type
+     * @see #findElasticMap
      */
     private boolean checkElasticMappingField(String[] typeIds, String field) throws IOException {
 
@@ -849,7 +841,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private String getFieldType(String key, Query<?> query) {
         if (key.equals(UID_FIELD) || key.equals(ID_FIELD) || key.equals(TYPE_ID_FIELD)) {
-            return "string";
+            return "keyword";
         }
         if (key.endsWith("." + RAW_FIELD)) {
             key = key.replaceAll("\\." + RAW_FIELD, "");
@@ -869,19 +861,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 if (ObjectField.DATE_TYPE.equals(internalType)) {
                     return "long";
                 } else if (ObjectField.TEXT_TYPE.equals(internalType)) {
-                    return "string";
+                    return "keyword";
                 } else if (ObjectField.BOOLEAN_TYPE.equals(internalType)) {
                     return "boolean";
+                } else if (ObjectField.NUMBER_TYPE.equals(internalType)) {
                     //NUMBER_TYPE could be several Elasticsearch types - long, integer, short, byte, double, float
                     // return double since it is a superset
-                } else if (ObjectField.NUMBER_TYPE.equals(internalType)) {
                     return "double";
                 } else if (ObjectField.REGION_TYPE.equals(internalType)) {
                     return "geo_shape";
                 } else if (ObjectField.LOCATION_TYPE.equals(internalType)) {
                     return "geo_point";
                 } else if (ObjectField.UUID_TYPE.equals(internalType)) {
-                    return "string";
+                    return "keyword";
                 }
             }
         }
@@ -889,15 +881,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     *
      * Build a list of SortBuilder sorters based on Elastic
-     *
      */
     private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb, String[] typeIds) {
         List<SortBuilder> list = new ArrayList<>();
         if (sorters == null || sorters.size() == 0) {
             list.add(new ScoreSortBuilder());
-            list.add(new FieldSortBuilder(TYPE_ID_FIELD).order(ASC).unmappedType("long"));
+            list.add(new FieldSortBuilder(TYPE_ID_FIELD).order(ASC).unmappedType("keyword"));
         } else {
             List<FunctionScoreQueryBuilder.FilterFunctionBuilder> filterFunctionBuilders = new ArrayList<>();
             for (Sorter sorter : sorters) {
@@ -1058,11 +1048,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * For ascending sort take queryKey and return the Elastic equivalent for text, location and region
      *
-     * @throws IllegalArgumentException the argument is illegal
+     * @throws IllegalArgumentException  the argument is illegal
      * @throws UnsupportedIndexException the mapping not setup properly
-     *
      */
-    private <T> String convertAscendingElkField(String queryKey,  Query<T> query, String[] typeIds) {
+    private <T> String convertAscendingElkField(String queryKey, Query<T> query, String[] typeIds) {
         String elkField;
 
         int slash = queryKey.indexOf('/');
@@ -1123,7 +1112,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
                 if (typeIds != null && typeIds.length > 0 && elkField != null) {
                     try {
-                         checkElasticMappingField(typeIds, elkField);
+                        checkElasticMappingField(typeIds, elkField);
                     } catch (IOException e) {
                         throw new UnsupportedIndexException(this, queryKey);
                     }
@@ -1136,7 +1125,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * For Farthest / Nearest sort get the elkField
      */
-    private <T> String convertFarthestElkField(String queryKey,  Query<T> query, String[] typeIds) {
+    private <T> String convertFarthestElkField(String queryKey, Query<T> query, String[] typeIds) {
         String elkField;
         String elkFields = null;
 
@@ -1282,12 +1271,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Override to loop through at INITIAL_FETCH_SIZE at a time
      *
+     * @param query Can't be {@code null}.
      * @see #readPartial(Query, long, int)
      * @see #getSubQueryResolveLimit()
-     *
-     * @param query
-     *        Can't be {@code null}.
-     *
      */
     @Override
     public <T> List<T> readAll(Query<T> query) {
@@ -1311,9 +1297,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     *
      * Take circles and polygons and build a new GeoJson that works with Elastic
-     *
      */
     public String getGeoJson(List<Region.Circle> circles, Region.MultiPolygon polygons) {
         List<Map<String, Object>> features = new ArrayList<>();
@@ -1347,7 +1331,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * Get the QueryBuilder equalsany for each v. Splits out "Location" and "Region"
-     *
      */
     private QueryBuilder geoLocation(String operator, String simpleKey, String dotKey, String key, Query<?> query, Object v, ShapeRelation sr) {
 
@@ -1405,7 +1388,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (type != null && "location".equals(type)) {
             if (v instanceof Location) {
                 return QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
-                    .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()));
+                        .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()));
             } else if (v instanceof Region) {
                 return QueryBuilders.geoDistanceQuery(key + "." + LOCATION_FIELD).point(((Region) v).getX(), ((Region) v).getY())
                         .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS);
@@ -1432,7 +1415,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Get QueryBuilder for geoShape for intersects
      *
      * @see #predicateToQueryBuilder
-     *
      */
     private GeoShapeQueryBuilder geoShapeIntersects(String key, double x, double y) {
         try {
@@ -1498,16 +1480,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             List<Predicate> children = compound.getChildren();
 
             switch (compound.getOperator()) {
-                case PredicateParser.AND_OPERATOR :
+                case PredicateParser.AND_OPERATOR:
                     return combine(compound.getOperator(), children, BoolQueryBuilder::must, (predicate1) -> predicateToQueryBuilder(predicate1, query));
 
-                case PredicateParser.OR_OPERATOR :
+                case PredicateParser.OR_OPERATOR:
                     return combine(compound.getOperator(), children, BoolQueryBuilder::should, (predicate1) -> predicateToQueryBuilder(predicate1, query));
 
-                case PredicateParser.NOT_OPERATOR :
+                case PredicateParser.NOT_OPERATOR:
                     return combine(compound.getOperator(), children, BoolQueryBuilder::mustNot, (predicate1) -> predicateToQueryBuilder(predicate1, query));
 
-                default :
+                default:
                     break;
             }
 
@@ -1552,8 +1534,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             String internalType = null;
 
             switch (operator) {
-                case PredicateParser.EQUALS_ANY_OPERATOR :
-                case PredicateParser.NOT_EQUALS_ALL_OPERATOR :
+                case PredicateParser.EQUALS_ANY_OPERATOR:
+                case PredicateParser.NOT_EQUALS_ALL_OPERATOR:
 
                     String finalSimpleKey = simpleKey;
                     if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
@@ -1671,10 +1653,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
-                        if (v!= null && internalType != null && "location".equals(internalType)) {
+                        if (v != null && internalType != null && "location".equals(internalType)) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
-                        if (v!= null && internalType != null && "region".equals(internalType)) {
+                        if (v != null && internalType != null && "region".equals(internalType)) {
                             throw new IllegalArgumentException(key + " cannot be region");
                         }
                     }
@@ -1801,9 +1783,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     @SuppressWarnings("unchecked")
     private <T> QueryBuilder combine(String operatorType,
-            Collection<T> items,
-            BiFunction<BoolQueryBuilder, QueryBuilder, BoolQueryBuilder> operator,
-            Function<T, QueryBuilder> itemFunction) {
+                                     Collection<T> items,
+                                     BiFunction<BoolQueryBuilder, QueryBuilder, BoolQueryBuilder> operator,
+                                     Function<T, QueryBuilder> itemFunction) {
 
         BoolQueryBuilder builder = QueryBuilders.boolQuery();
         if (items.size() == 0) {
@@ -1841,7 +1823,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Force a flush if isImmediate since it needs to be committed now, otherwise just do a refresh which
      * is lightweight.
-     *
      */
     private static void refresh(TransportClient client, boolean isImmediate) throws Exception {
         if (client != null) {
@@ -1855,7 +1836,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Force a flush if isImmediate since it needs to be committed now, otherwise just do a refresh which
      * is lightweight.
-     *
      */
     @Override
     protected void commitTransaction(TransportClient client, boolean isImmediate) throws Exception {
@@ -1863,59 +1843,73 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * The actual map for Elasticsearch
+     */
+    public static String getMapping(String path) {
+        try {
+            LOGGER.debug("trying resource mapping.json mapping");
+            return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "mapping.json").toURI())));
+        } catch (Exception error) {
+            LOGGER.info("using default mapping");
+            return "{\n"
+                    + "      \"dynamic_templates\": [\n"
+                    + "        {\n"
+                    + "          \"locationgeo\": {\n"
+                    + "            \"match\": \""
+                    + LOCATION_FIELD
+                    + "\",\n"
+                    + "            \"match_mapping_type\": \"string\",\n"
+                    + "            \"mapping\": {\n"
+                    + "              \"type\": \"geo_point\"\n"
+                    + "            }\n"
+                    + "          }\n"
+                    + "        },\n"
+                    + "        {\n"
+                    + "          \"shapegeo\": {\n"
+                    + "            \"match\": \""
+                    + REGION_FIELD
+                    + "\",\n"
+                    + "            \"match_mapping_type\": \"object\",\n"
+                    + "            \"mapping\": {\n"
+                    + "              \"type\": \"geo_shape\"\n"
+                    + "            }\n"
+                    + "          }\n"
+                    + "        },\n"
+                    + "        {\n"
+                    + "          \"int_template\": {\n"
+                    + "            \"match\": \"_*\",\n"
+                    + "            \"match_mapping_type\": \"string\",\n"
+                    + "            \"mapping\": {\n"
+                    + "              \"type\": \"keyword\"\n"
+                    + "            }\n"
+                    + "          }\n"
+                    + "        },\n"
+                    + "        {\n"
+                    + "          \"notanalyzed\": {\n"
+                    + "            \"match\": \"*\",\n"
+                    + "            \"match_mapping_type\": \"string\",\n"
+                    + "            \"mapping\": {\n"
+                    + "              \"type\": \"text\",\n"
+                    + "              \"fields\": {\n"
+                    + "                \"raw\": {\n"
+                    + "                  \"type\": \"keyword\"\n"
+                    + "                }\n"
+                    + "              }\n"
+                    + "            }\n"
+                    + "          }\n"
+                    + "        }\n"
+                    + "      ]\n"
+                    + "    }\n";
+        }
+    }
+
+    /**
      * Elastic mapping which will set the types used for Elastic on index creation
      *
      */
     public static synchronized void defaultMap(TransportClient client, String indexName) {
-        String json = "{\n"
-                + "      \"dynamic_templates\": [\n"
-                + "        {\n"
-                + "          \"locationgeo\": {\n"
-                + "            \"match\": \""
-                                    + LOCATION_FIELD
-                                    + "\",\n"
-                + "            \"match_mapping_type\": \"string\",\n"
-                + "            \"mapping\": {\n"
-                + "              \"type\": \"geo_point\"\n"
-                + "            }\n"
-                + "          }\n"
-                + "        },\n"
-                + "        {\n"
-                + "          \"shapegeo\": {\n"
-                + "            \"match\": \""
-                                    + REGION_FIELD
-                                    + "\",\n"
-                + "            \"match_mapping_type\": \"object\",\n"
-                + "            \"mapping\": {\n"
-                + "              \"type\": \"geo_shape\"\n"
-                + "            }\n"
-                + "          }\n"
-                + "        },\n"
-                + "        {\n"
-                + "          \"int_template\": {\n"
-                + "            \"match\": \"_*\",\n"
-                + "            \"match_mapping_type\": \"string\",\n"
-                + "            \"mapping\": {\n"
-                + "              \"type\": \"keyword\"\n"
-                + "            }\n"
-                + "          }\n"
-                + "        },\n"
-                + "        {\n"
-                + "          \"notanalyzed\": {\n"
-                + "            \"match\": \"*\",\n"
-                + "            \"match_mapping_type\": \"string\",\n"
-                + "            \"mapping\": {\n"
-                + "              \"type\": \"text\",\n"
-                + "              \"fields\": {\n"
-                + "                \"raw\": {\n"
-                + "                  \"type\": \"keyword\"\n"
-                + "                }\n"
-                + "              }\n"
-                + "            }\n"
-                + "          }\n"
-                + "        }\n"
-                + "      ]\n"
-                + "    }\n";
+
+        String json = getMapping("");
 
         if (client != null) {
             boolean indexExists = client.admin().indices()

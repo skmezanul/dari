@@ -745,7 +745,6 @@ public class SearchElasticTest extends AbstractElasticTest {
 
         Database defaultDatabase = Database.Static.getDefault();
         DatabaseEnvironment environment = defaultDatabase.getEnvironment();
-        List<ObjectIndex> globalIndexes = environment.getIndexes();
         List<ObjectField> globalFields = environment.getFields();
         assertThat(globalFields.isEmpty(), is(false));
     }

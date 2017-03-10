@@ -54,55 +54,12 @@ public abstract class AbstractElasticTest {
     public static void createIndexandMapping(String index, String nodeHost) {
         LOGGER.info("Mapping Index " + index);
         try {
-            String json = "{\n" +
-                    "  \"mappings\": {\n" +
-                    "    \"_default_\": {\n" +
-                    "      \"dynamic_templates\": [\n" +
-                    "        {\n" +
-                    "          \"locationgeo\": {\n" +
-                    "            \"match\": \"" + ElasticsearchDatabase.LOCATION_FIELD + "\",\n" +
-                    "            \"match_mapping_type\": \"string\",\n" +
-                    "            \"mapping\": {\n" +
-                    "              \"type\": \"geo_point\"\n" +
-                    "            }\n" +
-                    "          }\n" +
-                    "        },\n" +
-                    "        {\n" +
-                    "          \"shapegeo\": {\n" +
-                    "            \"match\": \"" + ElasticsearchDatabase.REGION_FIELD + "\",\n" +
-                    "            \"match_mapping_type\": \"object\",\n" +
-                    "            \"mapping\": {\n" +
-                    "              \"type\": \"geo_shape\"\n" +
-                    "            }\n" +
-                    "          }\n" +
-                    "        }," +
-                    "        {\n" +
-                    "          \"int_template\": {\n" +
-                    "            \"match\": \"_*\",\n" +
-                    "            \"match_mapping_type\": \"string\",\n" +
-                    "            \"mapping\": {\n" +
-                    "              \"type\": \"keyword\"\n" +
-                    "            }\n" +
-                    "          }\n" +
-                    "        },\n" +
-                    "        {\n" +
-                    "          \"notanalyzed\": {\n" +
-                    "            \"match\": \"*\",\n" +
-                    "            \"match_mapping_type\": \"string\",\n" +
-                    "            \"mapping\": {\n" +
-                    "              \"type\": \"text\",\n" +
-                    "              \"fields\": {\n" +
-                    "                \"raw\": {\n" +
-                    "                  \"type\": \"keyword\"\n" +
-                    "                }\n" +
-                    "              }\n" +
-                    "            }\n" +
-                    "          }\n" +
-                    "        }\n" +
-                    "      ]\n" +
-                    "    }\n" +
-                    "  }\n" +
-                    "}";
+            String json = ElasticsearchDatabase.getMapping("");
+            json = "{\n"
+                    + "  \"mappings\": {\n"
+                    + "    \"_default_\":\n" +
+                    json + "}}";
+
             HttpClient httpClient = HttpClientBuilder.create().build();
             HttpPut put = new HttpPut(nodeHost + index);
             put.addHeader("accept", "application/json");
