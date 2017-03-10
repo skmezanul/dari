@@ -1,5 +1,6 @@
 package com.psddev.dari.elasticsearch;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -47,6 +48,7 @@ import org.elasticsearch.common.geo.ShapeRelation;
 import com.vividsolutions.jts.geom.Coordinate;
 import org.elasticsearch.common.geo.builders.ShapeBuilders;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
+import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.DistanceUnit;
 import org.elasticsearch.common.unit.TimeValue;
@@ -85,6 +87,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -130,17 +133,71 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final int CACHE_MAX_INDEX_SIZE = 2500;
     private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
 
-    private static final LoadingCache<String, String> CreateIndexCache =
+    public class IndexKey {
+        private String indexId;
+        private List<Node> clusterNodes;
+        private Settings nodeSettings;
+
+        public String getIndexId() {
+            return indexId;
+        }
+
+        public void setIndexId(String indexId) {
+            this.indexId = indexId;
+        }
+
+        public List<Node> getClusterNodes() {
+            return clusterNodes;
+        }
+
+        public void setClusterNodes(List<Node> clusterNodes) {
+            this.clusterNodes = clusterNodes;
+        }
+
+        public Settings getNodeSettings() {
+            return nodeSettings;
+        }
+
+        public void setNodeSettings(Settings nodeSettings) {
+            this.nodeSettings = nodeSettings;
+        }
+
+        @Override
+        public String toString() {
+
+            return MoreObjects.toStringHelper(this)
+                    .add("indexId", indexId)
+                    .toString();
+
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            IndexKey indexKey = (IndexKey) o;
+
+            return indexId.equals(indexKey.indexId);
+        }
+
+        @Override
+        public int hashCode() {
+            return indexId.hashCode();
+        }
+    }
+
+    private static final LoadingCache<IndexKey, String> CREATE_INDEX_CACHE =
             CacheBuilder.newBuilder()
                     .maximumSize(CACHE_MAX_INDEX_SIZE)
                     .expireAfterAccess(CACHE_TIMEOUT_MIN, TimeUnit.MINUTES)
-                    .build(new CacheLoader<String, String>() {
+                    .build(new CacheLoader<IndexKey, String>() {
 
                         @Override
-                        public String load(String indexId) throws Exception {
-                            TransportClient client = ElasticsearchDatabaseConnection.getClient(nodeSettings, ClusterNodes);
-                            defaultMap(client, indexId);
-                            LOGGER.info("Elasticsearch creating index [{}]", indexId);
+                        public String load(IndexKey index) throws Exception {
+                            TransportClient client = ElasticsearchDatabaseConnection.getClient(index.getNodeSettings(), index.getClusterNodes());
+                            defaultMap(client, index.getIndexId());
+                            LOGGER.info("Elasticsearch creating index [{}]", index.getIndexId());
                             return "setIndex";
                         }
                     });
@@ -151,8 +208,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String REGION_FIELD = "_polygon";
     public static final String RAW_FIELD = "raw";
 
-    private static final List<Node> ClusterNodes = new ArrayList<>();
-    private static Settings nodeSettings;
+    private List<Node> clusterNodes = new ArrayList<>();
+    private Settings nodeSettings;
 
     private String clusterName;
     private String indexName;
@@ -245,7 +302,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             return this.client;
         }
         try {
-            this.client = ElasticsearchDatabaseConnection.getClient(nodeSettings, ClusterNodes);
+            this.client = ElasticsearchDatabaseConnection.getClient(nodeSettings, clusterNodes);
             return this.client;
         } catch (Exception error) {
             LOGGER.warn(
@@ -312,11 +369,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         n.hostname = clusterHostname;
         n.port = Integer.parseInt(clusterPort);
 
-        ClusterNodes.add(n);
+        this.clusterNodes.add(n);
 
         this.indexName = indexName;
 
-        nodeSettings = Settings.builder()
+        this.nodeSettings = Settings.builder()
                 .put("cluster.name", this.clusterName)
                 .put("client.transport.sniff", true).build();
 
@@ -606,7 +663,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         try {
             for (String newIndexname : indexNames) {
-                CreateIndexCache.get(newIndexname);
+                IndexKey index = new IndexKey();
+                index.setNodeSettings(this.nodeSettings);
+                index.setClusterNodes(this.clusterNodes);
+                index.setIndexId(newIndexname);
+                CREATE_INDEX_CACHE.get(index);
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -1544,8 +1605,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     } else {
                         return combine(operator, values, BoolQueryBuilder::mustNot, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
-                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey) :
-                                    geoLocation(operator, finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
+                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey)
+                                    : geoLocation(operator, finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
                     }
 
                 case PredicateParser.LESS_THAN_OPERATOR :
@@ -1574,8 +1635,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                                     v == null ? QueryBuilders.matchAllQuery()
                                     : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalLessThanKey + ".x").lt(((Location) v).getX()))
-                                        .must(QueryBuilders.rangeQuery(finalLessThanKey + ".y").lt(((Location) v).getY())) :
-                                    QueryBuilders.rangeQuery(finalLessThanKey).lt(v)));
+                                        .must(QueryBuilders.rangeQuery(finalLessThanKey + ".y").lt(((Location) v).getY()))
+                                    : QueryBuilders.rangeQuery(finalLessThanKey).lt(v)));
 
                 case PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
