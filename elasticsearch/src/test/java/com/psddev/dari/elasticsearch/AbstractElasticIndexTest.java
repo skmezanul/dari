@@ -155,7 +155,8 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
             }
             allids = new ArrayList<>();
             for (M item : list) {
-                if (item.getState().getSimpleValues() instanceof Map) {
+                if (item !=null && item.getState() != null && item.getState().getSimpleValues() != null
+                        && item.getState().getSimpleValues() instanceof Map) {
                     Map<String, Object> m = item.getState().getSimpleValues();
                     if (m.get(keyArr[i]) != null) {
                         if (m.get(keyArr[i]) instanceof Map) {

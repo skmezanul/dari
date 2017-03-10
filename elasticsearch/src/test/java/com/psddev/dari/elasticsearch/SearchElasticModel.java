@@ -142,7 +142,7 @@ public class SearchElasticModel extends Record {
 
     @Recordable.Embedded
     @Recordable.Indexed
-    public SearchElasticObjectModel loginTokens = new SearchElasticObjectModel();
+    public final SearchElasticObjectModel loginTokens = new SearchElasticObjectModel();
 
     @Indexed
     public SearchElasticModel reference;

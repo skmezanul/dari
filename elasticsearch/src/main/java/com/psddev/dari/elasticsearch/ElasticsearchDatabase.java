@@ -210,7 +210,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String REGION_FIELD = "_polygon";
     public static final String RAW_FIELD = "raw";
 
-    private List<Node> clusterNodes = new ArrayList<>();
+    private final List<Node> clusterNodes = new ArrayList<>();
     private Settings nodeSettings;
 
     private String clusterName;
@@ -853,6 +853,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         return true;
                     }
                     if (properties.get(key.get(length)) instanceof Map) {
+                        //noinspection unchecked
                         return findElasticMap((Map<String, Object>) properties.get(key.get(length)), key, length + 1);
                     }
                 }
@@ -1567,7 +1568,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             // this specific one needs to be reduced */
             if (pKey.indexOf('/') != -1) {
                 Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, pKey);
-                if (mappedKey.hasSubQuery()) {
+                if (mappedKey != null && mappedKey.hasSubQuery()) {
                     // Elasticsearch like Solr does not support joins in 5.2. Might be memory issue and slow!
                     // to do this requires query, take results and send to other query. Sample tests do this.
 
@@ -1884,7 +1885,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Force a flush if isImmediate since it needs to be committed now, otherwise just do a refresh which
      * is lightweight.
      */
-    private static void refresh(TransportClient client, boolean isImmediate) throws Exception {
+    private static void refresh(TransportClient client, boolean isImmediate) {
         if (client != null) {
             if (isImmediate) {
                 client.admin().indices().prepareFlush().get();
@@ -2159,6 +2160,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y"));
                     }
                 }
+                //noinspection unchecked
                 convertLocationToName((Map<String, Object>) value, name);
 
             } else if (value instanceof List) {
@@ -2171,6 +2173,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y"));
                             }
                         }
+                        //noinspection unchecked
                         convertLocationToName((Map<String, Object>) item, name);
                     }
                 }

@@ -19,6 +19,7 @@ class ElasticsearchDatabaseConnection {
      * Check nodes are not empty and isAlive
      *
      */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public static boolean isAlive(TransportClient client) {
         List<DiscoveryNode> nodes = client.connectedNodes();
         return !nodes.isEmpty();
