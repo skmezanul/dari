@@ -2,7 +2,6 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Recordable;
 import com.psddev.dari.db.Region;
-import com.psddev.dari.elasticsearch.AbstractElasticIndexModel;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;

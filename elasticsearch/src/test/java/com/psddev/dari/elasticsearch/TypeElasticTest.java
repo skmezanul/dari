@@ -1,6 +1,5 @@
 package com.psddev.dari.elasticsearch;
 
-
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.Record;
 import com.psddev.dari.db.Recordable;
@@ -13,8 +12,6 @@ import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
-
-
 
 public class TypeElasticTest extends AbstractElasticTest {
 

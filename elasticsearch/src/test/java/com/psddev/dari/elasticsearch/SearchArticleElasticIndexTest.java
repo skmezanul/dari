@@ -2,10 +2,8 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Query;
-import com.psddev.dari.db.Region;
 import com.psddev.dari.db.Sorter;
 import com.psddev.dari.util.TypeDefinition;
-import org.hamcrest.core.IsEqual;
 import org.junit.Test;
 
 import java.util.List;

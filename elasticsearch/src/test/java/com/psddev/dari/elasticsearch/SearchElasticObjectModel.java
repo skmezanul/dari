@@ -25,6 +25,5 @@ public class SearchElasticObjectModel extends Record {
         this.expireTimestamp = expireTimestamp;
     }
 
-
 }
 

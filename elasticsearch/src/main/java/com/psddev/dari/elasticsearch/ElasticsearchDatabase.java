@@ -8,7 +8,6 @@ import com.psddev.dari.db.AbstractDatabase;
 import com.psddev.dari.db.AbstractGrouping;
 import com.psddev.dari.db.ComparisonPredicate;
 import com.psddev.dari.db.CompoundPredicate;
-import com.psddev.dari.db.Database;
 import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.ObjectField;
@@ -70,7 +69,6 @@ import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.json.JSONObject;
-import org.omg.PortableInterceptor.TRANSPORT_RETRY;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
