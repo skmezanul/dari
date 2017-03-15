@@ -33,6 +33,7 @@
         <module>asm</module>
         <module>aws</module>
         <module>db</module>
+        <module>elastic</module>
         <module>elasticsearch</module>
         <module>grandparent</module>
         <module>h2</module>
@@ -326,12 +327,6 @@
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-core-asl</artifactId>
                 <version>1.6.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.elasticsearch</groupId>
-                <artifactId>elasticsearch</artifactId>
-                <version>1.7.1</version>
             </dependency>
 
             <dependency>
