@@ -481,6 +481,21 @@ public class SearchElasticTest extends AbstractElasticTest {
     }
 
     @Test
+    public void testSortAscendingDirectory() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.setOne("/");
+        model.save();
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("one equals ?", "/")
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(1));
+    }
+
+    @Test
     public void testSortAscending() throws Exception {
 
         List<SearchElasticModel> fooResult = Query

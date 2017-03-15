@@ -22,7 +22,7 @@ import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.StorageItem;
 
 /** State value utility methods. */
-public abstract class StateValueUtils {
+abstract class StateValueUtils {
 
     /**
      * Thread local map used for detecting circular references in

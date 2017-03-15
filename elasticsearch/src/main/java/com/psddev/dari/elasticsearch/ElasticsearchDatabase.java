@@ -1481,7 +1481,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         int slash = key.indexOf('/');
         if (slash != -1) {
             dotKey = key.substring(slash + 1);
-            return QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(key);
+            //return QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(key);
+            return QueryBuilders.termQuery(key, v);
         }
 
         return QueryBuilders.termQuery(key, v);
@@ -1578,8 +1579,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), queryKey);
             String elasticField;
 
-            if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR) ||
-                operator.equals(PredicateParser.NOT_EQUALS_ALL_OPERATOR)) {
+            if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)
+                || operator.equals(PredicateParser.NOT_EQUALS_ALL_OPERATOR)) {
                 elasticField = specialFields.get(mappedKey);
             } else {
                 elasticField = specialRangeFields.get(mappedKey);
@@ -1784,7 +1785,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
                         if (internalType != null && internalType.equals("uuid")) {
-                            if (v == null || (v != null && v.equals(new UUID(0,0)))) {
+                            if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
                                 throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
                             }
                         }
@@ -1821,7 +1822,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             }
                         }
                         if (internalType != null && internalType.equals("uuid")) {
-                            if (v == null || (v != null && v.equals(new UUID(0,0)))) {
+                            if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
                                 throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
                             }
                         }
