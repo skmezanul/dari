@@ -1824,6 +1824,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (internalType != null && internalType.equals("uuid")) {
                             if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
                                 throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
+                            } else {
+                                throw new IllegalArgumentException(operator + " UUID does not allow");
                             }
                         }
                         if (v != null && v instanceof Location) {
@@ -1856,18 +1858,59 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
-                    // must = MATCHES_ALL
+
+                    if (!"_any".equals(key) && !"_all".equals(key)) {
+                        mappedKey = mapFullyDenormalizedKey(query, key);
+                        checkField = specialFields.get(mappedKey);
+                        if (checkField == null) {
+                            internalType = mappedKey.getInternalType();
+                        }
+                    }
+
                     for (Object v : values) {
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
+                        if (v != null && v instanceof Boolean) {
+                            if (internalType != null && "region".equals(internalType)) {
+                                throw new IllegalArgumentException(operator + " region with boolean not allowed");
+                            }
+                        }
+                        if (internalType != null && internalType.equals("uuid")) {
+                            if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
+                                throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
+                            } else {
+                                throw new IllegalArgumentException(operator + " UUID does not allow");
+                            }
+                        }
+                        if (v != null && v instanceof Location) {
+                            if ((internalType == null) || (internalType != null && "location".equals(internalType))) {
+                                throw new IllegalArgumentException(operator + " location not allowed");
+                            } else if (!"region".equals(internalType) && !"location".equals(internalType)) {
+                                throw new IllegalArgumentException(operator + " location not allowed except for region/location");
+                            }
+                        }
                     }
-                    String finalMatchesKey = dotKey;
-                    return combine(operator, values, BoolQueryBuilder::must, v ->
-                            v == null ? QueryBuilders.matchAllQuery()
-                            : "*".equals(v)
-                            ? QueryBuilders.matchAllQuery()
-                            : QueryBuilders.matchPhrasePrefixQuery(finalMatchesKey, v));
+
+                    String finalSimpleKey2 = simpleKey;
+                    if (internalType != null && "region".equals(internalType)) {
+                        return combine(operator, values, BoolQueryBuilder::must, v ->
+                                v == null ? QueryBuilders.matchAllQuery()
+                                        : "*".equals(v)
+                                        ? QueryBuilders.matchAllQuery()
+                                        : (v instanceof Location
+                                        ? QueryBuilders.boolQuery().must(geoShapeIntersects(dotKey + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
+                                        : (v instanceof Region
+                                        ? QueryBuilders.boolQuery().must(
+                                        geoLocation(operator, finalSimpleKey2, dotKey, key, query, v, ShapeRelation.CONTAINS))
+                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(dotKey + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                    } else {
+                        return combine(operator, values, BoolQueryBuilder::must, v ->
+                                v == null ? QueryBuilders.matchAllQuery()
+                                        : "*".equals(v)
+                                        ? QueryBuilders.matchAllQuery()
+                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(dotKey).field(dotKey + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                    }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
                 case PredicateParser.MATCHES_EXACT_ALL_OPERATOR :

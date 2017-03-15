@@ -678,10 +678,116 @@ public class SearchElasticTest extends AbstractElasticTest {
 
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
-                .where("loginTokens/token equalsany ?",UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298"))
+                .where("loginTokens/token equalsany ?", UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298"))
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(1));
+    }
+
+    @Test
+    public void testUUIDlt() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
+        model.save();
+
+        List<SearchElasticModel> fooResult = Query.from(SearchElasticModel.class)
+                .where("loginTokens/token < ?", new UUID(0,0))
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(0));
+    }
+
+    @Test
+    public void testUUIDlte() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
+        model.save();
+
+        List<SearchElasticModel> fooResult = Query.from(SearchElasticModel.class)
+                .where("loginTokens/token <= ?", UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298"))
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(1));
+    }
+
+
+    @Test
+    public void testUUIDgt() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
+        model.save();
+
+        List<SearchElasticModel> fooResult = Query.from(SearchElasticModel.class)
+                .where("loginTokens/token > ?", new UUID(0,0))
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(1));
+    }
+
+    @Test
+    public void testUUIDgte() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
+        model.save();
+
+        List<SearchElasticModel> fooResult = Query.from(SearchElasticModel.class)
+                .where("loginTokens/token >= ?", UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298"))
+                .selectAll();
+
+        assertThat("check size", fooResult, hasSize(1));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUUIDmatchesany() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
+        model.save();
+
+        Query.from(SearchElasticModel.class)
+                .where("loginTokens/token matchesany ?", new UUID(0,0))
+                .selectAll();
+
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUUIDmatchesall() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
+        model.save();
+
+        Query.from(SearchElasticModel.class)
+                .where("loginTokens/token matchesall ?", new UUID(0,0))
+                .selectAll();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUUIDmatchesany2() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
+        model.save();
+
+        Query.from(SearchElasticModel.class)
+                .where("loginTokens/token matchesany ?", UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298"))
+                .selectAll();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testUUIDmatchesall2() throws Exception {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.loginTokens.token = UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298");
+        model.save();
+
+        Query.from(SearchElasticModel.class)
+                .where("loginTokens/token matchesall ?", UUID.fromString("68a66f18-b668-418b-af69-8dafa6325298"))
+                .selectAll();
     }
 
    @Test
@@ -842,6 +948,9 @@ public class SearchElasticTest extends AbstractElasticTest {
 
         List<SearchElasticModel> sem1 = Query.from(SearchElasticModel.class).where("one matchesall ?", "headline").selectAll();
         assertThat("check matchesall", sem1, hasSize(1));
+
+        List<SearchElasticModel> contains = Query.from(SearchElasticModel.class).where("one contains ?", "headline").selectAll();
+        assertThat("check matchesall", contains, hasSize(1));
 
         List<String> many = new ArrayList<>();
         many.add("test");
