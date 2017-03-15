@@ -51,17 +51,6 @@ public class RegionElasticIndexTest extends AbstractElasticIndexTest<RegionElast
 
     @Override
     @Test(expected = IllegalArgumentException.class)
-    public void sortClosestReferenceOneOneJunkExistsWhere() {
-        for (int i = 0, size = 26; i < size; ++ i) {
-            RegionElasticIndexModel reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
-            model().referenceAll(reference).create();
-        }
-
-        List models = query().where("referenceOne/junk != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
-    }
-
-    @Override
-    @Test(expected = IllegalArgumentException.class)
     public void ge() {
         createCompareTestModels();
         assertCount(3L, "one >= ?", value(2));

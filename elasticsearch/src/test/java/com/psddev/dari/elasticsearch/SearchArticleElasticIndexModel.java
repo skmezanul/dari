@@ -10,6 +10,9 @@ public class SearchArticleElasticIndexModel extends AbstractElasticIndexModel<Se
     @Indexed
     private String one;
 
+    // to test not indexed
+    private String notIndexed;
+
     @Indexed
     private Set<String> set;
 

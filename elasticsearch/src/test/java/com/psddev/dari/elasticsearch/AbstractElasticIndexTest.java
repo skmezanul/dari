@@ -222,8 +222,8 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
     @Test
     public void missingEmbeddedOne() {
         model().embeddedOne(model()).create();
-        // Spacial is not required.
-        assertMissing("embeddedOne", 0L);
+        // Spatial is not required.
+        assertMissing("embeddedOne", 1L);
     }
 
     @Test
@@ -330,7 +330,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
     @Test
     public void eq() {
         createCompareTestModels();
-        assertCount(1L, "one = ?", value(2));
+        assertCount(1L, "one = ?", value(1));
         assertCount(1L, "set = ?", value(2));
         assertCount(1L, "list = ?", value(2));
     }
@@ -542,7 +542,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         List<M> models = query().where("referenceOne/one != missing").sortClosest("referenceOne/junk", new Location(0, 0)).selectAll();
     }
 
-    @Test
+    @Test(expected = com.psddev.dari.db.Query.NoFieldException.class)
     public void sortClosestReferenceOneOneJunkExistsWhere() {
         for (int i = 0, size = 26; i < size; ++ i) {
             M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();

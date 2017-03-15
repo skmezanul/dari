@@ -4,8 +4,10 @@ import com.psddev.dari.db.Database;
 import com.psddev.dari.db.DatabaseEnvironment;
 import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.ObjectField;
+import com.psddev.dari.db.ObjectMethod;
 import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
+import com.psddev.dari.db.State;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.Settings;
 import org.apache.commons.lang3.time.DateUtils;
@@ -910,6 +912,113 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("equals check", sem.get(1).one, is("test headline story"));
     }
 
-    // add denormalized and Indexed Method tests
+    @Test
+    public void testIndexMethod() {
+        MethodIndexElasticModel model = new MethodIndexElasticModel();
+        model.setName("story");
+        model.save();
+
+        List<MethodIndexElasticModel> tagg = Query.from(MethodIndexElasticModel.class).where("taggable.getFoo2 = ?", "Foo2").selectAll();
+        assertThat("check IndexMethod", tagg, hasSize(1));
+
+        List<MethodIndexElasticModel> sem = Query.from(MethodIndexElasticModel.class).where("getFoo = ?", "Foo").selectAll();
+        assertThat("check IndexMethod", sem, hasSize(1));
+
+        List<MethodIndexElasticModel> sem1 = Query.from(MethodIndexElasticModel.class).where("getInfo matches ?", "larger").selectAll();
+        assertThat("check IndexMethod", sem1, hasSize(1));
+
+        List<MethodIndexElasticModel> sem2 = Query.from(MethodIndexElasticModel.class).where("getPrefixName = ?", "defaultstory").selectAll();
+        assertThat("check IndexMethod", sem2, hasSize(1));
+
+        List<Grouping<MethodIndexElasticModel>> groupL = Query.from(MethodIndexElasticModel.class).groupBy("getNameFirstLetter");
+        assertThat("check Grouping / agg", groupL, hasSize(1));
+        for (Grouping g : groupL) {
+            if (g.getKeys().contains("s")) {
+                assertThat(g.getCount(), is((long) 1));
+            }
+        }
+    }
+
+    // add multi level
+
+    @Test
+    public void testIndexes() {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.setOne("story");
+        model.save();
+
+        MethodIndexElasticModel model1 = new MethodIndexElasticModel();
+        model1.setName("story");
+        model1.save();
+
+        State s = model1.getState();
+        List<ObjectMethod> methods  = s.getType().getMethods();
+        methods.addAll(Database.Static.getDefault().getEnvironment().getMethods());
+
+        List<String> lMethods = new ArrayList<>();
+        for (ObjectMethod method : methods) {
+            lMethods.add(method.getUniqueName());
+        }
+
+        assertThat("check methods Indexed", lMethods, hasSize(6));
+        assertThat("check methods Indexed", lMethods,
+                hasItems("com.psddev.dari.elasticsearch.MethodIndexElasticModel/getName",
+                         "com.psddev.dari.elasticsearch.MethodIndexElasticModel/getFoo",
+                         "com.psddev.dari.elasticsearch.MethodIndexElasticModel/taggable.getFoo2",
+                         "com.psddev.dari.elasticsearch.MethodIndexElasticModel/getInfo",
+                         "com.psddev.dari.elasticsearch.MethodIndexElasticModel/getNameFirstLetter",
+                         "com.psddev.dari.elasticsearch.MethodIndexElasticModel/getPrefixName"));
+    }
+
+    @Test
+    public void testComplexTaggedIndexMethod() {
+        MethodComplexModel model1 = new MethodComplexModel();
+        model1.setGivenName("Mickey");
+        model1.setSurname("Mouse");
+        model1.save();
+
+        List<MethodComplexModel> tagList = Query.from(MethodComplexModel.class).where("taggable.getNames = ?", "Mickey").selectAll();
+        assertThat("check tagged Mickey", tagList, hasSize(1));
+
+        List<MethodComplexModel> tagList2 = Query.from(MethodComplexModel.class).where("taggable.getNames matches ?", "MiCkEy").selectAll();
+        assertThat("check tagged Mickey", tagList2, hasSize(1));
+
+        List<MethodComplexModel> tagSet = Query.from(MethodComplexModel.class).where("taggable.getSetNames = ?", "Mickey").selectAll();
+        assertThat("check taggedSet Mickey", tagSet, hasSize(1));
+
+        List<MethodComplexModel> tagSet2 = Query.from(MethodComplexModel.class).where("taggable.getSetNames matches ?", "mickey").selectAll();
+        assertThat("check tagged matches", tagSet2, hasSize(1));
+    }
+
+    @Test
+    public void testDenormalizedTags() {
+        ElasticTag t = new ElasticTag();
+        t.setName("pizza");
+        t.save();
+
+        ElasticTag nt = new ElasticTag();
+        t.setName("noindex");
+        nt.save();
+
+        DenormalizedReferenceModel model1 = new DenormalizedReferenceModel();
+        model1.setName("Mickey");
+        model1.setIndexedTag(t);
+        model1.setUnindexedTag(nt);
+        model1.save();
+
+        List<DenormalizedReferenceModel> tagList = Query.from(DenormalizedReferenceModel.class).where("_any matches ?", "pizza").selectAll();
+        assertThat("check size", tagList, hasSize(1));
+
+        List<DenormalizedReferenceModel> tagList2 = Query.from(DenormalizedReferenceModel.class).where("_any matches ?", "noindex").selectAll();
+        assertThat("check size", tagList2, hasSize(0));
+
+        List<DenormalizedReferenceModel> tagList3 = Query.from(DenormalizedReferenceModel.class).where("taggable.indexedTag/name = ?", "pizza").selectAll();
+        assertThat("check size", tagList3, hasSize(1));
+
+        // should not match
+        List<DenormalizedReferenceModel> tagList4 = Query.from(DenormalizedReferenceModel.class).where("taggable.indexedTag/name matches ?", "pizza").selectAll();
+        assertThat("check size", tagList4, hasSize(1));
+    }
 }
 

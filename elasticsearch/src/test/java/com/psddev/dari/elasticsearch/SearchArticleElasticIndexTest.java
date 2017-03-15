@@ -52,12 +52,11 @@ public class SearchArticleElasticIndexTest extends AbstractElasticIndexTest<Sear
         List<SearchArticleElasticIndexModel> models = query().where("embeddedOne/one != missing").sortClosest("embeddedOne/one", new Location(0, 0)).selectAll();
     }
 
-    @Override
-    @Test(expected = IllegalArgumentException.class)
-    public void sortClosestReferenceOneOneJunkExistsWhere() {
+    @Test(expected = com.psddev.dari.db.Query.NoIndexException.class)
+    public void whereNotIndexed() {
         createReferenceTestModels();
 
-        List<SearchArticleElasticIndexModel> models = query().where("referenceOne/junk != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
+        List<SearchArticleElasticIndexModel> models = query().where("referenceOne/notIndexed != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
 
     }
 
