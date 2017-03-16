@@ -242,7 +242,7 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check 1 and 2 order", fooResult.get(1).one, lessThan(fooResult.get(2).one));
     }
 
-    @Test(expected = UnsupportedIndexException.class)
+    @Test
     public void testSortStringNeverIndexed() throws Exception {
         Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
             SearchElasticModel model = new SearchElasticModel();
@@ -250,6 +250,7 @@ public class SearchElasticTest extends AbstractElasticTest {
             model.save();
         });
 
+        // this should not throw exception since the field is annotated @Indexed
         List<SearchElasticModel> fooResult = Query
                 .from(SearchElasticModel.class)
                 .sortAscending("neverIndexed")

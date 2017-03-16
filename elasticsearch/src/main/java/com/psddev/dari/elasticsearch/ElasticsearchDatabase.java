@@ -891,7 +891,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Check types for field in Elastic mapping
+     * Check types for field in Elastic mapping. Note that the field must be inserted not null to show up.
      *
      * @return true if the field exists
      * @throws IOException the Elastic could fail on getting _mapping on the type
@@ -1175,15 +1175,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (elkField == null) {
                 elkField = queryKey;
             }
-            if (typeIds != null && typeIds.length > 0 && elkField != null) {
-                try {
-                    if (!checkElasticMappingField(typeIds, elkField)) {
-                        throw new UnsupportedIndexException(this, queryKey);
-                    }
-                } catch (IOException e) {
-                    throw new UnsupportedIndexException(this, queryKey);
-                }
-            }
         }
         return elkField;
     }
@@ -1223,15 +1214,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
             if (elkField == null) {
                 elkField = queryKey;
-            }
-            if (typeIds != null && typeIds.length > 0 && elkField != null) {
-                try {
-                    if (!checkElasticMappingField(typeIds, elkField)) {
-                        throw new UnsupportedIndexException(this, queryKey);
-                    }
-                } catch (IOException e) {
-                    throw new UnsupportedIndexException(this, queryKey);
-                }
             }
         }
 
