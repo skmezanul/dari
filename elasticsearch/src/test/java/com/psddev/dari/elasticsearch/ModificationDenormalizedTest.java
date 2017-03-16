@@ -40,10 +40,10 @@ public class ModificationDenormalizedTest extends AbstractElasticTest {
         test.setName("Test");
         test.save();
 
-        Query query = Query.from(ModificationDenormalizedModel.class);
-        List<ModificationDenormalizedModel> m = query.selectAll();
+        List<ModificationDenormalizedModel> m  = Query.from(ModificationDenormalizedModel.class).selectAll();
+        long c = Query.from(ModificationDenormalizedModel.class).count();
 
-        assertThat(query.count(), is(1L));
+        assertThat(c, is(1L));
         assertThat(m, (Every.everyItem(HasPropertyWithValue.hasProperty("name", Is.is("Test")))));
     }
 

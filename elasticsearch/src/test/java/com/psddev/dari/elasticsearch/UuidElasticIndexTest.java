@@ -1,7 +1,6 @@
 package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Location;
-import com.psddev.dari.db.Query;
 import org.junit.Test;
 
 import java.util.List;
@@ -68,9 +67,7 @@ public class UuidElasticIndexTest extends AbstractElasticIndexTest<UuidElasticIn
             model().embeddedAll(model().all(value(i % 2 == 0 ? i : size - i))).create();
         }
 
-        Query query = query().where("embeddedOne/one != missing").sortAscending("embeddedOne/one");
-
-        List<UuidElasticIndexModel> models = query.selectAll();
+        List<UuidElasticIndexModel> models = query().where("embeddedOne/one != missing").sortAscending("embeddedOne/one").selectAll();
 
         assertThat(models, hasSize(26));
 

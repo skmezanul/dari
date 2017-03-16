@@ -2,7 +2,6 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Query;
-import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.util.TypeDefinition;
 import org.junit.After;
 import org.junit.Before;

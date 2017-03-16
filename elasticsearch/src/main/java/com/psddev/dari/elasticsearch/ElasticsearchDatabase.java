@@ -117,6 +117,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         public int port;
     }
 
+    public static final String ELASTIC_VERSION = "5.2.2";
     public static final String DEFAULT_DATABASE_NAME = "dari/defaultDatabase";
     public static final String DATABASE_NAME = "elasticsearch";
     public static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
@@ -343,13 +344,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         Preconditions.checkNotNull(clusterName);
 
-        String clusterPort = ObjectUtils.to(String.class, settings.get(CLUSTER_PORT_SUB_SETTING));
-
-        Preconditions.checkNotNull(clusterPort);
-
-        String clusterHostname = ObjectUtils.to(String.class, settings.get(HOSTNAME_SUB_SETTING));
-
-        Preconditions.checkNotNull(clusterHostname);
+        this.clusterName = clusterName;
 
         String indexName = ObjectUtils.to(String.class, settings.get(INDEX_NAME_SUB_SETTING));
 
@@ -373,13 +368,33 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         }
 
-        this.clusterName = clusterName;
+        boolean done = false;
+        int nodeCount = 1;
+        while (!done) {
 
-        Node n = new Node();
-        n.hostname = clusterHostname;
-        n.port = Integer.parseInt(clusterPort);
+            if (settings.get(String.valueOf(nodeCount)) == null) {
+                done = true;
+            } else {
 
-        this.clusterNodes.add(n);
+                Map<String, Object> subSettings = (Map<String, Object>) settings.get(String.valueOf(nodeCount));
+
+                String clusterPort = ObjectUtils.to(String.class, subSettings.get(CLUSTER_PORT_SUB_SETTING));
+
+                Preconditions.checkNotNull(clusterPort);
+
+                String clusterHostname = ObjectUtils.to(String.class, subSettings.get(HOSTNAME_SUB_SETTING));
+
+                Preconditions.checkNotNull(clusterHostname);
+
+                Node n = new Node();
+                n.hostname = clusterHostname;
+                n.port = Integer.parseInt(clusterPort);
+
+                this.clusterNodes.add(n);
+
+                nodeCount++;
+            }
+        }
 
         this.indexName = indexName;
 
@@ -427,8 +442,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (j.getJSONObject("version") != null) {
                         JSONObject jo = j.getJSONObject("version");
                         String version = jo.getString("number");
-                        if (!"5.2.2".equals(version)) {
-                            LOGGER.warn("Warning: Elasticsearch {} version is not 5.2.2", version);
+                        if (!ELASTIC_VERSION.equals(version)) {
+                            LOGGER.warn("Warning: Elasticsearch {} version is not {}", version, ELASTIC_VERSION);
                         }
                         return version;
                     }
@@ -1162,7 +1177,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
             if (typeIds != null && typeIds.length > 0 && elkField != null) {
                 try {
-                    checkElasticMappingField(typeIds, elkField);
+                    if (!checkElasticMappingField(typeIds, elkField)) {
+                        throw new UnsupportedIndexException(this, queryKey);
+                    }
                 } catch (IOException e) {
                     throw new UnsupportedIndexException(this, queryKey);
                 }
@@ -1194,13 +1211,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         elkField = elkField + "." + LOCATION_FIELD;
                     }
                     if ("region".equals(internalType)) {
-                        throw new IllegalArgumentException(elkFields + " cannot sort GeoJSON Closest/Farthest");
+                        throw new IllegalArgumentException(elkField + " cannot sort GeoJSON Closest/Farthest");
                     }
                     if ("uuid".equals(internalType)) {
-                        throw new IllegalArgumentException(elkFields + " cannot sort UUID Closest/Farthest");
+                        throw new IllegalArgumentException(elkField + " cannot sort UUID Closest/Farthest");
                     }
                     if ("text".equals(internalType)) {
-                        throw new IllegalArgumentException(elkFields + " cannot sort Location on text Closest/Farthest");
+                        throw new IllegalArgumentException(elkField + " cannot sort Location on text Closest/Farthest");
                     }
                 }
             }
@@ -1209,7 +1226,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
             if (typeIds != null && typeIds.length > 0 && elkField != null) {
                 try {
-                    checkElasticMappingField(typeIds, elkField);
+                    if (!checkElasticMappingField(typeIds, elkField)) {
+                        throw new UnsupportedIndexException(this, queryKey);
+                    }
                 } catch (IOException e) {
                     throw new UnsupportedIndexException(this, queryKey);
                 }
@@ -1546,7 +1565,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
 
             String key = elasticField;
-            String dotKey = key;
 
             List<Object> values = comparison.getValues();
 
@@ -1590,13 +1608,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
-                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey)
-                                    : geoLocationQuery(finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
+                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(key)
+                                    : geoLocationQuery(finalSimpleKey, key, key, query, v, ShapeRelation.WITHIN));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::mustNot, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
-                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey)
-                                    : geoLocationQuery(finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
+                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(key)
+                                    : geoLocationQuery(finalSimpleKey, key, key, query, v, ShapeRelation.WITHIN));
                     }
 
                 case PredicateParser.LESS_THAN_OPERATOR :
@@ -1621,13 +1639,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
 
-                    String finalLessThanKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                                     v == null ? QueryBuilders.matchAllQuery()
-                                    : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(finalLessThanKey)).lt(v)
-                                    : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalLessThanKey + ".x").lt(((Location) v).getX()))
-                                        .must(QueryBuilders.rangeQuery(finalLessThanKey + ".y").lt(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(finalLessThanKey).lt(v))));
+                                    : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).lt(v)
+                                    : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
+                                        .must(QueryBuilders.rangeQuery(key + ".y").lt(((Location) v).getY()))
+                                    : QueryBuilders.rangeQuery(key).lt(v))));
 
                 case PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
@@ -1651,14 +1668,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
 
-                    String finalLessThanEqKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(finalLessThanEqKey)).lte(v)
+                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).lte(v)
                             : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalLessThanEqKey + ".x").lte(((Location) v).getX()))
-                                    .must(QueryBuilders.rangeQuery(finalLessThanEqKey + ".y").lte(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(finalLessThanEqKey).lte(v))));
+                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lte(((Location) v).getX()))
+                                    .must(QueryBuilders.rangeQuery(key + ".y").lte(((Location) v).getY()))
+                                    : QueryBuilders.rangeQuery(key).lte(v))));
 
                 case PredicateParser.GREATER_THAN_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
@@ -1681,14 +1697,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
 
-                    String finalGreaterThanKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(finalGreaterThanKey)).gt(v)
+                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).gt(v)
                             : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalGreaterThanKey + ".x").gt(((Location) v).getX()))
-                                    .must(QueryBuilders.rangeQuery(finalGreaterThanKey + ".y").gt(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(finalGreaterThanKey).gt(v))));
+                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
+                                    .must(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
+                                    : QueryBuilders.rangeQuery(key).gt(v))));
 
                 case PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR :
 
@@ -1712,14 +1727,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
 
-                    String finalGreaterThanEqKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(finalGreaterThanEqKey)).gte(v)
+                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).gte(v)
                             : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(finalGreaterThanEqKey + ".x").gte(((Location) v).getX()))
-                                    .must(QueryBuilders.rangeQuery(finalGreaterThanEqKey + ".y").gte(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(finalGreaterThanEqKey).gte(v))));
+                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gte(((Location) v).getX()))
+                                    .must(QueryBuilders.rangeQuery(key + ".y").gte(((Location) v).getY()))
+                                    : QueryBuilders.rangeQuery(key).gte(v))));
 
                 case PredicateParser.STARTS_WITH_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
@@ -1744,10 +1758,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             throw new IllegalArgumentException(operator + " region not allowed");
                         }
                     }
-                    String finalStartsWithKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : QueryBuilders.prefixQuery(finalStartsWithKey, String.valueOf(v)));
+                            : QueryBuilders.prefixQuery(key, String.valueOf(v)));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
@@ -1792,17 +1805,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
                                 : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(geoShapeIntersects(dotKey + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
+                                    ? QueryBuilders.boolQuery().must(geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
-                                                geoLocationQuery(finalSimpleKey1, dotKey, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(dotKey + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                                geoLocationQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
+                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
-                                : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(dotKey).field(dotKey + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
@@ -1847,17 +1860,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
                                         : (v instanceof Location
-                                        ? QueryBuilders.boolQuery().must(geoShapeIntersects(dotKey + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
+                                        ? QueryBuilders.boolQuery().must(geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
-                                        geoLocationQuery(finalSimpleKey2, dotKey, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(dotKey + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        geoLocationQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
+                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(dotKey).field(dotKey + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(key).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
@@ -1878,6 +1891,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (obj instanceof UUID) {
                 return true;
             } else if (obj instanceof String) {
+                //noinspection ResultOfMethodCallIgnored
                 UUID.fromString((String) obj);
                 return true;
             }
