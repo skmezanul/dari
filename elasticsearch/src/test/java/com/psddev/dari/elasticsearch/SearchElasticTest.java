@@ -8,6 +8,7 @@ import com.psddev.dari.db.ObjectMethod;
 import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.State;
+import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.Settings;
 import org.apache.commons.lang3.time.DateUtils;
@@ -241,8 +242,8 @@ public class SearchElasticTest extends AbstractElasticTest {
         assertThat("check 1 and 2 order", fooResult.get(1).one, lessThan(fooResult.get(2).one));
     }
 
-    @Test
-    public void testSortStringOneField() throws Exception {
+    @Test(expected = UnsupportedIndexException.class)
+    public void testSortStringNeverIndexed() throws Exception {
         Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
             SearchElasticModel model = new SearchElasticModel();
             model.f = f;
