@@ -41,8 +41,12 @@ public class EmbeddedElasticsearchServer {
             node.client().admin().cluster().prepareHealth()
                     .setWaitForYellowStatus()
                     .get();
-        } catch (Exception e) {
-            LOGGER.warn("EmbeddedElasticsearchServer cannot create embedded node");
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("EmbeddedElasticsearchServer cannot create embedded node [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
         }
     }
 
