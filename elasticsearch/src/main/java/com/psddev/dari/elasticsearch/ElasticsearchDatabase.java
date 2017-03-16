@@ -754,7 +754,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             srb.addSort(sb);
         }
 
-        LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.info("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
 
@@ -1179,42 +1179,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         String elkFields = null;
 
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
-        if (mappedKey != null) {
-            List<ObjectField> fields = mappedKey.getFields();
-            if (fields != null) {
-                for (ObjectField f : fields) {
-                    if (f.getInternalType() != null) {
-                        if (!isReference(f.getInternalName(), query)) {
-                            elkFields = (elkFields == null ? f.getInternalName() : elkFields + "." + f.getInternalName());
-                        }
-                    }
-                }
-            }
+
+        if (mappedKey != null && mappedKey.hasSubQuery()) {
+            throw new IllegalArgumentException(queryKey + " cannot sort subQuery (create denormalized fields) on Nearest/Farthest");
         }
 
-        if (mappedKey.hasSubQuery()) {
-            ObjectField sub = mappedKey.getSubQueryKeyField();
-            if (sub != null) {
-                mappedKey = mapFullyDenormalizedKey(query, sub.getInternalName());
-            } else {
-                throw new UnsupportedIndexException(this, queryKey);
-            }
-        }
-
-        if (elkFields == null) {
-            int lastSlash = queryKey.lastIndexOf('/');
-            if (lastSlash != -1 && mappedKey != null && mappedKey.getField() != null && !mappedKey.getField().getInternalName().equals(queryKey.substring(lastSlash + 1))) {
-                throw new UnsupportedIndexException(this, queryKey);
-            }
-            elkFields = queryKey;
-        }
         elkField = specialSortFields.get(mappedKey);
         if (elkField == null) {
             if (mappedKey != null) {
+                elkField = mappedKey.getIndexKey(null);
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
                     if ("location".equals(internalType)) {
-                        elkField = elkFields + "." + LOCATION_FIELD;
+                        elkField = elkField + "." + LOCATION_FIELD;
                     }
                     if ("region".equals(internalType)) {
                         throw new IllegalArgumentException(elkFields + " cannot sort GeoJSON Closest/Farthest");
@@ -1228,27 +1205,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
             }
             if (elkField == null) {
-                elkField = elkFields;
+                elkField = queryKey;
             }
-        }
-
-        if (typeIds != null && typeIds.length > 0 && elkField != null) {
-            try {
-                if (!checkElasticMappingField(typeIds, elkField)) {
-
-                    // double check ref
-                    int slash = elkField.lastIndexOf('/');
-                    if (slash != -1 && !elkField.substring(slash + 1).equals(elkField)) {
-                        elkField = elkField.substring(slash + 1);
-                        if (!checkElasticMappingField(typeIds, elkField)) {
-                            throw new UnsupportedIndexException(this, queryKey);
-                        }
-                    } else {
-                        throw new UnsupportedIndexException(this, queryKey);
-                    }
+            if (typeIds != null && typeIds.length > 0 && elkField != null) {
+                try {
+                    checkElasticMappingField(typeIds, elkField);
+                } catch (IOException e) {
+                    throw new UnsupportedIndexException(this, queryKey);
                 }
-            } catch (IOException e) {
-                throw new UnsupportedIndexException(this, elkField + " " + queryKey);
             }
         }
 
@@ -1403,19 +1367,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Get the QueryBuilder equalsany for each v. Splits out "Location" and "Region"
      */
-    private QueryBuilder geoLocation(String operator, String simpleKey, String dotKey, String key, Query<?> query, Object v, ShapeRelation sr) {
+    private QueryBuilder geoLocationQuery(String simpleKey, String dotKey, String key, Query<?> query, Object v, ShapeRelation sr) {
 
         String geoType = null;
         if (v == null) {
             return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery());
-        } else if (Query.MISSING_VALUE.equals(v)) {
-            Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-            String checkField = specialFields.get(mappedKey);
-            if (checkField == null) {
-                if (simpleKey != null) {
-                    dotKey = mappedKey.getField().getInternalName();
-                }
-            }
         } else if (v instanceof String || isUUID(v)) {
             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
             String checkField = specialFields.get(mappedKey);
@@ -1446,16 +1402,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         throw new IllegalArgumentException(key + " boolean cannot be region");
                     }
                 } else if (internalType != null && "region".equals(internalType)) {
-                    geoType = "polygon";
+                    geoType = "region";
                 } else if (internalType != null && "location".equals(internalType)) {
                     geoType = "location";
                 }
             }
         }
 
-        String type = geoType;
-
-        if (type != null && "location".equals(type)) {
+        if (geoType != null && "location".equals(geoType)) {
             if (v instanceof Location) {
                 return QueryBuilders.boolQuery().must(QueryBuilders.termQuery(key + ".x", ((Location) v).getX()))
                         .must(QueryBuilders.termQuery(key + ".y", ((Location) v).getY()));
@@ -1463,7 +1417,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 return QueryBuilders.geoDistanceQuery(key + "." + LOCATION_FIELD).point(((Region) v).getX(), ((Region) v).getY())
                         .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS);
             }
-        } else if (type != null && "polygon".equals(type)) {
+        } else if (geoType != null && "region".equals(geoType)) {
             if (v instanceof Location) {
                 return QueryBuilders.boolQuery().must(geoShape(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()));
 
@@ -1477,12 +1431,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 String json = "{" + "\"geo_shape\":" + nameJson + "}";
                 return QueryBuilders.boolQuery().must(QueryBuilders.wrapperQuery(json));
             }
-        }
-        int slash = key.indexOf('/');
-        if (slash != -1) {
-            dotKey = key.substring(slash + 1);
-            //return QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(key);
-            return QueryBuilders.termQuery(key, v);
         }
 
         return QueryBuilders.termQuery(key, v);
@@ -1643,12 +1591,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey)
-                                    : geoLocation(operator, finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
+                                    : geoLocationQuery(finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::mustNot, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(dotKey)
-                                    : geoLocation(operator, finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
+                                    : geoLocationQuery(finalSimpleKey, dotKey, key, query, v, ShapeRelation.WITHIN));
                     }
 
                 case PredicateParser.LESS_THAN_OPERATOR :
@@ -1799,7 +1747,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String finalStartsWithKey = dotKey;
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : QueryBuilders.prefixQuery(finalStartsWithKey, v.toString()));
+                            : QueryBuilders.prefixQuery(finalStartsWithKey, String.valueOf(v)));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
@@ -1847,7 +1795,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     ? QueryBuilders.boolQuery().must(geoShapeIntersects(dotKey + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
-                                                geoLocation(operator, finalSimpleKey1, dotKey, key, query, v, ShapeRelation.CONTAINS))
+                                                geoLocationQuery(finalSimpleKey1, dotKey, key, query, v, ShapeRelation.CONTAINS))
                                         : QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(dotKey + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
@@ -1902,7 +1850,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         ? QueryBuilders.boolQuery().must(geoShapeIntersects(dotKey + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
-                                        geoLocation(operator, finalSimpleKey2, dotKey, key, query, v, ShapeRelation.CONTAINS))
+                                        geoLocationQuery(finalSimpleKey2, dotKey, key, query, v, ShapeRelation.CONTAINS))
                                         : QueryBuilders.queryStringQuery(String.valueOf(v)).field(dotKey).field(dotKey + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
@@ -2283,7 +2231,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Main function to convert a Geometry to Elastic before writing. This is recursive.
+     * Main function to convert a Geometry to Elastic before writing. This is destructive.
      *
      * @see #doWrites
      * @see #convertLocationToName(Map, String)
@@ -2317,7 +2265,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Main function to convert a Geometry to Elastic before writing. This is recursive.
+     * Main function to convert a Geometry to Elastic before writing. This is destructive.
      *
      * @see #doWrites
      * @see #convertRegionToName(Map, String)
@@ -2467,8 +2415,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                 Map<String, Object> m = getElasticGeometryMap((Map<String, Object>) valueMap, name);
                 if (m.size() > 0) {
-                    value = m;
                     name = name + "." + REGION_FIELD;
+                    value = m;
                 } else {
                     return;
                 }
@@ -2714,8 +2662,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             StringBuilder allBuilder = new StringBuilder();
 
                             // these 2 are disruptive to t
-                            convertLocationToName(t, LOCATION_FIELD);
-                            convertRegionToName(t, REGION_FIELD);
+                            //convertLocationToName(t, LOCATION_FIELD);
+                            //convertRegionToName(t, REGION_FIELD);
 
                             Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
 
@@ -2732,7 +2680,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.put("_ids", documentId); // Elastic range for iterator default _id will not work
 
                             LOGGER.debug("All field [{}]", allBuilder.toString());
-                            LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                            LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                         } catch (Exception error) {

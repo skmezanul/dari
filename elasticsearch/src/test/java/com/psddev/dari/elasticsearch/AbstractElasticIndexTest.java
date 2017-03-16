@@ -512,17 +512,19 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
             model().referenceAll(reference).create();
         }
 
-        List<M> models = query().where("referenceOne/one != missing").sortAscending("referenceOne/one").selectAll();
+        query().where("referenceOne/one != missing").sortAscending("referenceOne/one").selectAll();
     }
 
     @Test
     public void sortClosestReferenceOneOne() {
-        for (int i = 0, size = 26; i < size; ++ i) {
+        for (int i = 0, size = 2; i < size; ++ i) {
             M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
             model().referenceAll(reference).create();
         }
 
-        List<M> models = query().where("referenceOne/one != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
+        // Since the field is not denormalized, sort will need to be on "one" since that is what is coming back.
+        // the subquery is on referenceOne, and looking for one that is not missing
+        List<M> models = query().where("referenceOne/one != missing").sortClosest("one", new Location(0, 0)).selectAll();
 
         assertThat(models, hasSize(total / 2));
 
@@ -532,7 +534,27 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         }
     }
 
-    @Test(expected = UnsupportedIndexException.class)
+    @Test
+    public void referenceMissingAndNotMissing() {
+        for (int i = 0, size = 26; i < size; ++ i) {
+            M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
+            model().referenceAll(reference).create();
+        }
+
+        List<M> models = query().where("referenceOne/one != missing or referenceOne != missing").selectAll();
+
+        assertThat(models, hasSize(total));
+
+        for (int i = 0, size = models.size(); i < size; ++ i) {
+            if (models.get(i).getOne() == null) {
+                assertThat(models.get(i).getReferenceOne(), is(notNullValue()));
+            } else {
+                assertThat(models.get(i).getReferenceOne(), is(nullValue()));
+            }
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
     public void sortClosestReferenceOneOneJunkSort() {
         for (int i = 0, size = 26; i < size; ++ i) {
             M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
