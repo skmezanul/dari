@@ -2,7 +2,11 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.AtomicOperation;
 import com.psddev.dari.db.Database;
+import com.psddev.dari.db.DatabaseException;
+import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
+import com.psddev.dari.db.State;
+import org.apache.logging.log4j.core.appender.WriterManager;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
@@ -10,8 +14,14 @@ import org.junit.rules.ExpectedException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.instanceOf;
+
 import static org.junit.Assert.assertThat;
 
 public class WriteTest extends AbstractElasticTest {
@@ -51,7 +61,7 @@ public class WriteTest extends AbstractElasticTest {
         assertThat(Query.from(WriteModel.class).first(), is(model1));
     }
 
-    /*
+
     @Test
     public void saveAtomicallyIncrement() {
         new WriteModel().save();
@@ -68,9 +78,8 @@ public class WriteTest extends AbstractElasticTest {
         assertThat(model2.number, is(2));
 
         assertThat(Query.from(WriteModel.class).first().number, is(2));
-    } */
+    }
 
-    /*
     @Test
     public void saveAtomicallyDecrement() {
         WriteModel model = new WriteModel();
@@ -90,9 +99,8 @@ public class WriteTest extends AbstractElasticTest {
         assertThat(model2.number, is(0));
 
         assertThat(Query.from(WriteModel.class).first().number, is(0));
-    } /*
+    }
 
-    /*
     @Test
     public void saveAtomicallyAdd() {
         new WriteModel().save();
@@ -113,9 +121,8 @@ public class WriteTest extends AbstractElasticTest {
         List<String> list = Query.from(WriteModel.class).first().list;
         assertThat(list, hasSize(2));
         assertThat(list, contains("foo", "bar"));
-    } */
+    }
 
-    /*
     @Test
     public void saveAtomicallyRemove() {
         WriteModel model = new WriteModel();
@@ -137,9 +144,8 @@ public class WriteTest extends AbstractElasticTest {
         assertThat(model2.list, empty());
 
         assertThat(Query.from(WriteModel.class).first().list, empty());
-    } */
+    }
 
-    /*
     @Test
     public void saveAtomicallyReplace() {
         WriteModel model = new WriteModel();
@@ -159,7 +165,7 @@ public class WriteTest extends AbstractElasticTest {
         thrown.expect(DatabaseException.class);
         thrown.expectCause(instanceOf(AtomicOperation.ReplacementException.class));
         model2.save();
-    } */
+    }
 
     private List<WriteModel> createDeleteTestModels() {
         List<WriteModel> models = new ArrayList<>();

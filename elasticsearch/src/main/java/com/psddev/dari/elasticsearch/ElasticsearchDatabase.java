@@ -7,6 +7,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.psddev.dari.db.AbstractDatabase;
 import com.psddev.dari.db.AbstractGrouping;
+import com.psddev.dari.db.AtomicOperation;
 import com.psddev.dari.db.ComparisonPredicate;
 import com.psddev.dari.db.CompoundPredicate;
 import com.psddev.dari.db.Database;
@@ -64,6 +65,8 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
+import org.elasticsearch.script.Script;
+import org.elasticsearch.script.ScriptService;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -2673,42 +2676,137 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (saves != null) {
                     for (State state : saves) {
                         try {
-                            String documentType = state.getTypeId().toString();
-                            String documentId = state.getId().toString();
+                            boolean isNew = state.isNew();
+                            UUID documentTypeUUID = state.getTypeId();
+                            String documentType = documentTypeUUID.toString();
+                            UUID documentUUID = state.getId();
+                            String documentId = documentUUID.toString();
                             String newIndexname = indexName + documentType.replaceAll("-", "");
-
-                            Map<String, Object> t = state.getSimpleValues();
-
+                            List<AtomicOperation> atomicOperations = state.getAtomicOperations();
                             StringBuilder allBuilder = new StringBuilder();
 
-                            // these 2 are disruptive to t
-                            //convertLocationToName(t, LOCATION_FIELD);
-                            //convertRegionToName(t, REGION_FIELD);
+                            if (isNew || atomicOperations.isEmpty()) {
+                                Map<String, Object> t = state.getSimpleValues();
 
-                            Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
+                                // these 2 are disruptive to t
+                                //convertLocationToName(t, LOCATION_FIELD);
+                                //convertRegionToName(t, REGION_FIELD);
 
-                            // add Indexed methods
-                            Map<String, Object> extra = addIndexedMethods(state, allBuilder);
-                            if (extra.size() > 0) {
-                                extra.forEach((s, obj) -> t.put(s, obj));
+                                Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
+
+                                // add Indexed methods
+                                Map<String, Object> extra = addIndexedMethods(state, allBuilder);
+                                if (extra.size() > 0) {
+                                    extra.forEach((s, obj) -> t.put(s, obj));
+                                }
+                                if (extraFields.size() > 0) {
+                                    extraFields.forEach((s, obj) -> t.put(s, obj));
+                                }
+                                t.remove("_id");
+                                t.remove("_type");
+                                t.put("_ids", documentId); // Elastic range for iterator default _id will not work
+
+                                LOGGER.debug("All field [{}]", allBuilder.toString());
+                                LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                                        newIndexname, documentType, documentId, t.toString());
+                                bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
+
+                            } else {
+                                // there is no getting around it, must grab query to get old value and set it
+                                boolean sendFullUpdate = false;
+                                Object oldObject = Query
+                                        .from(Object.class)
+                                        .where("_id = ?", documentId)
+                                        .using(this)
+                                        .master()
+                                        .noCache()
+                                        .first();
+
+                                if (oldObject == null) {
+                                    retryWrites();
+                                    break;
+                                }
+
+                                // Restore the data from the old object.
+                                State oldState = State.getInstance(oldObject);
+                                UUID oldTypeId = oldState.getVisibilityAwareTypeId();
+                                UUID oldId = oldState.getId();
+
+                                state.setValues(oldState.getValues());
+
+                                // Reset to old First
+                                for (AtomicOperation operation : atomicOperations) {
+                                    String field = operation.getField();
+                                    state.putByPath(field, oldState.getByPath(field));
+                                }
+
+                                for (AtomicOperation operation : atomicOperations) {
+                                    operation.execute(state); // sets state
+                                    if (!sendFullUpdate) {
+                                        String field = operation.getField().trim();
+                                        if (field.indexOf('/') != -1) {
+                                            sendFullUpdate = true;
+                                        } else if (operation instanceof AtomicOperation.Increment) {
+                                            double newVal = ((AtomicOperation.Increment) operation).getValue();
+                                            String val = String.valueOf(newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script("ctx._source." + field + " += " + val))
+                                                    .setDetectNoop(false));
+                                        } else {
+                                            sendFullUpdate = true;
+                                        }
+                                    }
+                                    // other ones can be done with normal update() since merge should work.
+                                }
+
+                                boolean sendExtraUpdate = false;
+                                Map<String, Object> t = state.getSimpleValues();
+                                Map<String, Object> extra = new HashMap<>();
+
+                                Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
+
+                                Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
+                                if (extraIndex.size() > 0) {
+                                    sendExtraUpdate = true;
+                                    extraIndex.forEach((s, obj) -> t.put(s, obj));
+                                    extraIndex.forEach((s, obj) -> extra.put(s, obj));
+                                }
+                                if (extraFields.size() > 0) {
+                                    sendExtraUpdate = true;
+                                    extraFields.forEach((s, obj) -> t.put(s, obj));
+                                    extraFields.forEach((s, obj) -> extra.put(s, obj));
+                                }
+                                t.remove("_id");
+                                t.remove("_type");
+                                t.put("_ids", documentId);
+
+                                // if you move TypeId you need to add the whole document and remove old
+                                if (!oldTypeId.equals(documentTypeUUID) || !oldId.equals(documentUUID)) {
+                                    String oldDocumentType = oldTypeId.toString();
+                                    String oldDocumentId = oldId.toString();
+                                    String oldIndexname = indexName + oldDocumentType.replaceAll("-", "");
+                                    bulk.add(client
+                                            .prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
+                                    LOGGER.debug("Elasticsearch doWrites moved typeId atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
+                                            newIndexname, documentType, documentId, t.toString());
+                                    bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
+                                } else if (sendFullUpdate) {
+                                    LOGGER.debug("Elasticsearch doWrites sendFullUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
+                                            newIndexname, documentType, documentId, t.toString());
+                                    bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(t));
+                                } else if (sendExtraUpdate) {
+                                    LOGGER.debug("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
+                                            newIndexname, documentType, documentId, extra.toString());
+                                    bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(extra));
+                                }
                             }
-                            if (extraFields.size() > 0) {
-                                extraFields.forEach((s, obj) -> t.put(s, obj));
-                            }
-                            t.remove("_id");
-                            t.remove("_type");
-                            t.put("_ids", documentId); // Elastic range for iterator default _id will not work
-
-                            LOGGER.debug("All field [{}]", allBuilder.toString());
-                            LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
-                                    newIndexname, documentType, documentId, t.toString());
-                            bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                         } catch (Exception error) {
                             LOGGER.warn(
                                     String.format("Elasticsearch doWrites saves Exception [%s: %s]",
                                             error.getClass().getName(),
                                             error.getMessage()),
                                     error);
+                            throw error;
                         }
                     }
             }
@@ -2730,7 +2828,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         error.getClass().getName(),
                                         error.getMessage()),
                                 error);
-
+                        throw error;
                     }
                 }
             }
@@ -2745,7 +2843,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             error.getClass().getName(),
                             error.getMessage()),
                     error);
-
+            throw error;
         }
     }
 }

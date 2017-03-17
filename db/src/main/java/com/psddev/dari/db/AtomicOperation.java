@@ -66,6 +66,10 @@ public abstract class AtomicOperation {
             this.value = value;
         }
 
+        public double getValue() {
+            return this.value;
+        }
+
         @Override
         public void execute(State state) {
             String field = getField();

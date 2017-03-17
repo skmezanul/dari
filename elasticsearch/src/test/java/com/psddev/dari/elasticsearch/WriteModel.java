@@ -10,4 +10,7 @@ public class WriteModel extends Record {
     public int number;
     public String string;
     public final List<String> list = new ArrayList<String>();
+
 }
+
+
