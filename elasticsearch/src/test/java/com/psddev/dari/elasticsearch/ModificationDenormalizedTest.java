@@ -50,10 +50,7 @@ public class ModificationDenormalizedTest extends AbstractElasticTest {
     private List<ElasticTag> buildList(List<String> values) {
         List<ElasticTag> eList = new ArrayList<>();
         for (String v : values) {
-            ElasticTag t = new ElasticTag();
-            t.setName(v);
-            t.save();
-            eList.add(t);
+            eList.add(buildValue(v));
         }
         return eList;
     }
@@ -61,10 +58,7 @@ public class ModificationDenormalizedTest extends AbstractElasticTest {
     private Set<ElasticTag> buildSet(List<String> values) {
         Set<ElasticTag> eList = new HashSet<>();
         for (String v : values) {
-            ElasticTag t = new ElasticTag();
-            t.setName(v);
-            t.save();
-            eList.add(t);
+            eList.add(buildValue(v));
         }
         return eList;
     }

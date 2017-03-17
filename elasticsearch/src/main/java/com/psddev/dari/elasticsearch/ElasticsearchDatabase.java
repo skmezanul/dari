@@ -14,6 +14,7 @@ import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Modification;
 import com.psddev.dari.db.ObjectField;
+import com.psddev.dari.db.ObjectIndex;
 import com.psddev.dari.db.ObjectMethod;
 import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Predicate;
@@ -625,23 +626,23 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setSize(0);
 
             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, fields[0]);
-            String elkField = specialSortFields.get(mappedKey);
-            if (elkField == null) {
+            String elasticField = specialSortFields.get(mappedKey);
+            if (elasticField == null) {
                 if (mappedKey != null) {
                     String internalType = mappedKey.getInternalType();
                     if (internalType != null) {
                         if ("text".equals(internalType)) {
-                            elkField = addRaw(mappedKey.getIndexKey(null));
+                            elasticField = addRaw(mappedKey.getIndexKey(null));
                         }
                     }
                 }
-                if (elkField == null) {
-                    elkField = mappedKey.getIndexKey(null);
+                if (elasticField == null) {
+                    elasticField = mappedKey.getIndexKey(null);
                 }
             }
 
             if (query.getGroup() != null) {
-                TermsAggregationBuilder ab = AggregationBuilders.terms("agg").field(elkField).size(1000).order(Terms.Order.count(true));
+                TermsAggregationBuilder ab = AggregationBuilders.terms("agg").field(elasticField).size(1000).order(Terms.Order.count(true));
                 srb.addAggregation(ab);
             }
             LOGGER.debug("Elasticsearch readPartialGrouped typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
@@ -943,9 +944,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             key = key.replaceAll("\\." + REGION_FIELD, "");
         }
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-        String elkField = specialSortFields.get(mappedKey);
+        String elasticField = specialSortFields.get(mappedKey);
 
-        if (elkField == null) {
+        if (elasticField == null) {
             if (mappedKey != null) {
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
@@ -989,13 +990,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boolean isAscending = Sorter.ASCENDING_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(0);
 
-                    String elkField = convertAscendingElkField(queryKey, query, typeIds);
+                    String elasticField = convertAscendingElasticField(queryKey, query, typeIds);
 
-                    if (elkField == null) {
+                    if (elasticField == null) {
                         throw new UnsupportedIndexException(this, queryKey);
                     }
                     String unmappedTypeString = getFieldType(queryKey, query);
-                    FieldSortBuilder fs = new FieldSortBuilder(elkField).order(isAscending ? ASC : DESC);
+                    FieldSortBuilder fs = new FieldSortBuilder(elasticField).order(isAscending ? ASC : DESC);
                     if (unmappedTypeString != null) {
                         fs.unmappedType(unmappedTypeString);
                     }
@@ -1007,15 +1008,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boolean isOldest = Sorter.OLDEST_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(1);
                     Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
-                    String elkField = specialSortFields.get(mappedKey);
+                    String elasticField = specialSortFields.get(mappedKey);
 
-                    if (elkField == null) {
+                    if (elasticField == null) {
                         if (mappedKey != null) {
                             String internalType = mappedKey.getInternalType();
                             if (internalType != null) {
                                 // only date can boost this way
                                 if ("date".equals(internalType)) {
-                                    elkField = queryKey;
+                                    elasticField = queryKey;
                                 } else {
                                     throw new IllegalArgumentException();
                                 }
@@ -1023,7 +1024,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
 
-                    if (elkField == null) {
+                    if (elasticField == null) {
                         throw new UnsupportedIndexException(this, queryKey);
                     }
 
@@ -1036,13 +1037,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     long scale = MILLISECONDS_IN_5YEAR; // 5 years scaling
                     if (!isOldest) {
                         filterFunctionBuilders.add(
-                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elkField, new Date().getTime(), scale, 0, .1).setWeight(boost))
+                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elasticField, new Date().getTime(), scale, 0, .1).setWeight(boost))
                         );
                         // Solr: recip(x,m,a,b) implementing a/(m*x+b)
                         // boostFunctionBuilder.append(String.format("{!boost b=recip(ms(NOW/HOUR,%s),3.16e-11,%s,%s)}", elasticField, boost, boost));
                     } else {
                         filterFunctionBuilders.add(
-                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elkField, DateUtils.addYears(new java.util.Date(), -5).getTime(), scale, 0, .1).setWeight(boost))
+                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elasticField, DateUtils.addYears(new java.util.Date(), -5).getTime(), scale, 0, .1).setWeight(boost))
                         );
                         // Solr: linear(x,2,4) returns 2*x+4
                         // boostFunctionBuilder.append(String.format("{!boost b=linear(ms(NOW/HOUR,%s),3.16e-11,%s)}", elasticField, boost));
@@ -1055,13 +1056,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boolean isClosest = Sorter.CLOSEST_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(0);
 
-                    String elkField = convertFarthestElkField(queryKey, query, typeIds);
+                    String elasticField = convertFarthestElasticField(queryKey, query, typeIds);
 
                     if (!(sorter.getOptions().get(1) instanceof Location)) {
                         throw new IllegalArgumentException(operator + " requires Location");
                     }
                     Location sort = (Location) sorter.getOptions().get(1);
-                    list.add(new GeoDistanceSortBuilder(elkField, new GeoPoint(sort.getX(), sort.getY()))
+                    list.add(new GeoDistanceSortBuilder(elasticField, new GeoPoint(sort.getX(), sort.getY()))
                             .order(isClosest ? SortOrder.ASC : SortOrder.DESC));
                 } else if (Sorter.RELEVANT_OPERATOR.equals(operator)) {
                     Predicate sortPredicate;
@@ -1146,45 +1147,44 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * @throws IllegalArgumentException  the argument is illegal
      * @throws UnsupportedIndexException the mapping not setup properly
      */
-    private <T> String convertAscendingElkField(String queryKey, Query<T> query, String[] typeIds) {
-        String elkField;
+    private <T> String convertAscendingElasticField(String queryKey, Query<T> query, String[] typeIds) {
+        String elasticField;
 
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
         if (mappedKey != null && mappedKey.hasSubQuery()) {
             throw new IllegalArgumentException(queryKey + " cannot sort subQuery (create denormalized fields) on Ascending/Descending");
         }
 
-        elkField = specialSortFields.get(mappedKey);
+        elasticField = specialSortFields.get(mappedKey);
 
         /* skip for special */
-        if (elkField == null) {
+        if (elasticField == null) {
             queryKey = mappedKey.getIndexKey(null);
             String internalType = mappedKey.getInternalType();
             if (internalType != null) {
                 if ("text".equals(internalType) || "uuid".equals(internalType)) {
-                    elkField = addRaw(queryKey);
+                    elasticField = addRaw(queryKey);
                 } else if ("location".equals(internalType)) {
-                    elkField = queryKey + "." + LOCATION_FIELD;
+                    elasticField = queryKey + "." + LOCATION_FIELD;
                     // not sure what to do with lat,long and sort?
-                    throw new IllegalArgumentException(elkField + " cannot sort Location on Ascending/Descending");
+                    throw new IllegalArgumentException(elasticField + " cannot sort Location on Ascending/Descending");
                 } else if ("region".equals(internalType)) {
-                    elkField = queryKey + "." + REGION_FIELD;
-                    throw new IllegalArgumentException(elkField + " cannot sort GeoJSON in Elastic Search");
+                    elasticField = queryKey + "." + REGION_FIELD;
+                    throw new IllegalArgumentException(elasticField + " cannot sort GeoJSON in Elastic Search");
                 }
             }
-            if (elkField == null) {
-                elkField = queryKey;
+            if (elasticField == null) {
+                elasticField = queryKey;
             }
         }
-        return elkField;
+        return elasticField;
     }
 
     /**
-     * For Farthest / Nearest sort get the elkField
+     * For Farthest / Nearest sort get the elasticField
      */
-    private <T> String convertFarthestElkField(String queryKey, Query<T> query, String[] typeIds) {
-        String elkField;
-        String elkFields = null;
+    private <T> String convertFarthestElasticField(String queryKey, Query<T> query, String[] typeIds) {
+        String elasticField;
 
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
 
@@ -1192,32 +1192,32 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             throw new IllegalArgumentException(queryKey + " cannot sort subQuery (create denormalized fields) on Nearest/Farthest");
         }
 
-        elkField = specialSortFields.get(mappedKey);
-        if (elkField == null) {
+        elasticField = specialSortFields.get(mappedKey);
+        if (elasticField == null) {
             if (mappedKey != null) {
-                elkField = mappedKey.getIndexKey(null);
+                elasticField = mappedKey.getIndexKey(null);
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
                     if ("location".equals(internalType)) {
-                        elkField = elkField + "." + LOCATION_FIELD;
+                        elasticField = elasticField + "." + LOCATION_FIELD;
                     }
                     if ("region".equals(internalType)) {
-                        throw new IllegalArgumentException(elkField + " cannot sort GeoJSON Closest/Farthest");
+                        throw new IllegalArgumentException(elasticField + " cannot sort GeoJSON Closest/Farthest");
                     }
                     if ("uuid".equals(internalType)) {
-                        throw new IllegalArgumentException(elkField + " cannot sort UUID Closest/Farthest");
+                        throw new IllegalArgumentException(elasticField + " cannot sort UUID Closest/Farthest");
                     }
                     if ("text".equals(internalType)) {
-                        throw new IllegalArgumentException(elkField + " cannot sort Location on text Closest/Farthest");
+                        throw new IllegalArgumentException(elasticField + " cannot sort Location on text Closest/Farthest");
                     }
                 }
             }
-            if (elkField == null) {
-                elkField = queryKey;
+            if (elasticField == null) {
+                elasticField = queryKey;
             }
         }
 
-        return elkField;
+        return elasticField;
     }
 
     /**
@@ -2611,6 +2611,30 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return m;
     }
 
+    // Pass through distinct set of States to doSaves.
+    @Override
+    protected void doWriteRecalculations(TransportClient client, boolean isImmediate, Map<ObjectIndex, List<State>> recalculations) throws Exception {
+        if (recalculations != null) {
+            int count = 0;
+            Set<State> states = new HashSet<State>();
+            for (Map.Entry<ObjectIndex, List<State>> entry : recalculations.entrySet()) {
+                count++;
+                states.addAll(entry.getValue());
+            }
+            if (count > 0) {
+                doWrites(client, isImmediate, new ArrayList<State>(states),  new ArrayList<State>(),  new ArrayList<State>());
+            }
+        }
+    }
+
+    // Pass through to doWriteRecalculations.
+    @Override
+    protected void doRecalculations(TransportClient client, boolean isImmediate, ObjectIndex index, List<State> states) throws Exception {
+        Map<ObjectIndex, List<State>> recalculations = new HashMap<ObjectIndex, List<State>>();
+        recalculations.put(index, states);
+        doWriteRecalculations(client, isImmediate, recalculations);
+    }
+
     /**
      * Write saves, indexes, deletes as a bulk Elastic operation
      *
@@ -2666,10 +2690,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             // add Indexed methods
                             Map<String, Object> extra = addIndexedMethods(state, allBuilder);
                             if (extra.size() > 0) {
-                                t.putAll(extra);
+                                extra.forEach((s, obj) -> t.put(s, obj));
                             }
                             if (extraFields.size() > 0) {
-                                t.putAll(extraFields);
+                                extraFields.forEach((s, obj) -> t.put(s, obj));
                             }
                             t.remove("_id");
                             t.remove("_type");
