@@ -110,7 +110,7 @@ import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
 
 /**
- * ElasticsearchDatabase for Elasticsearch 5.x
+ * ElasticsearchDatabase for Elasticsearch 5.2
  *
  */
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
