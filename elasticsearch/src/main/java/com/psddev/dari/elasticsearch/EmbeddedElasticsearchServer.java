@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.internal.InternalSettingsPreparer;
+import org.elasticsearch.painless.PainlessPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.transport.Netty4Plugin;
 import org.slf4j.Logger;
@@ -11,8 +12,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 
 public class EmbeddedElasticsearchServer {
 
@@ -25,6 +27,10 @@ public class EmbeddedElasticsearchServer {
      */
     public static synchronized void setup() {
 
+        List plugins = new ArrayList();
+        plugins.add(Netty4Plugin.class);
+        plugins.add(PainlessPlugin.class);
+
         try {
             LOGGER.info("Setting up new Elasticsearch embedded node");
             node = new MyNode(
@@ -35,7 +41,7 @@ public class EmbeddedElasticsearchServer {
                             .put("http.enabled", "true")
                             .put("path.home", DEFAULT_DATA_DIRECTORY)
                             .build(),
-                    Collections.singletonList(Netty4Plugin.class));
+                    plugins);
 
             node.start();
             node.client().admin().cluster().prepareHealth()

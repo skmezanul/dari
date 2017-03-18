@@ -64,6 +64,12 @@
             <artifactId>transport</artifactId>
             <version>5.2.2</version>
         </dependency> -->
+        <!-- https://mvnrepository.com/artifact/org.codelibs.elasticsearch.module/lang-painless -->
+        <dependency>
+            <groupId>org.codelibs.elasticsearch.module</groupId>
+            <artifactId>lang-painless</artifactId>
+            <version>5.2.2</version>
+        </dependency>
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
