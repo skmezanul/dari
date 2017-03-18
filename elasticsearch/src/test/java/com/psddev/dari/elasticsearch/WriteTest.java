@@ -61,7 +61,6 @@ public class WriteTest extends AbstractElasticTest {
         assertThat(Query.from(WriteModel.class).first(), is(model1));
     }
 
-
     @Test
     public void saveAtomicallyIncrement() {
         new WriteModel().save();

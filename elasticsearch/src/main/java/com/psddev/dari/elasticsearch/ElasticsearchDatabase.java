@@ -66,7 +66,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.script.Script;
-import org.elasticsearch.script.ScriptService;
+import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
@@ -95,6 +95,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -2590,6 +2591,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return m;
     }
 
+    public Map<String, Object> addLabel(State state) {
+        Map<String, Object> m = new HashMap<>();
+
+        m.put(Query.LABEL_KEY, state.getLabel().trim().toLowerCase(Locale.ENGLISH));
+        return m;
+    }
+
     /**
      * Used to add Indexed Methods for Elastic
      */
@@ -2693,14 +2701,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 //convertRegionToName(t, REGION_FIELD);
 
                                 Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
+                                Map<String, Object> extraLabel = addLabel(state);
+                                Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
 
-                                // add Indexed methods
-                                Map<String, Object> extra = addIndexedMethods(state, allBuilder);
-                                if (extra.size() > 0) {
-                                    extra.forEach((s, obj) -> t.put(s, obj));
-                                }
                                 if (extraFields.size() > 0) {
                                     extraFields.forEach((s, obj) -> t.put(s, obj));
+                                }
+                                if (extraLabel.size() > 0) {
+                                    extraLabel.forEach((s, obj) -> t.put(s, obj));
+                                }
+                                if (extraIndex.size() > 0) {
+                                    extraIndex.forEach((s, obj) -> t.put(s, obj));
                                 }
                                 t.remove("_id");
                                 t.remove("_type");
@@ -2748,9 +2759,41 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                             sendFullUpdate = true;
                                         } else if (operation instanceof AtomicOperation.Increment) {
                                             double newVal = ((AtomicOperation.Increment) operation).getValue();
-                                            String val = String.valueOf(newVal);
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("val", newVal);
                                             bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                    .setScript(new Script("ctx._source." + field + " += " + val))
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + field + " += params.val;", params))
+                                                    .setDetectNoop(false));
+                                        } else if (operation instanceof AtomicOperation.Add) {
+                                            Object newVal = ((AtomicOperation.Add) operation).getValue();
+                                            //String valJson = ObjectUtils.toJson(newVal);
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("val", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + field + ".add(params.val);", params))
+                                                    .setDetectNoop(false));
+                                        } else if (operation instanceof AtomicOperation.Remove) {
+                                            Object newVal = ((AtomicOperation.Remove) operation).getValue();
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("val", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + field + ".remove(ctx._source." + field + ".indexOf(params.val));", params))
+                                                    .setDetectNoop(false));
+                                        } else if (operation instanceof AtomicOperation.Put) {
+                                            Object newVal = ((AtomicOperation.Put) operation).getValue();
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("val", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + field + "= params.val;", params))
+                                                    .setDetectNoop(false));
+                                        } else if (operation instanceof AtomicOperation.Replace) {
+                                            Object oldVal = ((AtomicOperation.Replace) operation).getOldValue();
+                                            Object newVal = ((AtomicOperation.Replace) operation).getNewValue();
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("oval", oldVal);
+                                            params.put("nval", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "if (ctx._source." + field + " == params.oval) ctx._source." + field + "= params.nval;", params))
                                                     .setDetectNoop(false));
                                         } else {
                                             sendFullUpdate = true;
@@ -2762,19 +2805,24 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 boolean sendExtraUpdate = false;
                                 Map<String, Object> t = state.getSimpleValues();
                                 Map<String, Object> extra = new HashMap<>();
-
                                 Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
-
+                                Map<String, Object> extraLabel = addLabel(state);
                                 Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
-                                if (extraIndex.size() > 0) {
-                                    sendExtraUpdate = true;
-                                    extraIndex.forEach((s, obj) -> t.put(s, obj));
-                                    extraIndex.forEach((s, obj) -> extra.put(s, obj));
-                                }
+
                                 if (extraFields.size() > 0) {
                                     sendExtraUpdate = true;
                                     extraFields.forEach((s, obj) -> t.put(s, obj));
                                     extraFields.forEach((s, obj) -> extra.put(s, obj));
+                                }
+                                if (extraLabel.size() > 0) {
+                                    sendExtraUpdate = true;
+                                    extraLabel.forEach((s, obj) -> t.put(s, obj));
+                                    extraLabel.forEach((s, obj) -> extra.put(s, obj));
+                                }
+                                if (extraIndex.size() > 0) {
+                                    sendExtraUpdate = true;
+                                    extraIndex.forEach((s, obj) -> t.put(s, obj));
+                                    extraIndex.forEach((s, obj) -> extra.put(s, obj));
                                 }
                                 t.remove("_id");
                                 t.remove("_type");
@@ -2787,7 +2835,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     String oldIndexname = indexName + oldDocumentType.replaceAll("-", "");
                                     bulk.add(client
                                             .prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
-                                    LOGGER.debug("Elasticsearch doWrites moved typeId atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
+                                    LOGGER.debug("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
                                             newIndexname, documentType, documentId, t.toString());
                                     bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                                 } else if (sendFullUpdate) {
