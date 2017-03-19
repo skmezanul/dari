@@ -14,13 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.Assert.assertEquals;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 
 public abstract class AbstractElasticTest {
 
@@ -31,7 +26,7 @@ public abstract class AbstractElasticTest {
     /**
      *
      */
-    public static void deleteIndex(String index, String nodeHost) {
+    public static void deleteIndex(String index, String nodeHost) throws IOException {
         LOGGER.info("Deleting Index " + index);
         try {
             HttpClient httpClient = HttpClientBuilder.create().build();
@@ -39,19 +34,20 @@ public abstract class AbstractElasticTest {
             delete.addHeader("accept", "application/json");
             HttpResponse response = httpClient.execute(delete);
             EntityUtils.toString(response.getEntity());
-        } catch (ClientProtocolException e) {
-            e.printStackTrace();
-            assertTrue("ClientProtocolException", 1==0);
-        } catch (IOException e) {
-            e.printStackTrace();
-            assertTrue("IOException", 1==0);
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("Warning: deleteIndex[%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
+            throw error;
         }
     }
 
     /**
      *
      */
-    public static void createIndexandMapping(String index, String nodeHost) {
+    public static void createIndexandMapping(String index, String nodeHost) throws IOException {
         LOGGER.info("Mapping Index " + index);
         try {
             String json = ElasticsearchDatabase.getMapping("");
@@ -68,18 +64,24 @@ public abstract class AbstractElasticTest {
             HttpResponse response = httpClient.execute(put);
             if (response.getStatusLine().getStatusCode() > 201) {
                 LOGGER.info("ELK createIndexandMapping Response > 201");
-                assertTrue("Response > 201", 1==0);
+                assertThat("Response > 201", response.getStatusLine().getStatusCode(), greaterThan(201));
             }
             json = EntityUtils.toString(response.getEntity());
             LOGGER.info("ELK createIndexandMapping Response " + json);
-        } catch (ClientProtocolException e) {
-            LOGGER.info("ELK createIndexandMapping ClientProtocolException");
-            e.printStackTrace();
-            assertTrue("ClientProtocolException", 1==0);
-        } catch (IOException e) {
-            LOGGER.info("ELK createIndexandMapping IOException");
-            e.printStackTrace();
-            assertTrue("IOException", 1==0);
+        } catch (ClientProtocolException error) {
+            LOGGER.warn(
+                    String.format("Warning: createIndexandMapping[%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
+            throw error;
+        } catch (IOException error) {
+            LOGGER.warn(
+                    String.format("Warning: createIndexandMapping[%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
+            throw error;
         }
     }
 
@@ -92,39 +94,10 @@ public abstract class AbstractElasticTest {
     }
 
     /**
-     *
-     */
-/*    public static Map<String, Object> getDatabaseSettings() {
-        Map<String, Object> settings = new HashMap<>();
-        settings.put(ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING));
-        settings.put(ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING));
-        settings.put(ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING));
-        settings.put(ElasticsearchDatabase.HOSTNAME_SUB_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.HOSTNAME_SUB_SETTING));
-        settings.put(ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING));
-        settings.put(ElasticsearchDatabase.SEARCH_TIMEOUT_SETTING, Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SEARCH_TIMEOUT_SETTING));
-        return settings;
-    }*/
-
-    /**
-     *
-     */
-/*    public void before() {
-        String nodeHost = getNodeHost();
-        String clusterName = ElasticsearchDatabase.getClusterName(nodeHost);
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
-        assertThat(clusterName, notNullValue());
-        String version = ElasticsearchDatabase.getVersion(nodeHost);
-        if (version != null && version.length() > 2) {
-            version = version.substring(0, 2);
-        }
-        assertEquals(version, "5.");
-    }*/
-
-    /**
-     *
+     * Create Elastic database if !initialize
      */
     @BeforeClass
-    public static void createDatabase() {
+    public static void createDatabase() throws IOException {
         if (initialize) {
             initialize = false;
 

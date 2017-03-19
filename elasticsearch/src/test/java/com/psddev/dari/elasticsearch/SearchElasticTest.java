@@ -8,7 +8,6 @@ import com.psddev.dari.db.ObjectMethod;
 import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.State;
-import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.Settings;
 import org.apache.commons.lang3.time.DateUtils;

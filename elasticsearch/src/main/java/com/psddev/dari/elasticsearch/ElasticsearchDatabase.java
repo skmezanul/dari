@@ -2627,13 +2627,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     protected void doWriteRecalculations(TransportClient client, boolean isImmediate, Map<ObjectIndex, List<State>> recalculations) throws Exception {
         if (recalculations != null) {
             int count = 0;
-            Set<State> states = new HashSet<State>();
+            Set<State> states = new HashSet<>();
             for (Map.Entry<ObjectIndex, List<State>> entry : recalculations.entrySet()) {
                 count++;
                 states.addAll(entry.getValue());
             }
             if (count > 0) {
-                doWrites(client, isImmediate, new ArrayList<State>(states),  new ArrayList<State>(),  new ArrayList<State>());
+                doWrites(client, isImmediate, new ArrayList<>(states), new ArrayList<>(), new ArrayList<>());
             }
         }
     }

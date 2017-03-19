@@ -3,10 +3,7 @@ package com.psddev.dari.elasticsearch;
 import com.psddev.dari.db.AtomicOperation;
 import com.psddev.dari.db.Database;
 import com.psddev.dari.db.DatabaseException;
-import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
-import com.psddev.dari.db.State;
-import org.apache.logging.log4j.core.appender.WriterManager;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
@@ -14,7 +11,6 @@ import org.junit.rules.ExpectedException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasSize;
