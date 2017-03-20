@@ -234,7 +234,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private int searchTimeout = TIMEOUT;
     private int subQueryResolveLimit = SUBQUERY_MAX_ROWS;
     private transient TransportClient client;
-
+    private boolean painlessModule = false;
     /**
      * The amount of rows per subquery(join) Elastic Search wrapped
      *
@@ -409,6 +409,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 .put("cluster.name", this.clusterName)
                 .put("client.transport.sniff", true).build();
 
+        this.painlessModule = this.isModuleInstalled("lang-painless", "org.elasticsearch.painless.PainlessPlugin");
+
     }
 
     /**
@@ -519,6 +521,62 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } catch (Exception e) {
             LOGGER.warn("Warning: Elasticsearch is not already running");
         }
+        return false;
+    }
+
+    /**
+     * Get one node and return it for REST call
+     */
+    public static String getNodeHost() {
+        String host = (String) com.psddev.dari.util.Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING);
+        return "http://" + host + ":9200/";
+    }
+
+    /**
+     * See if painless Elastic module is installed. This API does not work well here.
+     */
+    public boolean isModuleInstalled(String moduleName, String pluginName) {
+
+        try {
+            String nodes = getNodeHost() + "_nodes";
+
+            HttpClient httpClient = HttpClientBuilder.create().build();
+            HttpGet get = new HttpGet(nodes);
+            get.addHeader("accept", "application/json");
+            HttpResponse response = httpClient.execute(get);
+            String json = EntityUtils.toString(response.getEntity());
+            if (json != null) {
+                Map<String, Object> m = (Map<String, Object>) ObjectUtils.fromJson(json);
+                Map<String, Object> n = (Map<String, Object>) m.get("nodes");
+                if (n.keySet().size() > 0) {
+                    String nodeName = (String) n.keySet().toArray()[0];
+                    Map<String, Object> first = (Map<String, Object>) n.get(nodeName);
+                    List<Map<String, Object>> modules = (List<Map<String, Object>>) first.get("modules");
+                    for (Map<String, Object> module : modules) {
+                        String name = (String) module.get("name");
+                        if (name.equals(moduleName)) {
+                            return true;
+                        }
+                    }
+                    List<Map<String, Object>> plugins = (List<Map<String, Object>>) first.get("plugins");
+                    for (Map<String, Object> plugin : plugins) {
+                        String name = (String) plugin.get("name");
+                        if (name.equals(pluginName)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("Warning: Elasticsearch cannot check Painless [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
+
+        }
+
         return false;
     }
 
@@ -2828,7 +2886,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                                 state.setValues(oldState.getValues());
 
-                                if (EmbeddedElasticsearchServer.isInitialized() && !EmbeddedElasticsearchServer.isPainlessPlugin()) {
+                                if (!this.painlessModule) {
+                                    LOGGER.info("Painless module is not installed");
                                     sendFullUpdate = true;
                                 }
 

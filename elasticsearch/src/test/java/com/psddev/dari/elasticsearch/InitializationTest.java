@@ -51,7 +51,7 @@ public class InitializationTest extends AbstractElasticTest {
     }
 
     @Test(expected = NullPointerException.class)
-    public void dataSourceNotDataSource() {
+    public void testMissingSettings() {
         put(ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, "foo");
         database.initialize("", settings);
     }

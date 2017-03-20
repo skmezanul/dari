@@ -1256,6 +1256,12 @@ public class SearchElasticTest extends AbstractElasticTest {
     }
 
     @Test
+    public void testPainless() {
+        ElasticsearchDatabase db = (ElasticsearchDatabase) Database.Static.getDefault();
+        assertThat(db.isModuleInstalled("lang-painless", "org.elasticsearch.painless.PainlessPlugin"), is(true));
+    }
+
+    @Test
     public void testDenormalizedTags() {
         ElasticTag t = new ElasticTag();
         t.setName("pizza");

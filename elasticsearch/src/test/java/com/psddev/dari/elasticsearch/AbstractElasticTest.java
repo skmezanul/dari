@@ -97,14 +97,6 @@ public abstract class AbstractElasticTest {
     }
 
     /**
-     *
-     */
-    private static String getNodeHost() {
-        String host = (String) Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING);
-        return "http://" + host + ":9200/";
-    }
-
-    /**
      * Create Elastic database if !initialize
      */
     @BeforeClass
@@ -122,7 +114,7 @@ public abstract class AbstractElasticTest {
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, "1000");
 
-            String nodeHost = getNodeHost();
+            String nodeHost = ElasticsearchDatabase.getNodeHost();
             if (!ElasticsearchDatabase.checkAlive(nodeHost)) {
                 // ok create embedded since it is not already running for test
                 isEmbedded = true;
