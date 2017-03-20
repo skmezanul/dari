@@ -22,9 +22,13 @@ public class EmbeddedElasticsearchServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedElasticsearchServer.class);
     private static Node node = null;
     private static boolean initialized = false;
-    private static boolean painlessPlugin = false;  // should be true
+    private static boolean painlessPlugin = true;
 
     public static boolean isInitialized() {
+        return initialized;
+    }
+
+    public static boolean getInitialized() {
         return initialized;
     }
 
