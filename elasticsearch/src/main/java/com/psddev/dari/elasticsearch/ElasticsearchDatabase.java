@@ -140,6 +140,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final int INITIAL_FETCH_SIZE = 1000;
     public static final int SUBQUERY_MAX_ROWS = 5000;  // dari/subQueryResolveLimit
     public static final int TIMEOUT = 50000;
+    public static final int FACET_MAX_ROWS = 100;
     public static final int CACHE_TIMEOUT_MIN = 30;
     public static final int CACHE_MAX_INDEX_SIZE = 2500;
     private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
@@ -647,7 +648,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
 
             if (query.getGroup() != null) {
-                TermsAggregationBuilder ab = AggregationBuilders.terms("agg").field(elasticField).size(1000).order(Terms.Order.count(true));
+                TermsAggregationBuilder ab = AggregationBuilders.terms("agg").field(elasticField).size(FACET_MAX_ROWS).order(Terms.Order.count(false));
                 srb.addAggregation(ab);
             }
             LOGGER.debug("Elasticsearch readPartialGrouped typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());

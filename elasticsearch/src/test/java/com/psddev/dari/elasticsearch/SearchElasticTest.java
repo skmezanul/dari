@@ -875,6 +875,81 @@ public class SearchElasticTest extends AbstractElasticTest {
     }
 
     @Test
+    public void testGroupPartial() {
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 20; j++) {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = "test " + j;
+                model.save();
+            }
+        }
+
+        PaginatedResult<Grouping<SearchElasticModel>> groupBy =
+                Query.from(SearchElasticModel.class).groupByPartial(0L, 2, "one");
+        for (Grouping<SearchElasticModel> grouping : groupBy.getItems()) {
+            List<Object> cycleKeys = grouping.getKeys();
+            String name = (String) cycleKeys.get(0);
+            long count = grouping.getCount();
+            assertThat( count, is(4L));
+        }
+
+        assertEquals(20, groupBy.getCount());
+    }
+
+    @Test
+    public void testGroupOrder() {
+        for (int i = 1; i <= 4; i++) {
+            for (int j = 0; j < i*2; j++) {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = "test " + i;
+                model.save();
+            }
+        }
+
+        // from highest to smallest count
+        long count = 4;
+        List<Grouping<SearchElasticModel>> groupBy =
+                Query.from(SearchElasticModel.class).groupBy("one");
+        for (Grouping<SearchElasticModel> grouping : groupBy) {
+            List<Object> cycleKeys = grouping.getKeys();
+            String name = (String) cycleKeys.get(0);
+            assertThat( grouping.getCount(), is(count*2));
+            count = count - 1;
+        }
+
+        assertThat(groupBy, hasSize(4));
+    }
+
+    @Test
+    public void testGroupDateandOne() {
+        Date begin = new Date();
+        for (int i = 1; i <= 4; i++) {
+            Date post_date = DateUtils.addSeconds(begin, +1);
+            for (int j = 0; j < i*2; j++) {
+                SearchElasticModel model = new SearchElasticModel();
+                model.one = "test " + i;
+                model.post_date = post_date;
+                model.save();
+            }
+        }
+
+        // date first, so it will be lowest to highest count
+        long count = 1;
+        List<Grouping<SearchElasticModel>> groupBy =
+                Query.from(SearchElasticModel.class).groupBy("post_date", "one");
+        for (Grouping<SearchElasticModel> grouping : groupBy) {
+            List<Object> cycleKeys = grouping.getKeys();
+            String date = cycleKeys.get(0).toString();
+            String one = (String) grouping.getKeys().get(1);
+            assertThat( grouping.getCount(), is(count*2));
+            assertThat(one, is("test " + count));
+            count = count + 1;
+        }
+
+        assertThat(groupBy, hasSize(4));
+    }
+
+    @Test
     public void testQuery() throws Exception {
 
         SearchElasticModel model = new SearchElasticModel();
