@@ -11,12 +11,16 @@ jdk:
 
 env:
   global:
+    JAVA_OPTS=-Xmx2g
+
+env:
+  global:
     - secure: "cwcbZHRjNFAAZvQd8fd8WhDfB7vpzkGED+ANMGxi4gnBsHPbjZrQnrV6Du9KKNb+eQMcrMuuMEO3H23lZ+W2awGQ1FCdNBe9AxkWMcitXOHfRabIeIhqtqDFBfEdlumzAdTEss/UhEBVWTWE+033HstEbgegmoIBsfF7CvhYaCM="
     - secure: "h2oELiIilIuKQzrpUaTJkwNqCka6zAu7I8V0cpL5JaolP0RGmGFwwTf4zD32NkSaLUSuYXQzzewasUJ/rF34+cCQC29PKgBAZejV1mXSduS2bG/oW89lbIqwdMGKX+5KIFqlSr4q9eHMwlzos4EqJClxxv0wH3guNIGI8Xk3zKk="
 
 install: true
 
-script: travis_wait mvn -Plibrary verify
+script: mvn -Plibrary verify
 
 cache:
   directories:
