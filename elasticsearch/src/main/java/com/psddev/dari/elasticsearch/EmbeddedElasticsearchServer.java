@@ -21,6 +21,28 @@ public class EmbeddedElasticsearchServer {
     private static final String DEFAULT_DATA_DIRECTORY = "elasticsearch-data";
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedElasticsearchServer.class);
     private static Node node = null;
+    private static boolean initialized = false;
+    private static boolean painlessPlugin = false;  // should be true
+
+    public static boolean isInitialized() {
+        return initialized;
+    }
+
+    public static void setInitialized(boolean initialized) {
+        EmbeddedElasticsearchServer.initialized = initialized;
+    }
+
+    public static boolean isPainlessPlugin() {
+            return painlessPlugin;
+    }
+
+    public static boolean getPainlessPlugin() {
+            return painlessPlugin;
+    }
+
+    public static void setPainlessPlugin(boolean painlessPlugin) {
+        EmbeddedElasticsearchServer.painlessPlugin = painlessPlugin;
+    }
 
     /**
      * setup as no params
@@ -36,10 +58,13 @@ public class EmbeddedElasticsearchServer {
 
         List plugins = new ArrayList();
         plugins.add(Netty4Plugin.class);
-        plugins.add(PainlessPlugin.class);
+        if (painlessPlugin) {
+            plugins.add(PainlessPlugin.class);
+        }
 
         try {
             LOGGER.info("Setting up new Elasticsearch embedded node");
+            initialized = true;
             node = new MyNode(
                     Settings.builder()
                             .put("transport.type", "netty4")

@@ -2828,6 +2828,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                                 state.setValues(oldState.getValues());
 
+                                if (EmbeddedElasticsearchServer.isInitialized() && !EmbeddedElasticsearchServer.isPainlessPlugin()) {
+                                    sendFullUpdate = true;
+                                }
+
                                 // Reset to old First
                                 for (AtomicOperation operation : atomicOperations) {
                                     String field = operation.getField();
