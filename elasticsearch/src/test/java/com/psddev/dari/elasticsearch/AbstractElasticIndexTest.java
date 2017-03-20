@@ -600,7 +600,6 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         List<M> models = query().where("embeddedOne/one != missing").sortAscending("embeddedOne/one").selectAll();
     }
 
-    /* sortDescending on Location makes no sense */
     @Test(expected = IllegalArgumentException.class)
     public void sortDescendingOne() {
         createSortTestModels();
@@ -612,7 +611,6 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
         createSortTestModels();
         query().sortClosest("one", new Location(0, 0)).first();
     }
-
 
     @Test(expected = IllegalArgumentException.class)
     public void sortFarthestOne() {

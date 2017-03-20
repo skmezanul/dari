@@ -5,6 +5,7 @@ import com.psddev.dari.db.Database;
 import com.psddev.dari.db.DatabaseException;
 import com.psddev.dari.db.Query;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;

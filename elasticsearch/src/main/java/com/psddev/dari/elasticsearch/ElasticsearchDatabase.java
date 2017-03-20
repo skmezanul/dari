@@ -1202,6 +1202,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 elasticField = mappedKey.getIndexKey(null);
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
+                    if ("number".equals(internalType)) {
+                        throw new IllegalArgumentException(elasticField + " cannot sort Number Closest/Farthest");
+                    }
                     if ("location".equals(internalType)) {
                         elasticField = elasticField + "." + LOCATION_FIELD;
                     }
@@ -1497,6 +1500,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
+    private static Object containsWildcard(String operator, Object value) {
+        if (operator.equals(PredicateParser.CONTAINS_OPERATOR) && (value instanceof String)) {
+            return "*" + value + "*";
+        }
+        return value;
+    }
+
     /**
      * This is the main method for querying Elastic. Converts predicate and query into QueryBuilder
      */
@@ -1729,6 +1739,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
 
                     for (Object v : values) {
+                        if (internalType != null && "number".equals(internalType)) {
+                            throw new IllegalArgumentException(operator + " number not allowed");
+                        }
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
@@ -1760,6 +1773,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
 
                     for (Object v : values) {
+                        if (internalType != null && "number".equals(internalType)) {
+                            throw new IllegalArgumentException(operator + " number not allowed");
+                        }
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
@@ -1795,13 +1811,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                                 geoLocationQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, v))).field(key).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
-                                : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, v))).field(key).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
@@ -2538,6 +2554,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (value instanceof String) {
             value = ((String) value).trim();
+            // don't save empty strings to be compatible with Solr
+            if (((String) value).length() == 0) {
+                return;
+            }
         }
         if (extras.get(name) == null) {
             extras.put(name, value);

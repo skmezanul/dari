@@ -23,9 +23,16 @@ public class EmbeddedElasticsearchServer {
     private static Node node = null;
 
     /**
-     *
+     * setup as no params
      */
-    public static synchronized void setup() {
+    public static void setup() {
+        setup("elasticdari");
+    }
+
+    /**
+     * setup with clusterName
+     */
+    public static synchronized void setup(String clusterName) {
 
         List plugins = new ArrayList();
         plugins.add(Netty4Plugin.class);
@@ -37,7 +44,7 @@ public class EmbeddedElasticsearchServer {
                     Settings.builder()
                             .put("transport.type", "netty4")
                             .put("http.type", "netty4")
-                            .put("cluster.name", "elasticdari")
+                            .put("cluster.name", clusterName)
                             .put("http.enabled", "true")
                             .put("path.home", DEFAULT_DATA_DIRECTORY)
                             .build(),
@@ -57,7 +64,7 @@ public class EmbeddedElasticsearchServer {
     }
 
     /**
-     *
+     * Set the Plugins for Embedded
      */
     private static class MyNode extends Node {
         public MyNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
@@ -66,7 +73,7 @@ public class EmbeddedElasticsearchServer {
     }
 
     /**
-     *
+     * Get Node for Embedded Elastic
      */
     public static Node getNode() {
         return node;
@@ -87,7 +94,7 @@ public class EmbeddedElasticsearchServer {
     }
 
     /**
-     *
+     * Cleanup the directory created for Embedded Elastic
      */
     private static void deleteDataDirectory() {
         try {
