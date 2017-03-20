@@ -755,6 +755,70 @@ public class SearchElasticTest extends AbstractElasticTest {
 
     }
 
+    @Test
+    public void testSearchStemming() {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.one = "Managing The Learning Function";
+        model.save();
+
+        List<SearchElasticModel> s = Query.from(SearchElasticModel.class)
+                .where("one matchesany ?", "manAge")
+                .selectAll();
+        assertThat(s, hasSize(1));
+
+        List<SearchElasticModel> s1 = Query.from(SearchElasticModel.class)
+                .where("one matchesany ?", "lEarn")
+                .selectAll();
+        assertThat(s1, hasSize(1));
+
+        List<SearchElasticModel> s2 = Query.from(SearchElasticModel.class)
+                .where("one matchesany ?", "functIons")
+                .selectAll();
+        assertThat(s2, hasSize(1));
+
+    }
+
+    @Test
+    public void testSearchMatchAllStemming() {
+
+        SearchElasticModel model = new SearchElasticModel();
+        model.one = "Managing The Learning Function";
+        model.save();
+
+        SearchElasticModel model1 = new SearchElasticModel();
+        model1.one = "The restaurant diners are at the function learning";
+        model1.save();
+
+        List<String> all = new ArrayList<>();
+        all.add("function");
+        all.add("diner");
+
+        List<SearchElasticModel> s = Query.from(SearchElasticModel.class)
+                .where("one matchesall ?", all)
+                .selectAll();
+        assertThat(s, hasSize(1));
+
+        List<String> all1 = new ArrayList<>();
+        all1.add("the");
+        all1.add("learning");
+
+        List<SearchElasticModel> s1 = Query.from(SearchElasticModel.class)
+                .where("one matchesall ?", all1)
+                .selectAll();
+        assertThat(s1, hasSize(2));
+
+        List<String> all2 = new ArrayList<>();
+        all2.add("function");
+        all2.add("learning");
+
+        List<SearchElasticModel> s2 = Query.from(SearchElasticModel.class)
+                .where("one matchesall ?", all2)
+                .selectAll();
+        assertThat(s2, hasSize(2));
+
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void testUUIDmatchesall() throws Exception {
 

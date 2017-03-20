@@ -223,6 +223,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String LOCATION_FIELD = "_location";
     public static final String REGION_FIELD = "_polygon";
     public static final String RAW_FIELD = "raw";
+    public static final String MATCH_FIELD = "match";
 
     private final List<Node> clusterNodes = new ArrayList<>();
     private Settings nodeSettings;
@@ -1500,11 +1501,27 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return null;
     }
 
+    /**
+     * For contains, add * for within strings
+     */
     private static Object containsWildcard(String operator, Object value) {
         if (operator.equals(PredicateParser.CONTAINS_OPERATOR) && (value instanceof String)) {
             return "*" + value + "*";
         }
         return value;
+    }
+
+    /**
+     * For Matches, add ".match" to the query
+     */
+    private static String matchesAnalyzer(String operator, String key) {
+        if (key.endsWith("." + RAW_FIELD) || key.equals("_any") || key.equals(ALL_FIELD)) {
+            return key;
+        }
+        if (operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
+            return key + "." + MATCH_FIELD;
+        }
+        return key;
     }
 
     /**
@@ -1535,7 +1552,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         } else if (predicate instanceof ComparisonPredicate) {
             ComparisonPredicate comparison = (ComparisonPredicate) predicate;
-            //String pKey = "_any".equals(comparison.getKey()) ? "_all" : comparison.getKey();
+            //String pKey = "_any".equals(comparison.getKey()) ? ALL_FIELD : comparison.getKey();
             String operator = comparison.getOperator();
 
             String queryKey = comparison.getKey();
@@ -1764,7 +1781,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
                     // should = MATCHES_ANY
-                    if (!"_any".equals(key) && !"_all".equals(key)) {
+                    if (!"_any".equals(key) && !ALL_FIELD.equals(key)) {
                         mappedKey = mapFullyDenormalizedKey(query, key);
                         checkField = specialFields.get(mappedKey);
                         if (checkField == null) {
@@ -1811,18 +1828,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                                 geoLocationQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, v))).field(key).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, v))).field(matchesAnalyzer(operator, key)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
-                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, v))).field(key).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, v))).field(matchesAnalyzer(operator, key)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
 
-                    if (!"_any".equals(key) && !"_all".equals(key)) {
+                    if (!"_any".equals(key) && !ALL_FIELD.equals(key)) {
                         mappedKey = mapFullyDenormalizedKey(query, key);
                         checkField = specialFields.get(mappedKey);
                         if (checkField == null) {
@@ -1866,13 +1883,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                         geoLocationQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(matchesAnalyzer(operator, key)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(key).field(key).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(matchesAnalyzer(operator, key)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
@@ -1970,6 +1987,44 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * The settings for indexes analysis
+     */
+    public static String getSetting(String path) {
+        try {
+            LOGGER.debug("trying resource mapping.json mapping");
+            return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "setting.json").toURI())));
+        } catch (Exception error) {
+            LOGGER.info("using default setting");
+            return "{\n"
+                    + "    \"analysis\": { \n"
+                    + "      \"analyzer\": {\n"
+                    + "        \"text_analyzer\": {\n"
+                    + "          \"char_filter\":  [ \"html_strip\" ],\n"
+                    + "          \"tokenizer\": \"whitespace\",\n"
+                    + "          \"filter\" : [\"text_delimiter\", \"lowercase\", \"text_stemmer\"]\n"
+                    + "        }\n"
+                    + "      },\n"
+                    + "      \"filter\" : {\n"
+                    + "        \"text_delimiter\" : {\n"
+                    + "          \"type\" : \"word_delimiter\",\n"
+                    + "          \"catenate_all\": false,\n"
+                    + "          \"catenate_numbers\": true,\n"
+                    + "          \"catenate_words\": true,\n"
+                    + "          \"generate_number_parts\": true,\n"
+                    + "          \"generate_word_parts\": true,\n"
+                    + "          \"split_on_case_change\": true\n"
+                    + "        },\n"
+                    + "        \"text_stemmer\" : {\n"
+                    + "          \"type\" : \"stemmer\",\n"
+                    + "          \"name\" : \"porter2\"\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    }\n"
+                    + "  }";
+        }
+    }
+
+    /**
      * The actual map for Elasticsearch
      */
     public static String getMapping(String path) {
@@ -2024,9 +2079,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "            \"match_mapping_type\": \"string\",\n"
                     + "            \"mapping\": {\n"
                     + "              \"type\": \"text\",\n"
+                    + "              \"analyzer\": \"text_analyzer\",\n"
                     + "              \"fields\": {\n"
                     + "                \"raw\": {\n"
                     + "                  \"type\": \"keyword\"\n"
+                    + "                },\n"
+                    + "                \"match\": {\n"
+                    + "                  \"type\": \"text\",\n"
+                    + "                  \"analyzer\": \"text_analyzer\"\n"
                     + "                }\n"
                     + "              }\n"
                     + "            }\n"
@@ -2043,14 +2103,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     public static synchronized void defaultMap(TransportClient client, String indexName) {
 
-        String json = getMapping("");
+        String jsonMapping = getMapping("");
+        String jsonSettings = getSetting("");
 
         if (client != null) {
             boolean indexExists = client.admin().indices()
                     .prepareExists(indexName)
                     .execute().actionGet().isExists();
             if (!indexExists) {
-                CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", json);
+                CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", jsonMapping)
+                        .setSettings(jsonSettings);
                 CreateIndexResponse createIndexResponse = cirb.execute().actionGet();
                 if (!createIndexResponse.isAcknowledged()) {
                     LOGGER.warn("Could not create index {}", indexName);

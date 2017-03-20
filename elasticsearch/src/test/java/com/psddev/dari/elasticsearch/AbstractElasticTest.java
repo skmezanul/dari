@@ -53,16 +53,19 @@ public abstract class AbstractElasticTest {
     }
 
     /**
-     *
+     * Create the index and map it
      */
     public static void createIndexandMapping(String index, String nodeHost) throws IOException {
         LOGGER.info("Mapping Index " + index);
         try {
-            String json = ElasticsearchDatabase.getMapping("");
-            json = "{\n"
+            String jsonMap = ElasticsearchDatabase.getMapping("");
+            String jsonSetting = ElasticsearchDatabase.getSetting("");
+            String json = "{\n"
+                    + "  \"settings\":\n"
+                    + jsonSetting + ",\n"
                     + "  \"mappings\": {\n"
                     + "    \"_default_\":\n" +
-                    json + "}}";
+                    jsonMap + "}}";
 
             HttpClient httpClient = HttpClientBuilder.create().build();
             HttpPut put = new HttpPut(nodeHost + index);

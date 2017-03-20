@@ -36,6 +36,10 @@
           "fields": {
             "raw": {
               "type": "keyword"
+            },
+            "match": {
+              "type": "text",
+              "analyzer": "text_analyzer"
             }
           }
         }
