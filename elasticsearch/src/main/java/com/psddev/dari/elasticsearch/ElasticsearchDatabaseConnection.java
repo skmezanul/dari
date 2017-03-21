@@ -31,6 +31,7 @@ class ElasticsearchDatabaseConnection {
     public static synchronized void closeClient() {
         if (client != null) {
             client.close();
+            client = null;
         }
     }
 

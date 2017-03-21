@@ -22,11 +22,7 @@ public class EmbeddedElasticsearchServer {
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedElasticsearchServer.class);
     private static Node node = null;
     private static boolean initialized = false;
-    private static boolean painlessPlugin = true;
-
-    public static boolean isInitialized() {
-        return initialized;
-    }
+    private static boolean installPainlessPlugin = true;
 
     public static boolean getInitialized() {
         return initialized;
@@ -36,16 +32,12 @@ public class EmbeddedElasticsearchServer {
         EmbeddedElasticsearchServer.initialized = initialized;
     }
 
-    public static boolean isPainlessPlugin() {
-            return painlessPlugin;
-    }
-
     public static boolean getPainlessPlugin() {
-            return painlessPlugin;
+            return installPainlessPlugin;
     }
 
-    public static void setPainlessPlugin(boolean painlessPlugin) {
-        EmbeddedElasticsearchServer.painlessPlugin = painlessPlugin;
+    public static void setInstallPainlessPlugin(boolean installPainlessPlugin) {
+        EmbeddedElasticsearchServer.installPainlessPlugin = installPainlessPlugin;
     }
 
     /**
@@ -62,7 +54,7 @@ public class EmbeddedElasticsearchServer {
 
         List plugins = new ArrayList();
         plugins.add(Netty4Plugin.class);
-        if (painlessPlugin) {
+        if (installPainlessPlugin) {
             plugins.add(PainlessPlugin.class);
         }
 

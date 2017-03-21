@@ -2,7 +2,6 @@ package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Region;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.List;

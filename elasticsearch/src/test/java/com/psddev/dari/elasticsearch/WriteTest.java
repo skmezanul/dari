@@ -4,21 +4,26 @@ import com.psddev.dari.db.AtomicOperation;
 import com.psddev.dari.db.Database;
 import com.psddev.dari.db.DatabaseException;
 import com.psddev.dari.db.Query;
+import com.psddev.dari.db.State;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.hasEntry;
 
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
 public class WriteTest extends AbstractElasticTest {
@@ -140,6 +145,34 @@ public class WriteTest extends AbstractElasticTest {
         assertThat(model2.list, empty());
 
         assertThat(Query.from(WriteModel.class).first().list, empty());
+    }
+
+    @Test
+    public void testSlashAtomically() {
+        UserModel user = new UserModel();
+        user.userName = "Mickey Mouse";
+        user.save();
+        UUID userId = user.getId();
+
+        UserModel user1 = new UserModel();
+        user1.userName = "Donald Duck";
+        user1.save();
+
+        Map<String, UUID> userMap = new HashMap<>();
+        userMap.put("item1", userId);
+        WriteModel model = new WriteModel();
+        model.list.add("foo");
+        model.list.add("bar");
+        model.currentItems = userMap;
+        model.save();
+
+        State donald = State.getInstance(Query.from(UserModel.class).where("userName = ?", "Donald Duck").first());
+
+        assertThat(donald, notNullValue());
+        model.getState().putAtomically("currentItems/" + userId.toString(), donald.getId());
+        model.save();
+        assertThat(model.currentItems, hasEntry("item1", userId));
+        assertThat(model.currentItems, hasEntry(userId.toString(), donald.getId()));
     }
 
     @Test

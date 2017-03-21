@@ -26,6 +26,7 @@ import com.psddev.dari.db.Recordable;
 import com.psddev.dari.db.Region;
 import com.psddev.dari.db.Sorter;
 import com.psddev.dari.db.State;
+import com.psddev.dari.util.Settings;
 import com.psddev.dari.db.StateSerializer;
 import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.db.UnsupportedPredicateException;
@@ -56,7 +57,6 @@ import org.elasticsearch.common.geo.ShapeRelation;
 import com.vividsolutions.jts.geom.Coordinate;
 import org.elasticsearch.common.geo.builders.ShapeBuilders;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.DistanceUnit;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -79,6 +79,7 @@ import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,6 +121,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public class Node {
         public String hostname;
         public int port;
+        public int restPort;
     }
 
     public static final String ELASTIC_VERSION = "5.2.2";
@@ -128,18 +130,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
     public static final String CLUSTER_NAME_SUB_SETTING = "clusterName";
     public static final String CLUSTER_PORT_SUB_SETTING = "clusterPort";
+    public static final String CLUSTER_REST_PORT_SUB_SETTING = "clusterRestPort";
     public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
 
     public static final String ID_FIELD = "_id";
-    public static final String UID_FIELD = "_uid";  // special for aggregations/sort
+    public static final String UID_FIELD = "_uid";      // special for aggregations/sort
     public static final String TYPE_ID_FIELD = "_type";
     public static final String ALL_FIELD = "_all";
     public static final int INITIAL_FETCH_SIZE = 1000;
-    public static final int SUBQUERY_MAX_ROWS = 5000;  // dari/subQueryResolveLimit
-    public static final int TIMEOUT = 50000;
+    public static final int SUBQUERY_MAX_ROWS = 5000;   // dari/subQueryResolveLimit
+    public static final int TIMEOUT = 30000;            // 30 seconds
     public static final int FACET_MAX_ROWS = 100;
     public static final int CACHE_TIMEOUT_MIN = 30;
     public static final int CACHE_MAX_INDEX_SIZE = 2500;
@@ -149,7 +152,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public class IndexKey {
         private String indexId;
         private List<Node> clusterNodes;
-        private Settings nodeSettings;
+        private org.elasticsearch.common.settings.Settings nodeSettings;
 
         public String getIndexId() {
             return indexId;
@@ -167,11 +170,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             this.clusterNodes = clusterNodes;
         }
 
-        public Settings getNodeSettings() {
+        public org.elasticsearch.common.settings.Settings getNodeSettings() {
             return nodeSettings;
         }
 
-        public void setNodeSettings(Settings nodeSettings) {
+        public void setNodeSettings(org.elasticsearch.common.settings.Settings nodeSettings) {
             this.nodeSettings = nodeSettings;
         }
 
@@ -214,7 +217,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         public String load(IndexKey index) throws Exception {
                             TransportClient client = ElasticsearchDatabaseConnection.getClient(index.getNodeSettings(), index.getClusterNodes());
                             defaultMap(client, index.getIndexId());
-                            LOGGER.info("Elasticsearch creating index [{}]", index.getIndexId());
+                            LOGGER.debug("Elasticsearch creating index [{}]", index.getIndexId());
                             return "setIndex";
                         }
                     });
@@ -227,7 +230,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String MATCH_FIELD = "match";
 
     private final List<Node> clusterNodes = new ArrayList<>();
-    private Settings nodeSettings;
+    private org.elasticsearch.common.settings.Settings nodeSettings;
 
     private String clusterName;
     private String indexName;
@@ -383,11 +386,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 done = true;
             } else {
 
+                @SuppressWarnings("unchecked")
                 Map<String, Object> subSettings = (Map<String, Object>) settings.get(String.valueOf(nodeCount));
 
                 String clusterPort = ObjectUtils.to(String.class, subSettings.get(CLUSTER_PORT_SUB_SETTING));
 
                 Preconditions.checkNotNull(clusterPort);
+
+                String clusterRestPort = ObjectUtils.to(String.class, subSettings.get(CLUSTER_REST_PORT_SUB_SETTING));
+
+                Preconditions.checkNotNull(clusterRestPort);
 
                 String clusterHostname = ObjectUtils.to(String.class, subSettings.get(HOSTNAME_SUB_SETTING));
 
@@ -396,6 +404,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 Node n = new Node();
                 n.hostname = clusterHostname;
                 n.port = Integer.parseInt(clusterPort);
+                n.restPort = Integer.parseInt(clusterRestPort);
 
                 this.clusterNodes.add(n);
 
@@ -405,7 +414,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         this.indexName = indexName;
 
-        this.nodeSettings = Settings.builder()
+        this.nodeSettings = org.elasticsearch.common.settings.Settings.builder()
                 .put("cluster.name", this.clusterName)
                 .put("client.transport.sniff", true).build();
 
@@ -443,8 +452,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
             HttpResponse response = httpClient.execute(getRequest);
-            String json;
-            json = EntityUtils.toString(response.getEntity());
+            String json = EntityUtils.toString(response.getEntity());
             JSONObject j = new JSONObject(json);
             if (j != null) {
                 if (j.get("version") != null) {
@@ -528,8 +536,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Get one node and return it for REST call
      */
     public static String getNodeHost() {
-        String host = (String) com.psddev.dari.util.Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING);
-        return "http://" + host + ":9200/";
+        String host = (String) Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING);
+        String port = (String) Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.CLUSTER_REST_PORT_SUB_SETTING);
+
+        return "http://" + host + ":" + port + "/";
     }
 
     /**
@@ -545,29 +555,40 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             get.addHeader("accept", "application/json");
             HttpResponse response = httpClient.execute(get);
             String json = EntityUtils.toString(response.getEntity());
-            if (json != null) {
-                Map<String, Object> m = (Map<String, Object>) ObjectUtils.fromJson(json);
-                Map<String, Object> n = (Map<String, Object>) m.get("nodes");
-                if (n.keySet().size() > 0) {
-                    String nodeName = (String) n.keySet().toArray()[0];
-                    Map<String, Object> first = (Map<String, Object>) n.get(nodeName);
-                    List<Map<String, Object>> modules = (List<Map<String, Object>>) first.get("modules");
-                    for (Map<String, Object> module : modules) {
-                        String name = (String) module.get("name");
-                        if (name.equals(moduleName)) {
-                            return true;
-                        }
-                    }
-                    List<Map<String, Object>> plugins = (List<Map<String, Object>>) first.get("plugins");
-                    for (Map<String, Object> plugin : plugins) {
-                        String name = (String) plugin.get("name");
-                        if (name.equals(pluginName)) {
-                            return true;
+
+            JSONObject j = new JSONObject(json);
+            if (j != null) {
+                if (j.get("nodes") != null) {
+                    if (j.getJSONObject("nodes") != null) {
+                        JSONObject jo = j.getJSONObject("nodes");
+                        Iterator<?> keys = jo.keys();
+
+                        while( keys.hasNext() ) {
+                            String key = (String)keys.next();
+                            if ( jo.get(key) instanceof JSONObject ) {
+                                JSONObject node = (JSONObject) jo.get(key);
+                                JSONArray modules = node.getJSONArray("modules");
+                                for (int i = 0; i < modules.length(); i++) {
+                                    JSONObject module = modules.getJSONObject(i);
+                                    String name = (String) module.get("name");
+                                    if (name.equals(moduleName)) {
+                                        return true;
+                                    }
+                                }
+                                JSONArray plugins = node.getJSONArray("plugins");
+                                for (int i = 0; i < plugins.length(); i++) {
+                                    JSONObject plugin = plugins.getJSONObject(i);
+                                    String name = (String) plugin.get("name");
+                                    if (name.equals(pluginName)) {
+                                        return true;
+                                    }
+                                }
+
+                            }
                         }
                     }
                 }
             }
-
         } catch (Exception error) {
             LOGGER.warn(
                     String.format("Warning: Elasticsearch cannot check Painless [%s: %s]",
@@ -2285,12 +2306,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * This removes valueMap items and converts to new geoJson
      *
      */
-    private static Map<String, Object> convertToGeometryCollection(Map<String, Object> valueMap, String name) {
-        Map<String, Object> newValueMap = new HashMap<>();
+    private static void convertToGeometryCollection(Map<String, Object> valueMap, String name) {
 
         if (valueMap.size() > 2) {
             if (valueMap.containsKey("polygons") && valueMap.containsKey("circles") && valueMap.containsKey("radius")) {
-                newValueMap.put("type", "geometrycollection");
 
                 List<Map<String, Object>> newGeometries = new ArrayList<>();
                 if (valueMap.get("polygons") != null && valueMap.get("polygons") instanceof List) {
@@ -2345,7 +2364,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
                 }
-                newValueMap.put("geometries", newGeometries);
                 if (valueMap.containsKey("x")) {
                     valueMap.remove("x");
                 }
@@ -2361,10 +2379,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 if (valueMap.containsKey("polygons")) {
                     valueMap.remove("polygons");
                 }
-                valueMap.put(name, newValueMap);
             }
         }
-        return newValueMap;
     }
 
     /**
@@ -2681,24 +2697,38 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
         }
         if (extras.get(name) == null) {
-            extras.put(name, value);
+            setValue(extras, name, value);
         } else {
-            if (extras.get(name) instanceof List) {
-                if (value instanceof List) {
-                    List vList = (List) extras.get(name);
-                    vList.addAll((List) value);
-                    extras.put(name, vList);
-                } else {
-                    List vList = (List) extras.get(name);
-                    vList.add(value);
-                    extras.put(name, vList);
-                }
+            addValue(extras, name, value);
+        }
+    }
+
+    /**
+     * Set the value into extras
+     */
+    private static void setValue(Map<String, Object> extras, String name, Object value) {
+        extras.put(name, value);
+    }
+
+    /**
+     * Add value into extras
+     */
+    private static void addValue(Map<String, Object> extras, String name, Object value) {
+        if (extras.get(name) instanceof List) {
+            if (value instanceof List) {
+                List vList = (List) extras.get(name);
+                vList.addAll((List) value);
+                extras.put(name, vList);
             } else {
-                List vList = new ArrayList<>();
-                vList.add(extras.get(name));
+                List vList = (List) extras.get(name);
                 vList.add(value);
                 extras.put(name, vList);
             }
+        } else {
+            List vList = new ArrayList<>();
+            vList.add(extras.get(name));
+            vList.add(value);
+            extras.put(name, vList);
         }
     }
 
@@ -2895,15 +2925,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 for (AtomicOperation operation : atomicOperations) {
                                     String field = operation.getField();
                                     state.putByPath(field, oldState.getByPath(field));
+                                    if (field.indexOf('/') != -1) {
+                                        sendFullUpdate = true;
+                                    }
                                 }
 
                                 for (AtomicOperation operation : atomicOperations) {
                                     operation.execute(state); // sets state
                                     if (!sendFullUpdate) {
                                         String field = operation.getField().trim();
-                                        if (field.indexOf('/') != -1) {
-                                            sendFullUpdate = true;
-                                        } else if (operation instanceof AtomicOperation.Increment) {
+                                        if (operation instanceof AtomicOperation.Increment) {
                                             double newVal = ((AtomicOperation.Increment) operation).getValue();
                                             Map<String, Object> params = new HashMap<>();
                                             params.put("val", newVal);

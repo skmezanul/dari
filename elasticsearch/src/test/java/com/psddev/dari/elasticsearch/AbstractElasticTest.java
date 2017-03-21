@@ -41,7 +41,8 @@ public abstract class AbstractElasticTest {
             HttpDelete delete = new HttpDelete(nodeHost + index);
             delete.addHeader("accept", "application/json");
             HttpResponse response = httpClient.execute(delete);
-            EntityUtils.toString(response.getEntity());
+            String res = EntityUtils.toString(response.getEntity());
+            LOGGER.info("Deleted Index {} [{}]", index, res);
         } catch (Exception error) {
             LOGGER.warn(
                     String.format("Warning: deleteIndex[%s: %s]",
@@ -79,13 +80,6 @@ public abstract class AbstractElasticTest {
             }
             json = EntityUtils.toString(response.getEntity());
             LOGGER.info("ELK createIndexandMapping Response " + json);
-        } catch (ClientProtocolException error) {
-            LOGGER.warn(
-                    String.format("Warning: createIndexandMapping[%s: %s]",
-                            error.getClass().getName(),
-                            error.getMessage()),
-                    error);
-            throw error;
         } catch (IOException error) {
             LOGGER.warn(
                     String.format("Warning: createIndexandMapping[%s: %s]",
@@ -111,6 +105,7 @@ public abstract class AbstractElasticTest {
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "9300");
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.CLUSTER_REST_PORT_SUB_SETTING, "9200");
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, "1000");
 

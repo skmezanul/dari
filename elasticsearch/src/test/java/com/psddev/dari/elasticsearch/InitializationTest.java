@@ -1,7 +1,6 @@
 package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.util.CollectionUtils;
-import com.psddev.dari.util.SettingsException;
 import org.elasticsearch.node.Node;
 
 import static org.junit.Assert.assertThat;
@@ -12,7 +11,6 @@ import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 public class InitializationTest extends AbstractElasticTest {
 
