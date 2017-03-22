@@ -135,6 +135,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
+    public static final String DATA_FIELD = "data";
 
     public static final String ID_FIELD = "_id";
     public static final String UID_FIELD = "_uid";      // special for aggregations/sort
@@ -656,6 +657,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         Matcher groupingMatcher = Query.RANGE_PATTERN.matcher(fields[0]);
         if (groupingMatcher.find()) {
             String field = groupingMatcher.group(1);
+            field = mapFullyDenormalizedKey(query, field).getIndexKey(null);
             Double start = ObjectUtils.to(Double.class, groupingMatcher.group(2).trim());
             Double end = ObjectUtils.to(Double.class, groupingMatcher.group(3).trim());
             Double gap = ObjectUtils.to(Double.class, groupingMatcher.group(4).trim());
@@ -691,7 +693,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 Number to = (Number) entry.getTo();              // Bucket to
                 long docCount = entry.getDocCount();             // Doc count
 
-                LOGGER.debug("key [{}], from [{}], to [{}], doc_count [{}]", key, from, to, docCount);
+                LOGGER.debug("hits [{}], key [{}], from [{}], to [{}], doc_count [{}]", hits.getTotalHits(),  key, from, to, docCount);
                 groupings.add(new ElasticGrouping<>(Collections.singletonList(key), query, fields, docCount));
             }
         } else {
@@ -877,7 +879,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         State objectState = State.getInstance(object);
 
         if (!objectState.isReferenceOnly()) {
-            objectState.setValues(hit.getSource());
+            Map<String,Object> source = hit.getSource();
+            objectState.setValues((Map<String,Object>) source.get(DATA_FIELD));
         }
 
         return swapObjectType(query, object);
@@ -1095,16 +1098,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
                     String elasticField = specialSortFields.get(mappedKey);
 
-                    if (elasticField == null) {
-                        if (mappedKey != null) {
-                            String internalType = mappedKey.getInternalType();
-                            if (internalType != null) {
-                                // only date can boost this way
-                                if ("date".equals(internalType)) {
-                                    elasticField = queryKey;
-                                } else {
-                                    throw new IllegalArgumentException();
-                                }
+                    if (elasticField == null && mappedKey != null) {
+                        queryKey = mappedKey.getIndexKey(null);
+                        String internalType = mappedKey.getInternalType();
+                        if (internalType != null) {
+                            // only date can boost this way
+                            if ("date".equals(internalType)) {
+                                elasticField = queryKey;
+                            } else {
+                                throw new IllegalArgumentException();
                             }
                         }
                     }
@@ -1469,7 +1471,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     key = addRaw(key);
                 } else {
                     if (isUUID(v) && isReference(dotKey, query)) {
-                        return QueryBuilders.termQuery(mappedKey.getField().getInternalName() + "._ref", v);
+                        return QueryBuilders.termQuery(addRaw(key), v);
                     } else {
                         String internalType = mappedKey.getInternalType();
                         if (!"number".equals(internalType)) {
@@ -2865,7 +2867,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             StringBuilder allBuilder = new StringBuilder();
 
                             if (isNew || atomicOperations.isEmpty()) {
-                                Map<String, Object> t = state.getSimpleValues();
+                                Map<String, Object> t = new HashMap<>();
+                                t.put(DATA_FIELD, state.getSimpleValues());
 
                                 // these 2 are disruptive to t
                                 //convertLocationToName(t, LOCATION_FIELD);
@@ -2939,7 +2942,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                             Map<String, Object> params = new HashMap<>();
                                             params.put("val", newVal);
                                             bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + field + " += params.val;", params))
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + " += params.val;", params))
                                                     .setDetectNoop(false));
                                         } else if (operation instanceof AtomicOperation.Add) {
                                             Object newVal = ((AtomicOperation.Add) operation).getValue();
@@ -2947,21 +2950,21 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                             Map<String, Object> params = new HashMap<>();
                                             params.put("val", newVal);
                                             bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + field + ".add(params.val);", params))
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + ".add(params.val);", params))
                                                     .setDetectNoop(false));
                                         } else if (operation instanceof AtomicOperation.Remove) {
                                             Object newVal = ((AtomicOperation.Remove) operation).getValue();
                                             Map<String, Object> params = new HashMap<>();
                                             params.put("val", newVal);
                                             bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + field + ".remove(ctx._source." + field + ".indexOf(params.val));", params))
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + ".remove(ctx._source." + DATA_FIELD + "." + field + ".indexOf(params.val));", params))
                                                     .setDetectNoop(false));
                                         } else if (operation instanceof AtomicOperation.Put) {
                                             Object newVal = ((AtomicOperation.Put) operation).getValue();
                                             Map<String, Object> params = new HashMap<>();
                                             params.put("val", newVal);
                                             bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + field + "= params.val;", params))
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + "= params.val;", params))
                                                     .setDetectNoop(false));
                                         } else if (operation instanceof AtomicOperation.Replace) {
                                             Object oldVal = ((AtomicOperation.Replace) operation).getOldValue();
@@ -2970,7 +2973,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                             params.put("oval", oldVal);
                                             params.put("nval", newVal);
                                             bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                    .setScript(new Script(ScriptType.INLINE, "painless", "if (ctx._source." + field + " == params.oval) ctx._source." + field + "= params.nval;", params))
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "if (ctx._source." + DATA_FIELD + "." + field + " == params.oval) ctx._source." + DATA_FIELD + "." + field + "= params.nval;", params))
                                                     .setDetectNoop(false));
                                         } else {
                                             sendFullUpdate = true;
@@ -2980,7 +2983,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 }
 
                                 boolean sendExtraUpdate = false;
-                                Map<String, Object> t = state.getSimpleValues();
+                                Map<String, Object> t = new HashMap<>();
+                                t.put(DATA_FIELD, state.getSimpleValues());
                                 Map<String, Object> extra = new HashMap<>();
                                 Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
                                 Map<String, Object> extraLabel = addLabel(state);
@@ -3010,8 +3014,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     String oldDocumentType = oldTypeId.toString();
                                     String oldDocumentId = oldId.toString();
                                     String oldIndexname = indexName + oldDocumentType.replaceAll("-", "");
-                                    bulk.add(client
-                                            .prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
+                                    bulk.add(client.prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
                                     LOGGER.debug("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
                                             newIndexname, documentType, documentId, t.toString());
                                     bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
