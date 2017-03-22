@@ -564,9 +564,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         JSONObject jo = j.getJSONObject("nodes");
                         Iterator<?> keys = jo.keys();
 
-                        while( keys.hasNext() ) {
-                            String key = (String)keys.next();
-                            if ( jo.get(key) instanceof JSONObject ) {
+                        while (keys.hasNext()) {
+                            String key = (String) keys.next();
+                            if (jo.get(key) instanceof JSONObject) {
                                 JSONObject node = (JSONObject) jo.get(key);
                                 JSONArray modules = node.getJSONArray("modules");
                                 for (int i = 0; i < modules.length(); i++) {
