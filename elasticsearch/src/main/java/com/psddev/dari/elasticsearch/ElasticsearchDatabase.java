@@ -144,11 +144,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final int INITIAL_FETCH_SIZE = 1000;
     public static final int SUBQUERY_MAX_ROWS = 5000;   // dari/subQueryResolveLimit
     public static final int TIMEOUT = 30000;            // 30 seconds
+    public static final int MAX_BINARY_FIELD_LENGTH = 1024;
     public static final int FACET_MAX_ROWS = 100;
     public static final int CACHE_TIMEOUT_MIN = 30;
     public static final int CACHE_MAX_INDEX_SIZE = 2500;
     private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
+    public static final String SCORE_EXTRA = "elastic.score";
+    public static final String NORMALIZED_SCORE_EXTRA = "elastic.normalizedScore";
 
     public class IndexKey {
         private String indexId;
@@ -857,12 +860,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             srb.addSort(sb);
         }
 
+        srb.setTrackScores(true);
+
         LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
+        Float maxScore = hits.getMaxScore();
+        if (maxScore != null && maxScore.equals(Float.NaN)) {
+            maxScore = null;
+        }
 
         for (SearchHit hit : hits.getHits()) {
-            items.add(createSavedObjectWithHit(hit, query));
+            items.add(createSavedObjectWithHit(hit, query, maxScore));
         }
 
         LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
@@ -873,14 +882,36 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Take the saved object and convert to objectState and swap it
      */
-    private <T> T createSavedObjectWithHit(SearchHit hit, Query<T> query) {
+    private <T> T createSavedObjectWithHit(SearchHit hit, Query<T> query, Float maxScore) {
         T object = createSavedObject(hit.getType(), hit.getId(), query);
 
         State objectState = State.getInstance(object);
 
         if (!objectState.isReferenceOnly()) {
             Map<String, Object> source = hit.getSource();
-            objectState.setValues((Map<String, Object>) source.get(DATA_FIELD));
+
+            if (ObjectUtils.isBlank(source.get(DATA_FIELD))) {
+                Object original = objectState.getDatabase().readFirst(Query.from(Object.class).where("_id = ?", objectState.getId()));
+                if (original != null) {
+                    objectState.setValues(State.getInstance(original).getSimpleValues());
+                }
+
+            } else {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> values = (Map<String, Object>) source.get(DATA_FIELD);
+                objectState.setValues(values);
+            }
+        }
+
+        Map<String, Object> extras = objectState.getExtras();
+        Float score = hit.getScore();
+        if (score == null || (score != null && score.equals(Float.NaN))) {
+            score = 1.0f;   // constant Score
+        }
+        extras.put(SCORE_EXTRA, score);
+
+        if (maxScore != null && maxScore != 0.0f) {
+            extras.put(NORMALIZED_SCORE_EXTRA, score / maxScore);
         }
 
         return swapObjectType(query, object);
@@ -2698,10 +2729,67 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 return;
             }
         }
+
+        Object truncatedValue = value;
+        // all field fair game is String and does not start with "_" which are IDs
+        if (!name.startsWith("_")) {
+            if (value instanceof String) {
+                if (((String) value).length() > MAX_BINARY_FIELD_LENGTH) {
+                    truncatedValue = ((String) value).substring(0, MAX_BINARY_FIELD_LENGTH);
+                }
+            }
+        }
+
         if (extras.get(name) == null) {
-            setValue(extras, name, value);
+            setValue(extras, name, truncatedValue);
         } else {
-            addValue(extras, name, value);
+            addValue(extras, name, truncatedValue);
+        }
+    }
+
+    /** {@link ElasticsearchDatabase} utility methods. */
+    public static final class Static {
+
+        // Same in SOLR and Elastic since they are to be escaped in Lucene
+        private static final Pattern ESCAPE_PATTERN = Pattern.compile("([-+&|!(){}\\[\\]^\"~*?:\\\\\\s/])");
+
+        /**
+         * Escapes the given {@code value} so that it's safe to use
+         * in a Elastic query.
+         *
+         * @param value If {@code null}, returns {@code null}.
+         */
+        public static final String escapeValue(Object value) {
+            return value != null ? ESCAPE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
+        }
+
+        /**
+         * Returns the Solr search result score associated with the given
+         * {@code object}.
+         *
+         * @return May be {@code null} if the score isn't available.
+         */
+        public static Float getScore(Object object) {
+            return (Float) State.getInstance(object).getExtra(SCORE_EXTRA);
+        }
+
+        /**
+         * Returns the normalized Solr search result score, in a scale of
+         * {@code 0.0} to {@code 1.0}, associated with the given
+         * {@code object}.
+         *
+         * @return May be {@code null} if the score isn't available.
+         */
+        public static Float getNormalizedScore(Object object) {
+            return (Float) State.getInstance(object).getExtra(NORMALIZED_SCORE_EXTRA);
+        }
+
+        /**
+         * Execute an ObjectMethod on the given State and return the result as a value or reference.
+         */
+        private static Object getStateMethodValue(State state, ObjectMethod method) {
+            Object methodResult = state.getByPath(method.getInternalName());
+            return State.toSimpleValue(methodResult, method.isEmbedded(), false);
         }
     }
 

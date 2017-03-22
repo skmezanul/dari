@@ -8,6 +8,7 @@ import com.psddev.dari.db.ObjectMethod;
 import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.State;
+import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.Settings;
 import org.apache.commons.lang3.time.DateUtils;
@@ -1289,6 +1290,96 @@ public class SearchElasticTest extends AbstractElasticTest {
         // should not match
         List<DenormalizedReferenceModel> tagList4 = Query.from(DenormalizedReferenceModel.class).where("taggable.indexedTag/name matches ?", "pizza").selectAll();
         assertThat("check size", tagList4, hasSize(1));
+    }
+
+    @Test
+    public void testScoreNormalizedScore()  {
+        SearchElasticModel search = new SearchElasticModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = "tough";
+        search.save();
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("eid matches ?", "939393")
+                .selectAll();
+
+        assertThat(fooResult, hasSize(1));
+
+        assertThat(fooResult.get(0).getState().getExtras().size(), is(4));
+
+        Float score = ObjectUtils.to(Float.class, fooResult.get(0).getExtra(ElasticsearchDatabase.SCORE_EXTRA));
+        assertThat(score, is(lessThan(.3f)));
+
+        Float normalizedScore =  ObjectUtils.to(Float.class, fooResult.get(0).getExtra(ElasticsearchDatabase.NORMALIZED_SCORE_EXTRA));
+        assertThat(normalizedScore, is (1.0f));
+    }
+
+    @Test
+    public void testStringNormalizedScore()  {
+        SearchElasticModel search = new SearchElasticModel();
+        search.eid = "939393";
+        search.name = "Bill Rick Smith";
+        search.message = "tough";
+        search.save();
+
+        SearchElasticModel search1 = new SearchElasticModel();
+        search1.eid = "939394";
+        search1.name = "Bill Joseph";
+        search1.message = "easy";
+        search1.save();
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("name matches ?", "Bill")
+                .selectAll();
+
+        assertThat(fooResult, hasSize(2));
+
+        assertThat(fooResult.get(0).getState().getExtras().size(), is(4));
+
+        Float score = ObjectUtils.to(Float.class, fooResult.get(0).getExtra(ElasticsearchDatabase.SCORE_EXTRA));
+        assertThat(score, is(lessThan(.3f)));
+        Float normalizedScore =  ObjectUtils.to(Float.class, fooResult.get(0).getExtra(ElasticsearchDatabase.NORMALIZED_SCORE_EXTRA));
+        assertThat(normalizedScore, is (1.0f));
+
+        Float score1 = ObjectUtils.to(Float.class, fooResult.get(1).getExtra(ElasticsearchDatabase.SCORE_EXTRA));
+        assertThat(score1, is(lessThan(score)));
+        Float normalizedScore1 =  ObjectUtils.to(Float.class, fooResult.get(1).getExtra(ElasticsearchDatabase.NORMALIZED_SCORE_EXTRA));
+        assertThat(normalizedScore1, is (lessThan(1.0f)));
+        assertThat(normalizedScore1, is (lessThan(normalizedScore)));
+    }
+
+    @Test
+    public void testLargeField() {
+        StringBuilder msg = new StringBuilder();
+        for (int i = 0; i < 2000; i++) {
+            msg = msg.append("a");
+        }
+        String message = msg.toString();
+
+        SearchElasticModel search = new SearchElasticModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = message;
+        search.save();
+
+        List<SearchElasticModel> fooResult = Query
+                .from(SearchElasticModel.class)
+                .where("eid matches ?", "939393")
+                .selectAll();
+        assertThat(fooResult.get(0).getMessage().length(), is(equalTo(2000)));
+        List<SearchElasticModel> fooResult1 = Query
+                .from(SearchElasticModel.class)
+                .where("message = ?", message.substring(0,ElasticsearchDatabase.MAX_BINARY_FIELD_LENGTH))
+                .selectAll();
+        assertThat(fooResult1, hasSize(1));
+        List<SearchElasticModel> fooResult2 = Query
+                .from(SearchElasticModel.class)
+                .where("message = ?", message.substring(0,ElasticsearchDatabase.MAX_BINARY_FIELD_LENGTH+1))
+                .selectAll();
+        assertThat(fooResult2, hasSize(0));
     }
 }
 
