@@ -879,8 +879,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         State objectState = State.getInstance(object);
 
         if (!objectState.isReferenceOnly()) {
-            Map<String,Object> source = hit.getSource();
-            objectState.setValues((Map<String,Object>) source.get(DATA_FIELD));
+            Map<String, Object> source = hit.getSource();
+            objectState.setValues((Map<String, Object>) source.get(DATA_FIELD));
         }
 
         return swapObjectType(query, object);
