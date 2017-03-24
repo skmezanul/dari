@@ -18,6 +18,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
+@org.junit.Ignore
 public class ModificationEmbeddedTest extends AbstractElasticTest {
 
     final static String value = "foo";

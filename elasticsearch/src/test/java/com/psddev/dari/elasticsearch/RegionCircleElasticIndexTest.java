@@ -4,7 +4,7 @@ import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Region;
 import org.junit.Test;
 
-
+@org.junit.Ignore
 public class RegionCircleElasticIndexTest extends AbstractElasticIndexTest<RegionElasticIndexModel, Region> {
 
     @Override

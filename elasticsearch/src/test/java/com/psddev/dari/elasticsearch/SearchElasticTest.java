@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@org.junit.Ignore
 public class SearchElasticTest extends AbstractElasticTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(SearchElasticTest.class);
 

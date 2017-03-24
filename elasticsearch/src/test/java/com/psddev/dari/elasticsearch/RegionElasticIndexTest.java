@@ -6,6 +6,7 @@ import org.junit.Test;
 
 import java.util.List;
 
+@org.junit.Ignore
 public class RegionElasticIndexTest extends AbstractElasticIndexTest<RegionElasticIndexModel, Region> {
 
     @Override

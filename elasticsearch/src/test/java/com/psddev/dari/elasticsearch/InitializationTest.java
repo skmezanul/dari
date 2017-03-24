@@ -12,6 +12,7 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+@org.junit.Ignore
 public class InitializationTest extends AbstractElasticTest {
 
     private ElasticsearchDatabase database;

@@ -10,6 +10,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
+@org.junit.Ignore
 public class UuidElasticIndexTest extends AbstractElasticIndexTest<UuidElasticIndexModel, UUID> {
 
     @Override

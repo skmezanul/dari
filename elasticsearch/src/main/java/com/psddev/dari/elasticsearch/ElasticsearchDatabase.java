@@ -862,7 +862,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         srb.setTrackScores(true);
 
-        LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.info("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
         Float maxScore = hits.getMaxScore();
@@ -874,7 +874,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             items.add(createSavedObjectWithHit(hit, query, maxScore));
         }
 
-        LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+        LOGGER.info("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
         return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
     }
@@ -1341,6 +1341,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return elasticField;
     }
 
+
     /**
      * A reference is difficult to join in Elastic. This returns a list of Ids so you can join on next level of reference
      * In reality it is a join when you have a subQuery.
@@ -1696,24 +1697,37 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             String simpleKey = null;
 
-            int slash = queryKey.lastIndexOf('/');
             String pKey = queryKey;
 
             // this specific one needs to be reduced
             if (queryKey.indexOf('/') != -1) {
-                //Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
                 if (mappedKey != null && mappedKey.hasSubQuery()) {
                     // Elasticsearch like Solr does not support joins in 5.2. Might be memory issue and slow!
                     // to do this requires query, take results and send to other query. Sample tests do this.
 
-                    List<String> ids = referenceSwitcher(queryKey, query);
+                    Query<?> valueQuery = mappedKey.getSubQueryTypeWithComparison(comparison);
+
+                    List<String> ids = new ArrayList<>();
+                    if (valueQuery != null) {
+
+                        if (valueQuery != null) {
+                            for (Object item : readPartial(
+                                    valueQuery, 0, this.subQueryResolveLimit)
+                                    .getItems()) {
+                                UUID u = State.getInstance(item).getId();
+                                ids.add(u.toString());
+                            }
+                            LOGGER.info("Get Sub Query: [{}] {}", valueQuery.getPredicate(), ids.size());
+                        }
+                    }
+
+                    //List<String> ids1 = referenceSwitcher(mappedKey.getSubQueryKeyField().getInternalName(), query);
                     if (ids != null && ids.size() > 0) {
-                        pKey = pKey.substring(slash + 1);
-                        ComparisonPredicate nComparison = new ComparisonPredicate(comparison.getOperator(),
-                                comparison.isIgnoreCase(), pKey, comparison.getValues());
-                        Query n = Query.fromAll().where(nComparison).and("_id contains ?", ids);
-                        LOGGER.debug("returning subQuery ids [{}]", ids.size());
-                        return predicateToQueryBuilder(n.getPredicate(), query);
+                        Query part1 = Query.from(query.getObjectClass()).where(elasticField + " != missing");
+                        Query part2 = Query.fromAll().where(elasticField + " = ?", ids);
+                        Query combinedParts = Query.fromAll().where(part1.getPredicate()).and(part2.getPredicate());
+                        LOGGER.info("returning subQuery ids [{}] [{}]", ids.size(), combinedParts.getPredicate());
+                        return predicateToQueryBuilder(combinedParts.getPredicate(), query);
                     }
                 } else {
                     // fields().size not the same as array in keys "/"
@@ -2980,7 +2994,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 t.put("_ids", documentId); // Elastic range for iterator default _id will not work
 
                                 LOGGER.debug("All field [{}]", allBuilder.toString());
-                                LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                                LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                         newIndexname, documentType, documentId, t.toString());
                                 bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 

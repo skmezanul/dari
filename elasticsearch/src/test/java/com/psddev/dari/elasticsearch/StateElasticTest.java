@@ -12,6 +12,7 @@ import java.util.concurrent.CyclicBarrier;
 
 import static org.junit.Assert.assertTrue;
 
+@org.junit.Ignore
 public class StateElasticTest extends AbstractElasticTest {
 
     @After

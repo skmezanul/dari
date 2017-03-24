@@ -2,6 +2,7 @@ package com.psddev.dari.elasticsearch;
 
 import org.junit.Test;
 
+@org.junit.Ignore
 public class NumberElasticIndexTest extends AbstractElasticIndexTest<NumberElasticIndexModel, Double> {
 
     @Override

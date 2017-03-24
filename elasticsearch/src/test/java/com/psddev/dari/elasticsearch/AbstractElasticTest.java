@@ -17,6 +17,7 @@ import java.io.IOException;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertThat;
 
+@org.junit.Ignore
 public abstract class AbstractElasticTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractElasticTest.class);

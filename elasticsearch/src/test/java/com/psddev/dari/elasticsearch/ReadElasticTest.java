@@ -18,6 +18,7 @@ import static org.hamcrest.Matchers.isIn;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
+@org.junit.Ignore
 public class ReadElasticTest extends AbstractElasticTest {
 
     private static Set<ReadElasticModel> MODELS;

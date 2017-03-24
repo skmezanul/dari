@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
+@org.junit.Ignore
 public class WriteTest extends AbstractElasticTest {
 
     @Rule

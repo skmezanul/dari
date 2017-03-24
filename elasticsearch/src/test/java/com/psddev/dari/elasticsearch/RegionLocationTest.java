@@ -14,6 +14,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
+@org.junit.Ignore
 public class RegionLocationTest extends AbstractElasticTest {
 
     @After

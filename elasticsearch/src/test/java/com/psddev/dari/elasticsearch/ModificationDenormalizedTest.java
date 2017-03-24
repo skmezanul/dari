@@ -17,6 +17,7 @@ import java.util.UUID;
 import static org.junit.Assert.assertThat;
 import static org.hamcrest.Matchers.*;
 
+@org.junit.Ignore
 public class ModificationDenormalizedTest extends AbstractElasticTest {
 
     final static String value = "foo";

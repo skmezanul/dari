@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+@org.junit.Ignore
 public class NumberElasticIndexModel extends AbstractElasticIndexModel<NumberElasticIndexModel, Double> {
 
     @Recordable.Indexed

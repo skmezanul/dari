@@ -5,6 +5,7 @@ import com.psddev.dari.db.Region;
 import com.psddev.dari.db.Sorter;
 import org.junit.Test;
 
+@org.junit.Ignore
 public class LocationElasticIndexTest extends AbstractElasticIndexTest<LocationElasticIndexModel, Location> {
 
     @Override

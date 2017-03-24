@@ -34,6 +34,7 @@
         <module>aws</module>
         <module>db</module>
         <module>elastic</module>
+        <module>test</module>
         <module>elasticsearch</module>
         <module>grandparent</module>
         <module>h2</module>

@@ -13,6 +13,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
+@org.junit.Ignore
 public class TypeElasticTest extends AbstractElasticTest {
 
     @BeforeClass
