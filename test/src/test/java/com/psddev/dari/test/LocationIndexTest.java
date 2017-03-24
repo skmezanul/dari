@@ -44,7 +44,6 @@ public class LocationIndexTest extends AbstractIndexTest<LocationIndexModel, Loc
         query().where("one > ?", value(0)).count();
     }
 
-
     @Override
     @Test(expected = IllegalArgumentException.class)
     public void ge() {
@@ -73,6 +72,7 @@ public class LocationIndexTest extends AbstractIndexTest<LocationIndexModel, Loc
         query().sortAscending("one").count();
     }
 
+    @Category({ElasticTest.class})
     @Override
     @Test(expected = IllegalArgumentException.class)
     public void sortAscendingReferenceOneOne() {

@@ -81,13 +81,7 @@ public class RegionIndexTest extends AbstractIndexTest<RegionIndexModel, Region>
     @Override
     @Test(expected = IllegalArgumentException.class)
     public void sortClosestReferenceOneOne() {
-        for (int i = 0, size = 26; i < size; ++ i) {
-            RegionIndexModel reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
-            model().referenceAll(reference).create();
-        }
-
-        List<RegionIndexModel> models = query().where("referenceOne/one != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
-
+        super.sortClosestReferenceOneOne();
     }
 
     // = is within, and != is not within
@@ -173,6 +167,7 @@ public class RegionIndexTest extends AbstractIndexTest<RegionIndexModel, Region>
     public void sortAscendingOne() {
     }
 
+    @Category({ElasticTest.class})
     @Override
     @Test
     public void sortAscendingReferenceOneOne() {

@@ -862,7 +862,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         srb.setTrackScores(true);
 
-        LOGGER.info("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
         Float maxScore = hits.getMaxScore();
@@ -874,7 +874,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             items.add(createSavedObjectWithHit(hit, query, maxScore));
         }
 
-        LOGGER.info("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+        LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
         return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
     }
@@ -1307,7 +1307,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
 
         if (mappedKey != null && mappedKey.hasSubQuery()) {
-            throw new IllegalArgumentException(queryKey + " cannot sort subQuery (create denormalized fields) on Nearest/Farthest");
+            throw new Query.NoFieldException(query.getGroup(), queryKey + " cannot sort subQuery (create denormalized fields) on Nearest/Farthest");
         }
 
         elasticField = specialSortFields.get(mappedKey);
@@ -1332,6 +1332,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         throw new IllegalArgumentException(elasticField + " cannot sort Location on text Closest/Farthest");
                     }
                 }
+            } else {
+                throw new Query.NoFieldException(query.getGroup(), queryKey);
             }
             if (elasticField == null) {
                 elasticField = queryKey;
@@ -1717,7 +1719,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 UUID u = State.getInstance(item).getId();
                                 ids.add(u.toString());
                             }
-                            LOGGER.info("Get Sub Query: [{}] {}", valueQuery.getPredicate(), ids.size());
+                            LOGGER.debug("Get Sub Query: [{}] {}", valueQuery.getPredicate(), ids.size());
                         }
                     }
 
@@ -1726,7 +1728,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         Query part1 = Query.from(query.getObjectClass()).where(elasticField + " != missing");
                         Query part2 = Query.fromAll().where(elasticField + " = ?", ids);
                         Query combinedParts = Query.fromAll().where(part1.getPredicate()).and(part2.getPredicate());
-                        LOGGER.info("returning subQuery ids [{}] [{}]", ids.size(), combinedParts.getPredicate());
+                        LOGGER.debug("returning subQuery ids [{}] [{}]", ids.size(), combinedParts.getPredicate());
                         return predicateToQueryBuilder(combinedParts.getPredicate(), query);
                     }
                 } else {
@@ -2121,7 +2123,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             LOGGER.debug("trying resource mapping.json mapping");
             return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "setting.json").toURI())));
         } catch (Exception error) {
-            LOGGER.info("using default setting");
+            LOGGER.info("Using default setting - switch to resource file");
             return "{\n"
                     + "    \"analysis\": { \n"
                     + "      \"analyzer\": {\n"
@@ -2159,7 +2161,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             LOGGER.debug("trying resource mapping.json mapping");
             return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "mapping.json").toURI())));
         } catch (Exception error) {
-            LOGGER.info("using default mapping");
+            LOGGER.info("Using default mapping - switch to resource file");
             return "{\n"
                     + "\"properties\" : {\n"
                     + "          \"_ids\": {\n"
@@ -2994,7 +2996,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 t.put("_ids", documentId); // Elastic range for iterator default _id will not work
 
                                 LOGGER.debug("All field [{}]", allBuilder.toString());
-                                LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                                LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                         newIndexname, documentType, documentId, t.toString());
                                 bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 

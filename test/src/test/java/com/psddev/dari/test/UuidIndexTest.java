@@ -12,6 +12,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class UuidIndexTest extends AbstractIndexTest<UuidIndexModel, UUID> {
 
     @Override
@@ -25,17 +26,9 @@ public class UuidIndexTest extends AbstractIndexTest<UuidIndexModel, UUID> {
     }
 
     @Override
-    @Category({com.psddev.dari.test.H2Test.class})
     @Test(expected = Query.NoFieldException.class)
     public void sortClosestReferenceOneOneJunkSort() {
         super.sortClosestReferenceOneOneJunkSort();
-    }
-
-    @Override
-    @Category({com.psddev.dari.test.H2Test.class})
-    @Test
-    public void sortAscendingReferenceOneOne() {
-        super.sortAscendingReferenceOneOne();
     }
 
     @Override
@@ -43,6 +36,12 @@ public class UuidIndexTest extends AbstractIndexTest<UuidIndexModel, UUID> {
     public void containsNull() {
         createCompareTestModels();
         query().and("one contains ?", (Object) null).count();
+    }
+
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void sortClosestReferenceOneOne() {
+        super.sortClosestReferenceOneOne();
     }
 
     @Override
@@ -93,14 +92,10 @@ public class UuidIndexTest extends AbstractIndexTest<UuidIndexModel, UUID> {
     }
 
     @Override
-    @Test(expected = IllegalArgumentException.class)
-    public void sortClosestReferenceOneOne() {
-        for (int i = 0, size = 26; i < size; ++ i) {
-            UuidIndexModel reference = model().all(value(i % 2 == 0 ? i : size - i)).create();
-            model().referenceAll(reference).create();
-        }
-
-        query().where("referenceOne/one != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
+    @Category({com.psddev.dari.test.ElasticExcludeTest.class})
+    @Test
+    public void sortAscendingReferenceOneOne() {
+        super.sortAscendingReferenceOneOne();
     }
 
     @Override

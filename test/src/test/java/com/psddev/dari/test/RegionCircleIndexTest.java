@@ -116,6 +116,7 @@ public class RegionCircleIndexTest extends AbstractIndexTest<RegionIndexModel, R
     public void sortAscendingOne() {
     }
 
+    @Category({ElasticTest.class})
     @Override
     @Test
     public void sortAscendingReferenceOneOne() {

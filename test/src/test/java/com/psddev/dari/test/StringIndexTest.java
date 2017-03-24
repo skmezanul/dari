@@ -6,7 +6,7 @@ import org.junit.experimental.categories.Category;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertThat;
 
-@Category({com.psddev.dari.test.ElasticTest.class})
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class StringIndexTest extends AbstractIndexTest<StringIndexModel, String> {
 
     @Override
@@ -36,6 +36,13 @@ public class StringIndexTest extends AbstractIndexTest<StringIndexModel, String>
     @Test(expected = IllegalArgumentException.class)
     public void sortClosestEmbeddedOneOne() {
         super.sortClosestEmbeddedOneOne();
+    }
+
+    @Override
+    @Category({com.psddev.dari.test.ElasticExcludeTest.class})
+    @Test
+    public void sortAscendingReferenceOneOne() {
+        super.sortAscendingReferenceOneOne();
     }
 
     @Override

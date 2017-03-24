@@ -93,20 +93,17 @@ public class SearchArticleIndexTest extends AbstractIndexTest<SearchArticleIndex
 
     @Override
     @Test(expected = IllegalArgumentException.class)
-    public void sortClosestReferenceOneOne() {
-        createReferenceTestModels();
-
-        List<SearchArticleIndexModel> models = query().where("referenceOne/one != missing").sortClosest("referenceOne/one", new Location(0, 0)).selectAll();
-
-    }
-
-    @Override
-    @Test(expected = IllegalArgumentException.class)
     public void sortFarthestOneAnd() {
         createSortTestModels();
         List<SearchArticleIndexModel> models = query().where("one != missing").and("set != missing").and("list != missing").sortFarthest("one", new Location(0, 0)).selectAll();
         assertThat(models, Matchers.hasSize(total));
 
+    }
+
+    @Override
+    @Test(expected = IllegalArgumentException.class)
+    public void sortClosestReferenceOneOne() {
+        super.sortClosestReferenceOneOne();
     }
 
     @Override

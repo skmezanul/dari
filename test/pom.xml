@@ -109,12 +109,14 @@
             <id>ElasticTests</id>
             <properties>
                 <testcase.groups>com.psddev.dari.test.ElasticTest</testcase.groups>
+                <testcase.excludegroups>com.psddev.dari.test.ElasticExcludeTest</testcase.excludegroups>
             </properties>
         </profile>
         <profile>
             <id>H2Tests</id>
             <properties>
                 <testcase.groups>com.psddev.dari.test.H2Test</testcase.groups>
+                <testcase.excludegroups>com.psddev.dari.test.H2ExcludeTest</testcase.excludegroups>
             </properties>
         </profile>
     </profiles>
@@ -131,6 +133,7 @@
                     <argLine>-DDBTYPE=${testcase.groups}</argLine>
                     <reportNameSuffix>${testcase.groups}</reportNameSuffix>
                     <groups>${testcase.groups}</groups>
+                    <excludedGroups>${testcase.excludegroups}</excludedGroups>
                 </configuration>
               <!--  <executions>
                     <execution>

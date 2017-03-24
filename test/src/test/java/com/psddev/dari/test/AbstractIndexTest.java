@@ -4,10 +4,12 @@ import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.State;
 import com.psddev.dari.util.TypeDefinition;
+import com.psddev.dari.util.reflections.util.FilterBuilder;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import java.util.*;
 import java.util.stream.IntStream;
@@ -621,7 +623,7 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
         }
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = Query.NoFieldException.class)
     public void sortClosestReferenceOneOneJunkSort() {
         for (int i = 0, size = 26; i < size; ++ i) {
             M reference = model().all(value(i % 2 == 0 ? i : size - i)).create();

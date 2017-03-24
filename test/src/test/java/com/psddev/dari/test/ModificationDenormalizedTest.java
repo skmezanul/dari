@@ -6,6 +6,7 @@ import org.hamcrest.core.Every;
 import org.hamcrest.core.Is;
 import org.junit.After;
 import org.junit.Test;
+import org.junit.experimental.categories.Categories;
 import org.junit.experimental.categories.Category;
 
 import java.util.ArrayList;
@@ -18,7 +19,7 @@ import java.util.UUID;
 import static org.junit.Assert.assertThat;
 import static org.hamcrest.Matchers.*;
 
-@Category({com.psddev.dari.test.ElasticTest.class})
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class ModificationDenormalizedTest extends AbstractTest {
 
     final static String value = "foo";
@@ -125,6 +126,8 @@ public class ModificationDenormalizedTest extends AbstractTest {
         Query.from(ModificationDenormalizedModel.class).where("tgd.name = ?", value).selectAll();
     }
 
+    // H2 has bug
+    @Category({com.psddev.dari.test.H2ExcludeTest.class})
     @Test
     public void testRefIdString() {
         List<IndexTag> eList = buildList(values);
