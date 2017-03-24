@@ -1343,7 +1343,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return elasticField;
     }
 
-
     /**
      * A reference is difficult to join in Elastic. This returns a list of Ids so you can join on next level of reference
      * In reality it is a join when you have a subQuery.
