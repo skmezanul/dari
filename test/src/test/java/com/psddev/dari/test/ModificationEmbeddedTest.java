@@ -19,7 +19,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
-@Category({com.psddev.dari.test.ElasticTest.class})
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class ModificationEmbeddedTest extends AbstractTest {
 
     final static String value = "foo";
@@ -66,7 +66,8 @@ public class ModificationEmbeddedTest extends AbstractTest {
         return eList;
     }
 
-
+    // H2 issue
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testSingleString() {
 

@@ -862,7 +862,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         srb.setTrackScores(true);
 
-        LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.info("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
         Float maxScore = hits.getMaxScore();
@@ -874,7 +874,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             items.add(createSavedObjectWithHit(hit, query, maxScore));
         }
 
-        LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+        LOGGER.info("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
         return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
     }
@@ -1772,7 +1772,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
-                        if (v != null && (internalType != null && "location".equals(internalType))) {
+                        if (v instanceof Location || (internalType != null && "location".equals(internalType))) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
                         if (v != null && (internalType != null && "region".equals(internalType))) {
@@ -1801,7 +1801,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
-                        if (v != null && internalType != null && "location".equals(internalType)) {
+                        if (v instanceof Location || (internalType != null && "location".equals(internalType))) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
                         if (v != null && internalType != null && "region".equals(internalType)) {
@@ -1830,7 +1830,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
-                        if (v != null && (internalType != null && "location".equals(internalType))) {
+                        if (v instanceof Location || (internalType != null && "location".equals(internalType))) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
                         if (v != null && (internalType != null && "region".equals(internalType))) {
@@ -1860,7 +1860,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (v != null && Query.MISSING_VALUE.equals(v)) {
                             throw new IllegalArgumentException(operator + " missing not allowed");
                         }
-                        if (v != null && internalType != null && "location".equals(internalType)) {
+                        if (v instanceof Location || (internalType != null && "location".equals(internalType))) {
                             throw new IllegalArgumentException(operator + " cannot be location");
                         }
                         if (v != null && internalType != null && "region".equals(internalType)) {
@@ -1895,7 +1895,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
                             }
                         }
-                        if (v != null && v instanceof Location) {
+                        if (v instanceof Location || (internalType != null && "location".equals(internalType))) {
                             throw new IllegalArgumentException(operator + " location not allowed");
                         }
                         if (v != null && v instanceof Region) {
@@ -1936,7 +1936,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 throw new IllegalArgumentException(operator + " UUID does not allow");
                             }
                         }
-                        if (v != null && v instanceof Location) {
+                        if (v instanceof Location || (internalType != null && internalType.equals("location"))) {
                             if ((internalType == null) || (internalType != null && "location".equals(internalType))) {
                                 throw new IllegalArgumentException(operator + " location not allowed");
                             } else if (!"region".equals(internalType) && !"location".equals(internalType)) {
@@ -2995,7 +2995,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 t.put("_ids", documentId); // Elastic range for iterator default _id will not work
 
                                 LOGGER.debug("All field [{}]", allBuilder.toString());
-                                LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                                LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                         newIndexname, documentType, documentId, t.toString());
                                 bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 

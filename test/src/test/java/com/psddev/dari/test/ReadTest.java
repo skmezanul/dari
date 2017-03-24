@@ -1,7 +1,9 @@
 package com.psddev.dari.test;
 
+import com.psddev.dari.db.Database;
 import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.Query;
+import com.psddev.dari.sql.AbstractSqlDatabase;
 import com.psddev.dari.util.PaginatedResult;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -16,10 +18,11 @@ import java.util.Set;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isIn;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
-@Category({com.psddev.dari.test.ElasticTest.class})
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class ReadTest extends AbstractTest {
 
     private static Set<ReadModel> MODELS;
@@ -109,43 +112,85 @@ public class ReadTest extends AbstractTest {
                 isIn(MODELS));
     }
 
-    private void iterable(boolean disableByIdIterator, int fetchSize) {
+    private void iterable(boolean disableByIdIterator, int fetchSize, boolean isOption) {
         Set<ReadModel> result = new HashSet<>();
 
-        Query.from(ReadModel.class)
-                //.option(AbstractSqlDatabase.DISABLE_BY_ID_ITERATOR_OPTION, disableByIdIterator)
-                .iterable(0)
-                .forEach(result::add);
+        if (isOption) {
+            Query.from(ReadModel.class)
+                    .option(AbstractSqlDatabase.DISABLE_BY_ID_ITERATOR_OPTION, disableByIdIterator)
+                    .iterable(0)
+                    .forEach(result::add);
+        } else {
+            Query.from(ReadModel.class)
+                    .iterable(0)
+                    .forEach(result::add);
+        }
 
         assertThat(result, is(MODELS));
     }
 
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test
+    public void iterableById0Option() {
+        iterable(false, 0, true);
+    }
+
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test
+    public void iterableById1Option() {
+        iterable(false, 1, true);
+    }
+
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test
+    public void iterableNotById0Option() {
+        iterable(true, 0, true);
+    }
+
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test
+    public void iterableNotById1Option() {
+        iterable(true, 1, true);
+    }
+
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void iterableById0() {
-        iterable(false, 0);
+        iterable(false, 0, false);
     }
 
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void iterableById1() {
-        iterable(false, 1);
+        iterable(false, 1, false);
     }
 
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void iterableNotById0() {
-        iterable(true, 0);
+        iterable(true, 0, false);
     }
 
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void iterableNotById1() {
-        iterable(true, 1);
+        iterable(true, 1, false);
     }
 
-    private void iterableNext(boolean disableByIdIterator) {
-        Iterator<ReadModel> i = Query
-                .from(ReadModel.class)
-                //.option(AbstractSqlDatabase.DISABLE_BY_ID_ITERATOR_OPTION, disableByIdIterator)
-                .iterable(0)
-                .iterator();
+    private void iterableNext(boolean disableByIdIterator, boolean isOption) {
+        Iterator<ReadModel> i;
+        if (isOption) {
+            i = Query
+                    .from(ReadModel.class)
+                    .option(AbstractSqlDatabase.DISABLE_BY_ID_ITERATOR_OPTION, disableByIdIterator)
+                    .iterable(0)
+                    .iterator();
+        } else {
+            i = Query
+                    .from(ReadModel.class)
+                    .iterable(0)
+                    .iterator();
+        }
 
         while (i.hasNext()) {
             i.next();
@@ -154,40 +199,84 @@ public class ReadTest extends AbstractTest {
         i.next();
     }
 
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test(expected = NoSuchElementException.class)
+    public void iterableNextByIdOption() {
+        iterableNext(false, true);
+    }
+
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test(expected = NoSuchElementException.class)
+    public void iterableNextNotByIdOption() {
+        iterableNext(true, true);
+    }
+
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test(expected = NoSuchElementException.class)
     public void iterableNextById() {
-        iterableNext(false);
+        iterableNext(false, false);
     }
 
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test(expected = NoSuchElementException.class)
     public void iterableNextNotById() {
-        iterableNext(true);
+        iterableNext(true, false);
     }
 
-    private void iterableRemove(boolean disableByIdIterator) {
-        Query.from(ReadModel.class)
-                //.option(AbstractSqlDatabase.DISABLE_BY_ID_ITERATOR_OPTION, disableByIdIterator)
-                .iterable(0)
-                .iterator()
-                .remove();
+    private void iterableRemove(boolean disableByIdIterator, boolean isOption) {
+        if (isOption) {
+            Query.from(ReadModel.class)
+                    .option(AbstractSqlDatabase.DISABLE_BY_ID_ITERATOR_OPTION, disableByIdIterator)
+                    .iterable(0)
+                    .iterator()
+                    .remove();
+        } else {
+            Query.from(ReadModel.class)
+                    .iterable(0)
+                    .iterator()
+                    .remove();
+        }
     }
 
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test(expected = UnsupportedOperationException.class)
+    public void iterableRemoveByIdOption() {
+        iterableRemove(false, true);
+    }
+
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test(expected = UnsupportedOperationException.class)
+    public void iterableRemoveNotByIdOption() {
+        iterableRemove(true, true);
+    }
+
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test(expected = UnsupportedOperationException.class)
     public void iterableRemoveById() {
-        iterableRemove(false);
+        iterableRemove(false, false);
     }
 
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test(expected = UnsupportedOperationException.class)
     public void iterableRemoveNotById() {
-        iterableRemove(true);
+        iterableRemove(true, false);
     }
 
     // This is not implemented in Elastic yet (_timestamp could be used)
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
-    public void lastUpdate() {
+    public void lastUpdateNotImplemented() {
         assertThat(
                 Query.from(ReadModel.class).lastUpdate(),
                 nullValue());
+    }
+
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test
+    public void lastUpdate() {
+        assertThat(
+                Query.from(ReadModel.class).lastUpdate().getTime(),
+                lessThan(Database.Static.getDefault().now()));
     }
 
     @Test

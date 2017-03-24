@@ -3,7 +3,7 @@ package com.psddev.dari.test;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-@Category({com.psddev.dari.test.ElasticTest.class})
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class NumberIndexTest extends AbstractIndexTest<NumberIndexModel, Double> {
 
     @Override
@@ -38,6 +38,13 @@ public class NumberIndexTest extends AbstractIndexTest<NumberIndexModel, Double>
     @Test(expected = IllegalArgumentException.class)
     public void contains() {
         super.contains();
+    }
+
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Override
+    @Test
+    public void sortAscendingReferenceOneOne() {
+        super.sortAscendingReferenceOneOne();
     }
 
     @Override

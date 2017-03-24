@@ -16,7 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Category({com.psddev.dari.test.ElasticTest.class})
-public class InitializationTest extends AbstractTest {
+public class ElasticInitializationTest extends AbstractTest {
 
     private ElasticsearchDatabase database;
     private Map<String, Object> settings;

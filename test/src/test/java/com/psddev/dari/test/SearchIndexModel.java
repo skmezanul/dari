@@ -153,5 +153,14 @@ public class SearchIndexModel extends Record {
         this.reference = reference;
     }
 
+    @Indexed
+    public PersonIndexModel personReference;
+    public PersonIndexModel getPersonReference() {
+        return personReference;
+    }
+    public void setPersonReference(PersonIndexModel personReference) {
+        this.personReference = personReference;
+    }
+
 }
 

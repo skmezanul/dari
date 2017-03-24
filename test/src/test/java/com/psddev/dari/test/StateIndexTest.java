@@ -13,7 +13,7 @@ import java.util.concurrent.CyclicBarrier;
 
 import static org.junit.Assert.assertTrue;
 
-@Category({com.psddev.dari.test.ElasticTest.class})
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class StateIndexTest extends AbstractTest {
 
     @After

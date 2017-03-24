@@ -2,7 +2,7 @@ package com.psddev.dari.test;
 
 import com.psddev.dari.db.Record;
 
-public class MethodIndexElasticModel extends Record {
+public class MethodIndexModel extends Record {
 
     @Required
     private String name;

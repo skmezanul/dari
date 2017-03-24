@@ -14,7 +14,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
-@Category({com.psddev.dari.test.ElasticTest.class})
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class SearchArticleIndexTest extends AbstractIndexTest<SearchArticleIndexModel, String> {
 
     @Override
@@ -25,6 +25,13 @@ public class SearchArticleIndexTest extends AbstractIndexTest<SearchArticleIndex
     @Override
     protected String value(int index) {
         return String.valueOf(index);
+    }
+
+    @Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Override
+    @Test
+    public void sortAscendingReferenceOneOne() {
+        super.sortAscendingReferenceOneOne();
     }
 
     @Test

@@ -113,12 +113,20 @@ public class RegionIndexTest extends AbstractIndexTest<RegionIndexModel, Region>
         query().and("one = true").count();
     }
 
-    // greater thsan 0 does not work for region
+    // greater than 0 does not work for region
     @Test(expected = IllegalArgumentException.class)
     public void gtNumber() {
         createCompareTestModels();
         assertCount(total, "one > 0");
     }
+	
+	@Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+    @Test
+    public void gtNumberH2() {
+        createCompareTestModels();
+        assertCount(total, "one > 0");
+    }
+
 
     @Test(expected = IllegalArgumentException.class)
     public void gtIllegal() {
@@ -128,6 +136,13 @@ public class RegionIndexTest extends AbstractIndexTest<RegionIndexModel, Region>
 
     @Test(expected = IllegalArgumentException.class)
     public void geNumber() {
+        createCompareTestModels();
+        assertCount(total, "one >= 0");
+    }
+
+	@Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+	@Test
+    public void geNumberH2() {
         createCompareTestModels();
         assertCount(total, "one >= 0");
     }
@@ -143,6 +158,13 @@ public class RegionIndexTest extends AbstractIndexTest<RegionIndexModel, Region>
         createCompareTestModels();
         assertCount(1, "one < 10");
     }
+	
+	@Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+	@Test
+    public void ltNumberH2() {
+        createCompareTestModels();
+        assertCount(1, "one < 10");
+    }
 
     @Test(expected = IllegalArgumentException.class)
     public void ltIllegal() {
@@ -155,6 +177,14 @@ public class RegionIndexTest extends AbstractIndexTest<RegionIndexModel, Region>
         createCompareTestModels();
         assertCount(1, "one <= 10");
     }
+	
+	@Category({ com.psddev.dari.test.ElasticExcludeTest.class })
+	@Test
+    public void leNumberH2() {
+        createCompareTestModels();
+        assertCount(1, "one <= 10");
+    }
+
 
     @Test(expected = IllegalArgumentException.class)
     public void leIllegal() {

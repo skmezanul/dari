@@ -31,7 +31,7 @@ import org.junit.experimental.categories.Category;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Category({com.psddev.dari.test.ElasticTest.class})
+@Category({com.psddev.dari.test.ElasticTest.class, com.psddev.dari.test.H2Test.class})
 public class SearchIndexTest extends AbstractTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(SearchIndexTest.class);
 
@@ -39,17 +39,13 @@ public class SearchIndexTest extends AbstractTest {
 
     private static boolean SearchOverlapModelIndex = false;
 
-    @Before
-    public void before() {
-
-    }
-
     @After
     public void deleteModels() {
         Query.from(SearchIndexModel.class).deleteAllImmediately();
         if (SearchOverlapModelIndex) {
             Query.from(SearchOverlapModel.class).deleteAllImmediately();
         }
+        Query.from(PersonIndexModel.class).deleteAllImmediately();
     }
 
     @Test
@@ -185,6 +181,8 @@ public class SearchIndexTest extends AbstractTest {
         assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "foo*").count(), equalTo(1L));
     }
 
+    // eid of 1 is more relevant since one = foo does not work on H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void sortRelevant() throws Exception {
         SearchIndexModel model = new SearchIndexModel();
@@ -337,6 +335,8 @@ public class SearchIndexTest extends AbstractTest {
         assertEquals("Welcome", r.get(0).getMessage());
     }
 
+    // sortAscending on floats not working in H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testReferenceAscending() throws Exception {
         Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
@@ -377,6 +377,8 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check size", fooResult, hasSize(1));
     }
 
+    // SqlDatabase does not support group by numeric range
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testFloatGroupBy() throws Exception {
         Stream.of(1.0f,2.0f,3.0f,2.0f,3.0f,3.0f).forEach((Float f) -> {
@@ -391,7 +393,7 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check size", groupings, hasSize(3));
 
         groupings.forEach(g -> {
-            String keyLetter = (String) g.getKeys().get(0);
+            String keyLetter = String.valueOf(g.getKeys().get(0));
 
             assertThat(
                     keyLetter + " check",
@@ -413,6 +415,8 @@ public class SearchIndexTest extends AbstractTest {
 
     }
 
+    // sortNewest not supported H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testDateNewestBoost() throws Exception {
         Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
@@ -512,6 +516,8 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check size", fooResult, hasSize(0));
     }
 
+    // sortOldest not supported H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testDateOldestBoost() throws Exception {
         Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
@@ -531,6 +537,8 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check 2 and 3 order", fooResult.get(2).post_date.getTime(), lessThan(fooResult.get(3).post_date.getTime()));
     }
 
+    // sortOldest not supported H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testDateOldestBoostRelevant() throws Exception {
         Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
@@ -658,6 +666,8 @@ public class SearchIndexTest extends AbstractTest {
 
     }
 
+    // sortOldest not supported in SQL
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testTimeout() throws Exception {
         Stream.of(new java.util.Date()).forEach(d -> {
@@ -747,6 +757,7 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check size", fooResult, hasSize(1));
     }
 
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test(expected = IllegalArgumentException.class)
     public void testUUIDmatchesany() throws Exception {
 
@@ -760,6 +771,8 @@ public class SearchIndexTest extends AbstractTest {
 
     }
 
+    // H2 is not case insensitive
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testSearchStemming() {
 
@@ -824,6 +837,8 @@ public class SearchIndexTest extends AbstractTest {
 
     }
 
+    // H2 does not throw exceptions on UUID and matches
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test(expected = IllegalArgumentException.class)
     public void testUUIDmatchesall() throws Exception {
 
@@ -836,6 +851,8 @@ public class SearchIndexTest extends AbstractTest {
                 .selectAll();
     }
 
+    // H2 does not tokenize so matches works. This is not right.
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test(expected = IllegalArgumentException.class)
     public void testUUIDmatchesany2() throws Exception {
 
@@ -848,6 +865,8 @@ public class SearchIndexTest extends AbstractTest {
                 .selectAll();
     }
 
+    // H2 does not tokenize so matches works. This is not right.
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test(expected = IllegalArgumentException.class)
     public void testUUIDmatchesall2() throws Exception {
 
@@ -893,7 +912,7 @@ public class SearchIndexTest extends AbstractTest {
                 Query.from(SearchIndexModel.class).groupByPartial(0L, 2, "one");
         for (Grouping<SearchIndexModel> grouping : groupBy.getItems()) {
             List<Object> cycleKeys = grouping.getKeys();
-            String name = (String) cycleKeys.get(0);
+            String name = String.valueOf(cycleKeys.get(0));
             long count = grouping.getCount();
             assertThat( count, is(4L));
         }
@@ -901,6 +920,8 @@ public class SearchIndexTest extends AbstractTest {
         assertEquals(20, groupBy.getCount());
     }
 
+    // Default group order should be highest to lowest. H2 does not do that.
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testGroupOrder() {
         for (int i = 1; i <= 4; i++) {
@@ -917,14 +938,16 @@ public class SearchIndexTest extends AbstractTest {
                 Query.from(SearchIndexModel.class).groupBy("one");
         for (Grouping<SearchIndexModel> grouping : groupBy) {
             List<Object> cycleKeys = grouping.getKeys();
-            String name = (String) cycleKeys.get(0);
-            assertThat( grouping.getCount(), is(count*2));
+            String name = String.valueOf(cycleKeys.get(0));
+            assertThat( "testGroupOrder highest to lowest", grouping.getCount(), is(count*2));
             count = count - 1;
         }
 
         assertThat(groupBy, hasSize(4));
     }
 
+    // H2 order is low to high, need to check
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testGroupDateandOne() {
         Date begin = new Date();
@@ -945,7 +968,7 @@ public class SearchIndexTest extends AbstractTest {
         for (Grouping<SearchIndexModel> grouping : groupBy) {
             List<Object> cycleKeys = grouping.getKeys();
             String date = cycleKeys.get(0).toString();
-            String one = (String) grouping.getKeys().get(1);
+            String one = String.valueOf(grouping.getKeys().get(1));
             assertThat( grouping.getCount(), is(count*2));
             assertThat(one, is("test " + count));
             count = count + 1;
@@ -1039,6 +1062,8 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check testModification", sem2, hasSize(1));
     }
 
+    // Need tokenizing properly for H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testMatchesAll() {
         SearchIndexModel model1 = new SearchIndexModel();
@@ -1059,19 +1084,21 @@ public class SearchIndexTest extends AbstractTest {
         many.add("test");
         many.add("headline");
         List<SearchIndexModel> sem2 = Query.from(SearchIndexModel.class).where("one matchesany ?", many).selectAll();
-        assertThat("check matchesany", sem2, hasSize(1));
+        assertThat("check matchesany 2", sem2, hasSize(1));
         List<SearchIndexModel> sem3 = Query.from(SearchIndexModel.class).where("one matchesall ?", many).selectAll();
-        assertThat("check matchesall", sem3, hasSize(1));
+        assertThat("check matchesall 2", sem3, hasSize(1));
 
         List<String> many2 = new ArrayList<>();
         many.add("test");
         many.add("story");
         List<SearchIndexModel> sem4 = Query.from(SearchIndexModel.class).where("one matchesany ?", many).selectAll();
-        assertThat("check matchesany", sem4, hasSize(2));
+        assertThat("check matchesany 3", sem4, hasSize(2));
         List<SearchIndexModel> sem5 = Query.from(SearchIndexModel.class).where("one matchesall ?", many).selectAll();
-        assertThat("check matchesall", sem5, hasSize(1));
+        assertThat("check matchesall 3", sem5, hasSize(1));
     }
 
+    // H2 does not work all case
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testMatchesAllCase() {
         SearchIndexModel model1 = new SearchIndexModel();
@@ -1114,6 +1141,8 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check matchesall", sem5, hasSize(1));
     }
 
+    // sortAscending on floats not working in H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testSortNumber() {
 
@@ -1181,29 +1210,31 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("equals check", sem.get(1).one, is("test headline story"));
     }
 
+    // H2 does not work for this
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testIndexMethod() {
-        MethodIndexElasticModel model = new MethodIndexElasticModel();
+        MethodIndexModel model = new MethodIndexModel();
         model.setName("story");
         model.save();
 
-        List<MethodIndexElasticModel> tagg = Query.from(MethodIndexElasticModel.class).where("taggable.getFoo2 = ?", "Foo2").selectAll();
+        List<MethodIndexModel> tagg = Query.from(MethodIndexModel.class).where("taggable.getFoo2 = ?", "Foo2").selectAll();
         assertThat("check IndexMethod", tagg, hasSize(1));
 
-        List<MethodIndexElasticModel> sem = Query.from(MethodIndexElasticModel.class).where("getFoo = ?", "Foo").selectAll();
-        assertThat("check IndexMethod", sem, hasSize(1));
+        List<MethodIndexModel> sem = Query.from(MethodIndexModel.class).where("getFoo = ?", "Foo").selectAll();
+        assertThat("check IndexMethod 2", sem, hasSize(1));
 
-        List<MethodIndexElasticModel> sem1 = Query.from(MethodIndexElasticModel.class).where("getInfo matches ?", "larger").selectAll();
-        assertThat("check IndexMethod", sem1, hasSize(1));
+        List<MethodIndexModel> sem1 = Query.from(MethodIndexModel.class).where("getInfo matches ?", "larger").selectAll();
+        assertThat("check IndexMethod 3", sem1, hasSize(1));
 
-        List<MethodIndexElasticModel> sem2 = Query.from(MethodIndexElasticModel.class).where("getPrefixName = ?", "defaultstory").selectAll();
-        assertThat("check IndexMethod", sem2, hasSize(1));
+        List<MethodIndexModel> sem2 = Query.from(MethodIndexModel.class).where("getPrefixName = ?", "defaultstory").selectAll();
+        assertThat("check IndexMethod 4", sem2, hasSize(1));
 
-        List<Grouping<MethodIndexElasticModel>> groupL = Query.from(MethodIndexElasticModel.class).groupBy("getNameFirstLetter");
+        List<Grouping<MethodIndexModel>> groupL = Query.from(MethodIndexModel.class).groupBy("getNameFirstLetter");
         assertThat("check Grouping / agg", groupL, hasSize(1));
         for (Grouping g : groupL) {
             if (g.getKeys().contains("s")) {
-                assertThat(g.getCount(), is((long) 1));
+                assertThat("group", g.getCount(), is((long) 1));
             }
         }
     }
@@ -1217,7 +1248,7 @@ public class SearchIndexTest extends AbstractTest {
         model.setOne("story");
         model.save();
 
-        MethodIndexElasticModel model1 = new MethodIndexElasticModel();
+        MethodIndexModel model1 = new MethodIndexModel();
         model1.setName("story");
         model1.save();
 
@@ -1232,14 +1263,16 @@ public class SearchIndexTest extends AbstractTest {
 
         assertThat("check methods Indexed", lMethods, hasSize(6));
         assertThat("check methods Indexed", lMethods,
-                hasItems("com.psddev.dari.test.MethodIndexElasticModel/getName",
-                         "com.psddev.dari.test.MethodIndexElasticModel/getFoo",
-                         "com.psddev.dari.test.MethodIndexElasticModel/taggable.getFoo2",
-                         "com.psddev.dari.test.MethodIndexElasticModel/getInfo",
-                         "com.psddev.dari.test.MethodIndexElasticModel/getNameFirstLetter",
-                         "com.psddev.dari.test.MethodIndexElasticModel/getPrefixName"));
+                hasItems("com.psddev.dari.test.MethodIndexModel/getName",
+                         "com.psddev.dari.test.MethodIndexModel/getFoo",
+                         "com.psddev.dari.test.MethodIndexModel/taggable.getFoo2",
+                         "com.psddev.dari.test.MethodIndexModel/getInfo",
+                         "com.psddev.dari.test.MethodIndexModel/getNameFirstLetter",
+                         "com.psddev.dari.test.MethodIndexModel/getPrefixName"));
     }
 
+    // H2 does not match all case
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testComplexTaggedIndexMethod() {
         MethodComplexModel model1 = new MethodComplexModel();
@@ -1260,12 +1293,15 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check tagged matches", tagSet2, hasSize(1));
     }
 
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testPainless() {
         ElasticsearchDatabase db = (ElasticsearchDatabase) Database.Static.getDefault();
         assertThat(db.isModuleInstalled("lang-painless", "org.elasticsearch.painless.PainlessPlugin"), is(true));
     }
 
+    // some issue with _any on H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testDenormalizedTags() {
         IndexTag t = new IndexTag();
@@ -1286,16 +1322,18 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check size", tagList, hasSize(1));
 
         List<DenormalizedReferenceModel> tagList2 = Query.from(DenormalizedReferenceModel.class).where("_any matches ?", "noindex").selectAll();
-        assertThat("check size", tagList2, hasSize(0));
+        assertThat("check size 2", tagList2, hasSize(0));
 
         List<DenormalizedReferenceModel> tagList3 = Query.from(DenormalizedReferenceModel.class).where("taggable.indexedTag/name = ?", "pizza").selectAll();
-        assertThat("check size", tagList3, hasSize(1));
+        assertThat("check size 3", tagList3, hasSize(1));
 
         // should not match
         List<DenormalizedReferenceModel> tagList4 = Query.from(DenormalizedReferenceModel.class).where("taggable.indexedTag/name matches ?", "pizza").selectAll();
-        assertThat("check size", tagList4, hasSize(1));
+        assertThat("check size 4", tagList4, hasSize(1));
     }
 
+    // score not right in H2
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testScoreNormalizedScore()  {
         SearchIndexModel search = new SearchIndexModel();
@@ -1311,7 +1349,9 @@ public class SearchIndexTest extends AbstractTest {
 
         assertThat(fooResult, hasSize(1));
 
-        assertThat(fooResult.get(0).getState().getExtras().size(), is(4));
+        if (Database.Static.getDefault().getName().equals(ElasticsearchDatabase.DATABASE_NAME)) {
+            assertThat(fooResult.get(0).getState().getExtras().size(), is(4));
+        }
 
         Float score = ObjectUtils.to(Float.class, fooResult.get(0).getExtra(ElasticsearchDatabase.SCORE_EXTRA));
         assertThat(score, is(lessThan(.3f)));
@@ -1320,6 +1360,8 @@ public class SearchIndexTest extends AbstractTest {
         assertThat(normalizedScore, is (1.0f));
     }
 
+    // Only for Elastic right now
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testStringNormalizedScore()  {
         SearchIndexModel search = new SearchIndexModel();
@@ -1355,6 +1397,7 @@ public class SearchIndexTest extends AbstractTest {
         assertThat(normalizedScore1, is (lessThan(normalizedScore)));
     }
 
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testLargeField() {
         StringBuilder msg = new StringBuilder();
@@ -1373,17 +1416,125 @@ public class SearchIndexTest extends AbstractTest {
                 .from(SearchIndexModel.class)
                 .where("eid matches ?", "939393")
                 .selectAll();
-        assertThat(fooResult.get(0).getMessage().length(), is(equalTo(2000)));
+        assertThat("max length", fooResult.get(0).getMessage().length(), is(equalTo(2000)));
         List<SearchIndexModel> fooResult1 = Query
                 .from(SearchIndexModel.class)
                 .where("message = ?", message.substring(0,ElasticsearchDatabase.MAX_BINARY_FIELD_LENGTH))
                 .selectAll();
-        assertThat(fooResult1, hasSize(1));
+        assertThat("check database size", fooResult1, hasSize(1));
         List<SearchIndexModel> fooResult2 = Query
                 .from(SearchIndexModel.class)
                 .where("message = ?", message.substring(0,ElasticsearchDatabase.MAX_BINARY_FIELD_LENGTH+1))
                 .selectAll();
-        assertThat(fooResult2, hasSize(0));
+        assertThat("after the limit", fooResult2, hasSize(0));
     }
+
+    /**
+     * This one tests 2 different Record Classes
+     */
+    @Test
+    public void testReferencePersonSubType() {
+        PersonIndexModel person = new PersonIndexModel();
+        person.setPersonName("Tony");
+        person.save();
+
+        SearchIndexModel search = new SearchIndexModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = "tough";
+        search.personReference = person;
+        search.save();
+
+        List<SearchIndexModel> fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/personName = ?", "Tony")
+                .selectAll();
+
+        assertThat(fooResult, hasSize(1));
+
+        List<SearchIndexModel> missingResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/personName = missing")
+                .selectAll();
+
+        assertThat(missingResult, hasSize(0));
+
+        List<SearchIndexModel> notMissingResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/personName != missing")
+                .selectAll();
+
+        assertThat(notMissingResult, hasSize(1));
+
+        List<SearchIndexModel> bothMissingResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/personName = missing or personReference/personName != missing")
+                .selectAll();
+
+        assertThat(bothMissingResult, hasSize(1));
+
+        List<SearchIndexModel> bothAndMissingResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/personName = missing and personReference/personName != missing")
+                .selectAll();
+
+        assertThat(bothAndMissingResult, hasSize(0));
+    }
+
+    @Test
+    public void testReferencePersonAddressSubType() {
+        AddressIndexModel address = new AddressIndexModel();
+        address.setStreet("101 Main Street");
+        address.save();
+
+        PersonIndexModel person = new PersonIndexModel();
+        person.setPersonName("Tony");
+        person.setAddress(address);
+        person.save();
+
+        SearchIndexModel search = new SearchIndexModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = "tough";
+        search.personReference = person;
+        search.save();
+
+        List<SearchIndexModel> fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/address/street = ?", "101 Main Street")
+                .selectAll();
+
+        assertThat(fooResult, hasSize(1));
+
+        List<SearchIndexModel> missingResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/address/street = missing")
+                .selectAll();
+
+        assertThat(missingResult, hasSize(0));
+
+        List<SearchIndexModel> notMissingResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/address/street != missing")
+                .selectAll();
+
+        assertThat(notMissingResult, hasSize(1));
+
+        List<SearchIndexModel> bothMissingResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/address/street = missing or personReference/address/street != missing")
+                .selectAll();
+
+        assertThat(bothMissingResult, hasSize(1));
+
+        List<SearchIndexModel> bothAndMissingResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference/address/street = missing and personReference/address/street != missing")
+                .selectAll();
+
+        assertThat(bothAndMissingResult, hasSize(0));
+    }
+
+
 }
 
