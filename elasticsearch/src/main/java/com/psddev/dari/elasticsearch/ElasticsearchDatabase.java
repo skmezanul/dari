@@ -862,7 +862,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         srb.setTrackScores(true);
 
-        LOGGER.info("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
         response = srb.execute().actionGet();
         SearchHits hits = response.getHits();
         Float maxScore = hits.getMaxScore();
@@ -874,7 +874,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             items.add(createSavedObjectWithHit(hit, query, maxScore));
         }
 
-        LOGGER.info("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+        LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
         return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
     }
@@ -2995,7 +2995,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 t.put("_ids", documentId); // Elastic range for iterator default _id will not work
 
                                 LOGGER.debug("All field [{}]", allBuilder.toString());
-                                LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                                LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                         newIndexname, documentType, documentId, t.toString());
                                 bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 
