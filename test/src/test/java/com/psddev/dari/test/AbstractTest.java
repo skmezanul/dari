@@ -152,6 +152,9 @@ public abstract class AbstractTest {
             } else if (value.equals("h2") || value.equals("com.psddev.dari.test.H2Test")) {
                 LOGGER.info("======H2");
                 H2SetupDatabase();
+            } else {
+                LOGGER.info("======Elastic");
+                ElasticSetupDatabase();
             }
 
         }
