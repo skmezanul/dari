@@ -107,6 +107,9 @@
     <profiles>
         <profile>
             <id>ElasticTests</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
             <properties>
                 <testcase.groups>com.psddev.dari.test.ElasticTest</testcase.groups>
                 <testcase.excludegroups>com.psddev.dari.test.ElasticExcludeTest</testcase.excludegroups>
