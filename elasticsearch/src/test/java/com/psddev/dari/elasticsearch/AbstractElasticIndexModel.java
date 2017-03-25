@@ -1,7 +1,6 @@
 package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Record;
-import jdk.nashorn.internal.ir.annotations.Ignore;
 
 import java.util.List;
 import java.util.Set;

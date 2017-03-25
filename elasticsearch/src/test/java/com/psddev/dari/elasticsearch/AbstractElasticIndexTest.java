@@ -5,7 +5,6 @@ import com.psddev.dari.db.Query;
 import com.psddev.dari.util.TypeDefinition;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.*;
@@ -156,7 +155,7 @@ public abstract class AbstractElasticIndexTest<M extends AbstractElasticIndexMod
             }
             allids = new ArrayList<>();
             for (M item : list) {
-                if (item !=null && item.getState() != null && item.getState().getSimpleValues() != null
+                if (item != null && item.getState() != null && item.getState().getSimpleValues() != null
                         && item.getState().getSimpleValues() instanceof Map) {
                     Map<String, Object> m = item.getState().getSimpleValues();
                     if (m.get(keyArr[i]) != null) {

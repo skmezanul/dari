@@ -2774,7 +2774,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
          *
          * @param value If {@code null}, returns {@code null}.
          */
-        public static final String escapeValue(Object value) {
+        public static String escapeValue(Object value) {
             return value != null ? ESCAPE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
         }
 
@@ -2917,7 +2917,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     // Pass through to doWriteRecalculations.
     @Override
     protected void doRecalculations(TransportClient client, boolean isImmediate, ObjectIndex index, List<State> states) throws Exception {
-        Map<ObjectIndex, List<State>> recalculations = new HashMap<ObjectIndex, List<State>>();
+        Map<ObjectIndex, List<State>> recalculations = new HashMap<>();
         recalculations.put(index, states);
         doWriteRecalculations(client, isImmediate, recalculations);
     }
