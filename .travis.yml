@@ -19,7 +19,7 @@ env:
 
 install: true
 
-script: mvn -Plibrary verify && mvn install -PH2Tests verify
+script: mvn -Plibrary verify && mvn -Plibrary,H2Tests verify
 
 cache:
   directories:
