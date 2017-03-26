@@ -1143,7 +1143,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         throw new UnsupportedIndexException(this, queryKey);
                     }
                     if (elasticAggField.equals(elasticField)) {
-                        list.add(isAscending == true ? Terms.Order.term(true) : Terms.Order.term(false));
+                        list.add(isAscending ? Terms.Order.term(true) : Terms.Order.term(false));
                     } else {
                         throw new IllegalArgumentException(operator + " needs to be same " + elasticAggField + " != " + elasticField);
                     }
