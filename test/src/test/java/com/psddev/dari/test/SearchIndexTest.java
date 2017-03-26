@@ -14,7 +14,6 @@ import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.Settings;
 import org.apache.commons.lang3.time.DateUtils;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -375,6 +374,141 @@ public class SearchIndexTest extends AbstractTest {
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(1));
+    }
+
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
+    @Test(expected = IllegalArgumentException.class)
+    public void testFloatGroupBySortAscException() throws Exception {
+        Stream.of("A", "B", "C", "B", "C", "C").forEach((String f) -> {
+            SearchIndexModel model = new SearchIndexModel();
+            model.one = f;
+            model.save();
+        });
+
+        Query.from(SearchIndexModel.class).sortAscending("one").groupBy("f");
+    }
+
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
+    @Test(expected = IllegalArgumentException.class)
+    public void testFloatGroupBySortAscException2() throws Exception {
+        Stream.of("A", "B", "C", "B", "C", "C").forEach((String f) -> {
+            SearchIndexModel model = new SearchIndexModel();
+            model.one = f;
+            model.save();
+        });
+
+        Query.from(SearchIndexModel.class).sortAscending("f").groupBy("one");
+    }
+
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
+    @Test
+    public void testFloatGroupBySortGroup2() throws Exception {
+        SearchIndexModel model = new SearchIndexModel();
+        model.one = "A";
+        model.f = 1.0f;
+        model.save();
+        SearchIndexModel model1 = new SearchIndexModel();
+        model1.one = "A";
+        model1.f = 1.0f;
+        model1.save();
+        SearchIndexModel model2 = new SearchIndexModel();
+        model2.one = "B";
+        model2.f = 5.8f;
+        model2.save();
+        SearchIndexModel model3 = new SearchIndexModel();
+        model3.one = "B";
+        model3.f = 1.0f;
+        model3.save();
+        SearchIndexModel model4 = new SearchIndexModel();
+        model4.one = "C";
+        model4.f = 2.0f;
+        model4.save();
+        SearchIndexModel model5 = new SearchIndexModel();
+        model5.one = "C";
+        model5.f = 2.0f;
+        model5.save();
+        SearchIndexModel model6 = new SearchIndexModel();
+        model6.one = "C";
+        model6.f = 2.0f;
+        model6.save();
+
+        List<Grouping<SearchIndexModel>> groupings = Query.from(SearchIndexModel.class).groupBy("one", "f");
+
+        assertThat("check size", groupings, hasSize(4));
+
+        List<Grouping<SearchIndexModel>> groupings2= Query.from(SearchIndexModel.class).sortAscending("one").groupBy("one", "f");
+        assertThat(groupings2.get(0).getKeys().get(0), is("A"));
+
+        List<Grouping<SearchIndexModel>> groupings3 = Query.from(SearchIndexModel.class).sortDescending("one").groupBy("one", "f");
+        assertThat(groupings3.get(0).getKeys().get(0), is("C"));
+
+        List<Grouping<SearchIndexModel>> groupings4 = Query.from(SearchIndexModel.class).sortDescending("f").groupBy("one", "f");
+        assertThat(groupings4.get(0).getKeys().get(0), is("B"));
+
+        PaginatedResult<Grouping<SearchIndexModel>> groupingsPage = Query.from(SearchIndexModel.class).sortDescending("f").groupByPartial(0, 1, "one", "f");
+        List<Grouping<SearchIndexModel>> groupings5 = groupingsPage.getItems();
+        assertThat("check size 1", groupings5, hasSize(1));
+
+        PaginatedResult<Grouping<SearchIndexModel>> groupingsPage2 = Query.from(SearchIndexModel.class).sortDescending("f").groupByPartial(0, 1, "f");
+        List<Grouping<SearchIndexModel>> groupings6 = groupingsPage2.getItems();
+        assertThat("check size 2", groupings6, hasSize(1));
+
+    }
+
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
+    @Test
+    public void testFloatGroupBySortAsc() throws Exception {
+        Stream.of("A", "B", "C", "B", "C", "C").forEach((String f) -> {
+            SearchIndexModel model = new SearchIndexModel();
+            model.one = f;
+            model.save();
+        });
+
+        List<Grouping<SearchIndexModel>> groupings = Query.from(SearchIndexModel.class).sortAscending("one").groupBy("one");
+
+        assertThat("check size", groupings, hasSize(3));
+
+        assertThat("1st check " + groupings.get(0).getKeys().get(0),
+                groupings.get(0).getCount(),
+                is((long) 1));
+        assertThat("2nd check " + groupings.get(1).getKeys().get(0),
+                groupings.get(1).getCount(),
+                is((long) 2));
+        assertThat("3rd check " + groupings.get(2).getKeys().get(0),
+                groupings.get(2).getCount(),
+                is((long) 3));
+        assertThat(groupings.get(0).getKeys().get(0), is("A"));
+        assertThat(groupings.get(1).getKeys().get(0), is("B"));
+        assertThat(groupings.get(2).getKeys().get(0), is("C"));
+    }
+
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
+    @Test
+    public void testFloatGroupBySortDesc() throws Exception {
+        Stream.of("A", "B", "C", "B", "C", "C").forEach((String f) -> {
+            SearchIndexModel model = new SearchIndexModel();
+            model.one = f;
+            model.save();
+        });
+
+        List<Grouping<SearchIndexModel>> groupings = Query.from(SearchIndexModel.class).sortDescending("one").groupBy("one");
+
+        assertThat("check size", groupings, hasSize(3));
+
+        assertThat("1st check " + groupings.get(0).getKeys().get(0),
+                groupings.get(0).getCount(),
+                is((long) 3));
+        assertThat("2nd check " + groupings.get(1).getKeys().get(0),
+                groupings.get(1).getCount(),
+                is((long) 2));
+        assertThat("3rd check " + groupings.get(2).getKeys().get(0),
+                groupings.get(2).getCount(),
+                is((long) 1));
+
+        assertThat(groupings.get(0).getKeys().get(0), is("C"));
+        assertThat(groupings.get(1).getKeys().get(0), is("B"));
+        assertThat(groupings.get(2).getKeys().get(0), is("A"));
+
     }
 
     // SqlDatabase does not support group by numeric range
@@ -917,7 +1051,7 @@ public class SearchIndexTest extends AbstractTest {
             assertThat( count, is(4L));
         }
 
-        assertEquals(20, groupBy.getCount());
+        assertEquals(2, groupBy.getCount());
     }
 
     // Default group order should be highest to lowest. H2 does not do that.

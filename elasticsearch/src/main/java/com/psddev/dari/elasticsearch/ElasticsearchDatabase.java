@@ -731,8 +731,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
             }
 
+            if (limit > FACET_MAX_ROWS) {
+                limit = FACET_MAX_ROWS;
+            }
+
             if (query.getGroup() != null) {
-                TermsAggregationBuilder ab = AggregationBuilders.terms("agg").field(elasticField).size(FACET_MAX_ROWS).order(Terms.Order.count(false));
+                TermsAggregationBuilder ab = AggregationBuilders.terms("agg").field(elasticField)
+                        .size(limit);
+                for (Terms.Order termsOrder : predicateToSortBuilderGrouping(query.getSorters(), query, elasticField)) {
+                    ab.order(termsOrder);
+                }
                 srb.addAggregation(ab);
             }
             LOGGER.debug("Elasticsearch readPartialGrouped typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
@@ -1047,12 +1055,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Interrogate the field and convert to Elasticsearch - Number is problematic
+     * Interrogate the field and convert to Elasticsearch
      */
-    private String getFieldType(String key, Query<?> query) {
-        if (key.equals(UID_FIELD) || key.equals(ID_FIELD) || key.equals(TYPE_ID_FIELD)) {
-            return "keyword";
-        }
+    private String getField(String key) {
         if (key.endsWith("." + RAW_FIELD)) {
             key = key.replaceAll("\\." + RAW_FIELD, "");
         }
@@ -1062,6 +1067,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (key.endsWith("." + REGION_FIELD)) {
             key = key.replaceAll("\\." + REGION_FIELD, "");
         }
+        return key;
+    }
+
+    /**
+     * Interrogate the field type and convert to Elasticsearch
+     */
+    private String getFieldType(String key, Query<?> query) {
+        if (key.equals(UID_FIELD) || key.equals(ID_FIELD) || key.equals(TYPE_ID_FIELD)) {
+            return "keyword";
+        }
+        key = getField(key);
+
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
         String elasticField = specialSortFields.get(mappedKey);
 
@@ -1090,6 +1107,52 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
         }
         return null;
+    }
+
+    /**
+     * Build a list of Terms Order for Agg based on Elastic
+     */
+    private List<Terms.Order> predicateToSortBuilderGrouping(List<Sorter> sorters, Query<?> query, String aggKey) {
+        List<Terms.Order> list = new ArrayList<>();
+        if (sorters == null || sorters.size() == 0) {
+            list.add(Terms.Order.count(false));
+        } else {
+
+            aggKey = getField(aggKey);
+            for (Sorter sorter : sorters) {
+                String operator = sorter.getOperator();
+                if (Sorter.ASCENDING_OPERATOR.equals(operator) || Sorter.DESCENDING_OPERATOR.equals(operator)) {
+                    boolean isAscending = Sorter.ASCENDING_OPERATOR.equals(operator);
+                    String queryKey = (String) sorter.getOptions().get(0);
+
+                    Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
+                    String elasticField = specialSortFields.get(mappedKey);
+
+                    Query.MappedKey mappedAggKey = mapFullyDenormalizedKey(query, aggKey);
+                    String elasticAggField = specialSortFields.get(mappedAggKey);
+
+                    if (elasticField == null && mappedKey != null) {
+                        elasticField = mappedKey.getIndexKey(null);
+                    }
+
+                    if (elasticAggField == null && mappedAggKey != null) {
+                        elasticAggField = mappedAggKey.getIndexKey(null);
+                    }
+
+                    if (elasticField == null || elasticAggField == null) {
+                        throw new UnsupportedIndexException(this, queryKey);
+                    }
+                    if (elasticAggField.equals(elasticField)) {
+                        list.add(isAscending == true ? Terms.Order.term(true) : Terms.Order.term(false));
+                    } else {
+                        throw new IllegalArgumentException(operator + " needs to be same " + elasticAggField + " != " + elasticField);
+                    }
+                } else {
+                    throw new UnsupportedOperationException(operator + " not supported");
+                }
+            }
+        }
+        return list;
     }
 
     /**
