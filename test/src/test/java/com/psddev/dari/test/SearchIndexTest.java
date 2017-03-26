@@ -1032,6 +1032,8 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check size", fooResult, hasSize(1));
     }
 
+    // H2 cannot limit group by
+    @Category({ com.psddev.dari.test.H2ExcludeTest.class })
     @Test
     public void testGroupPartial() {
         for (int i = 0; i < 4; i++) {
