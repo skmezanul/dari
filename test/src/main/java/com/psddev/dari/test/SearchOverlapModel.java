@@ -91,12 +91,12 @@ public class SearchOverlapModel extends Record {
     }
 
     @Indexed
-    public Date post_date;
+    public Date postDate;
     public Date getPostDate() {
-        return post_date;
+        return postDate;
     }
-    public void setPostDate(Date post_date) {
-        this.post_date = post_date;
+    public void setPostDate(Date postDate) {
+        this.postDate = postDate;
     }
 
     @Indexed

@@ -414,7 +414,7 @@ public class SearchIndexTest extends AbstractTest {
 
         assertThat("check size", groupings, hasSize(4));
 
-        List<Grouping<SearchIndexModel>> groupings2= Query.from(SearchIndexModel.class).sortAscending("one").groupBy("one", "f");
+        List<Grouping<SearchIndexModel>> groupings2 = Query.from(SearchIndexModel.class).sortAscending("one").groupBy("one", "f");
         assertThat(groupings2.get(0).getKeys().get(0), is("A"));
 
         List<Grouping<SearchIndexModel>> groupings3 = Query.from(SearchIndexModel.class).sortDescending("one").groupBy("one", "f");
@@ -833,7 +833,6 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check size", fooResult, hasSize(1));
     }
 
-
     @Test
     public void testUUIDgt() throws Exception {
 
@@ -870,7 +869,7 @@ public class SearchIndexTest extends AbstractTest {
         model.save();
 
         Query.from(SearchIndexModel.class)
-                .where("loginTokens/token matchesany ?", new UUID(0,0))
+                .where("loginTokens/token matchesany ?", new UUID(0, 0))
                 .selectAll();
 
     }
@@ -949,7 +948,7 @@ public class SearchIndexTest extends AbstractTest {
         model.save();
 
         Query.from(SearchIndexModel.class)
-                .where("loginTokens/token matchesall ?", new UUID(0,0))
+                .where("loginTokens/token matchesall ?", new UUID(0, 0))
                 .selectAll();
     }
 
@@ -1015,7 +1014,7 @@ public class SearchIndexTest extends AbstractTest {
             List<Object> cycleKeys = grouping.getKeys();
             String name = String.valueOf(cycleKeys.get(0));
             long count = grouping.getCount();
-            assertThat( count, is(4L));
+            assertThat(count, is(4L));
         }
 
         assertEquals(2, groupBy.getCount());
@@ -1039,7 +1038,7 @@ public class SearchIndexTest extends AbstractTest {
         for (Grouping<SearchIndexModel> grouping : groupBy) {
             List<Object> cycleKeys = grouping.getKeys();
             String name = String.valueOf(cycleKeys.get(0));
-            assertThat("testGroupOrder highest to lowest", grouping.getCount(), is(count*2));
+            assertThat("testGroupOrder highest to lowest", grouping.getCount(), is(count * 2));
             count = count - 1;
         }
 

@@ -213,7 +213,6 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
         assertCount(1L, "referenceOne/one != missing");
     }
 
-
     @Test
     public void missingReferenceSetSet() {
         model().referenceSet(model().create()).create();
@@ -572,7 +571,7 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
         List<M> modelAll = query().selectAll();
         List<UUID> listReferenceOne = new ArrayList<>();
         List<UUID> listOne = new ArrayList<>();
-        for (M mAll: modelAll) {
+        for (M mAll : modelAll) {
             if (mAll.getReferenceOne() != null) {
                 listReferenceOne.add(mAll.getId());
                 M ref = query().where("_id = ?", mAll.getReferenceOne().getId()).first();

@@ -12,21 +12,21 @@ public class RegionIndexTestH2 extends RegionIndexTest {
     }
 
     @Override
-	@Test
+    @Test
     public void geNumber() {
         createCompareTestModels();
         assertCount(total, "one >= 0");
     }
 
-	@Override
-	@Test
+    @Override
+    @Test
     public void ltNumber() {
         createCompareTestModels();
         assertCount(1, "one < 10");
     }
 
-	@Override
-	@Test
+    @Override
+    @Test
     public void leNumber() {
         createCompareTestModels();
         assertCount(1, "one <= 10");

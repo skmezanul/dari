@@ -54,7 +54,7 @@ public class TypeIndexTest extends AbstractTest {
         assertThat(query.selectAll(), everyItem(instanceOf(Bar.class)));
     }
 
-    public static abstract class AbstractModel extends Record {
+    public abstract static class AbstractModel extends Record {
     }
 
     public interface Interface1 extends Recordable {
