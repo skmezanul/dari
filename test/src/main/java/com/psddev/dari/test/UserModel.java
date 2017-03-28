@@ -8,5 +8,3 @@ public class UserModel extends Record {
     public String userName;
 
 }
-
-

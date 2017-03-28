@@ -16,5 +16,3 @@ public class WriteModel extends Record {
     public Map<String, UUID> currentItems;
 
 }
-
-

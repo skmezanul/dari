@@ -41,12 +41,12 @@ public class SearchIndexTest extends AbstractTest {
 
     private static final String FOO = "foo";
 
-    private static boolean SearchOverlapModelIndex = false;
+    private static boolean searchOverlapModelIndex = false;
 
     @After
     public void deleteModels() {
         Query.from(SearchIndexModel.class).deleteAllImmediately();
-        if (SearchOverlapModelIndex) {
+        if (searchOverlapModelIndex) {
             Query.from(SearchOverlapModel.class).deleteAllImmediately();
         }
         Query.from(PersonIndexModel.class).deleteAllImmediately();
@@ -249,7 +249,7 @@ public class SearchIndexTest extends AbstractTest {
 
     @Test
     public void testSortStringNeverIndexed() throws Exception {
-        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+        Stream.of(1.0f, 2.0f, 3.0f).forEach(f -> {
             SearchIndexModel model = new SearchIndexModel();
             model.f = f;
             model.save();
@@ -267,7 +267,7 @@ public class SearchIndexTest extends AbstractTest {
     @Test(expected = Query.NoFieldException.class)
     public void testSortStringNoSuchField() throws Exception {
 
-        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+        Stream.of(1.0f, 2.0f, 3.0f).forEach(f -> {
             SearchIndexModel model = new SearchIndexModel();
             model.f = f;
             model.save();
@@ -281,7 +281,7 @@ public class SearchIndexTest extends AbstractTest {
 
     @Test
     public void testSortFloat() throws Exception {
-        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+        Stream.of(1.0f, 2.0f, 3.0f).forEach(f -> {
             SearchIndexModel model = new SearchIndexModel();
             model.f = f;
             model.save();
@@ -319,7 +319,7 @@ public class SearchIndexTest extends AbstractTest {
     // sortAscending on floats not working in H2
     @Test
     public void testReferenceAscending() throws Exception {
-        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+        Stream.of(1.0f, 2.0f, 3.0f).forEach(f -> {
             SearchIndexModel ref = new SearchIndexModel();
             ref.f = f;
             ref.save();
@@ -490,7 +490,7 @@ public class SearchIndexTest extends AbstractTest {
     // SqlDatabase does not support group by numeric range
     @Test
     public void testFloatGroupBy() throws Exception {
-        Stream.of(1.0f,2.0f,3.0f,2.0f,3.0f,3.0f).forEach((Float f) -> {
+        Stream.of(1.0f, 2.0f, 3.0f, 2.0f, 3.0f, 3.0f).forEach((Float f) -> {
             SearchIndexModel model = new SearchIndexModel();
             model.f = f;
             model.num = f.intValue();
@@ -683,7 +683,7 @@ public class SearchIndexTest extends AbstractTest {
         model2.l = 2L;
         model2.shortType = 2;
         model2.save();
-        SearchOverlapModelIndex = true;
+        searchOverlapModelIndex = true;
 
         SearchIndexModel model3 = new SearchIndexModel();
         model3.num = 3;
@@ -711,18 +711,18 @@ public class SearchIndexTest extends AbstractTest {
 
     @Test
     public void testOverlapElasticTypes() throws Exception {
-        Stream.of(1.0f,2.0f,3.0f).forEach(f -> {
+        Stream.of(1.0f, 2.0f, 3.0f).forEach(f -> {
             SearchIndexModel model = new SearchIndexModel();
             model.f = f;
             model.save();
         });
 
-        Stream.of("1.0","2.0","3.0").forEach(f -> {
+        Stream.of("1.0", "2.0", "3.0").forEach(f -> {
             SearchOverlapModel model2 = new SearchOverlapModel();
             model2.f = f;
             model2.save();
         });
-        SearchOverlapModelIndex = true;
+        searchOverlapModelIndex = true;
 
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
@@ -739,18 +739,18 @@ public class SearchIndexTest extends AbstractTest {
 
     @Test
     public void testSortOverlapElasticTypes() throws Exception {
-        Stream.of(1.0f,3.0f,2.0f).forEach(f -> {
+        Stream.of(1.0f, 3.0f, 2.0f).forEach(f -> {
             SearchIndexModel model = new SearchIndexModel();
             model.f = f;
             model.save();
         });
 
-        Stream.of("a","c","b").forEach(f -> {
+        Stream.of("a", "c", "b").forEach(f -> {
             SearchOverlapModel model2 = new SearchOverlapModel();
             model2.f = f;
             model2.save();
         });
-        SearchOverlapModelIndex = true;
+        searchOverlapModelIndex = true;
 
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
@@ -813,7 +813,7 @@ public class SearchIndexTest extends AbstractTest {
         model.save();
 
         List<SearchIndexModel> fooResult = Query.from(SearchIndexModel.class)
-                .where("loginTokens/token < ?", new UUID(0,0))
+                .where("loginTokens/token < ?", new UUID(0, 0))
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(0));
@@ -842,7 +842,7 @@ public class SearchIndexTest extends AbstractTest {
         model.save();
 
         List<SearchIndexModel> fooResult = Query.from(SearchIndexModel.class)
-                .where("loginTokens/token > ?", new UUID(0,0))
+                .where("loginTokens/token > ?", new UUID(0, 0))
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(1));
@@ -979,7 +979,7 @@ public class SearchIndexTest extends AbstractTest {
                 .selectAll();
     }
 
-   @Test
+    @Test
     public void testComplexQuery() throws Exception {
 
         SearchIndexModel model = new SearchIndexModel();
@@ -1025,7 +1025,7 @@ public class SearchIndexTest extends AbstractTest {
     @Test
     public void testGroupOrder() {
         for (int i = 1; i <= 4; i++) {
-            for (int j = 0; j < i*2; j++) {
+            for (int j = 0; j < i * 2; j++) {
                 SearchIndexModel model = new SearchIndexModel();
                 model.one = "test " + i;
                 model.save();
@@ -1039,7 +1039,7 @@ public class SearchIndexTest extends AbstractTest {
         for (Grouping<SearchIndexModel> grouping : groupBy) {
             List<Object> cycleKeys = grouping.getKeys();
             String name = String.valueOf(cycleKeys.get(0));
-            assertThat( "testGroupOrder highest to lowest", grouping.getCount(), is(count*2));
+            assertThat("testGroupOrder highest to lowest", grouping.getCount(), is(count*2));
             count = count - 1;
         }
 
@@ -1051,11 +1051,11 @@ public class SearchIndexTest extends AbstractTest {
     public void testGroupDateandOne() {
         Date begin = new Date();
         for (int i = 1; i <= 4; i++) {
-            Date post_date = DateUtils.addSeconds(begin, +1);
-            for (int j = 0; j < i*2; j++) {
+            Date postDate = DateUtils.addSeconds(begin, +1);
+            for (int j = 0; j < i * 2; j++) {
                 SearchIndexModel model = new SearchIndexModel();
                 model.one = "test " + i;
-                model.postDate = post_date;
+                model.postDate = postDate;
                 model.save();
             }
         }
@@ -1068,7 +1068,7 @@ public class SearchIndexTest extends AbstractTest {
             List<Object> cycleKeys = grouping.getKeys();
             String date = cycleKeys.get(0).toString();
             String one = String.valueOf(grouping.getKeys().get(1));
-            assertThat( grouping.getCount(), is(count*2));
+            assertThat(grouping.getCount(), is(count * 2));
             assertThat(one, is("test " + count));
             count = count + 1;
         }
@@ -1107,7 +1107,7 @@ public class SearchIndexTest extends AbstractTest {
         List<Grouping<SearchIndexModel>> groupBy = Query.from(SearchIndexModel.class).groupBy("one");
         Iterator<Grouping<SearchIndexModel>> iGroup = groupBy.iterator();
 
-        while(iGroup.hasNext()) {
+        while (iGroup.hasNext()) {
             Grouping element = iGroup.next();
             assertEquals(2, element.getCount());
         }
@@ -1523,7 +1523,6 @@ public class SearchIndexTest extends AbstractTest {
 
         assertThat(bothAndMissingResult, hasSize(0));
     }
-
 
 }
 

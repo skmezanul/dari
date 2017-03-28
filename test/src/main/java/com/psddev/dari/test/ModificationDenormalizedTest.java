@@ -149,7 +149,7 @@ public class ModificationDenormalizedTest extends AbstractTest {
         List<ModificationDenormalizedModel> one = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTags = ?", refs.get(0)).selectAll();
         assertThat(one, hasSize(1));
         assertThat(one.get(0).getName(), is(VALUE));
-        List<IndexTag> oneOther= one.get(0).as(TaggableDenormalizedModification.class).getOtherTags();
+        List<IndexTag> oneOther = one.get(0).as(TaggableDenormalizedModification.class).getOtherTags();
         assertThat(oneOther.get(0).getName(), is(VALUES.get(0)));
         assertThat(oneOther.get(1).getName(), is(VALUES.get(1)));
         assertThat(oneOther.get(2).getName(), is(VALUES.get(2)));

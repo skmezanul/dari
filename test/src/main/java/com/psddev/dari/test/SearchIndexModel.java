@@ -100,8 +100,8 @@ public class SearchIndexModel extends Record {
     public Date getPostDate() {
         return postDate;
     }
-    public void setPostDate(Date post_date) {
-        this.postDate = post_date;
+    public void setPostDate(Date postDate) {
+        this.postDate = postDate;
     }
 
     @Indexed

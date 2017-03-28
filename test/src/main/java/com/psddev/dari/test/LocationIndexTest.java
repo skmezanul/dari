@@ -70,7 +70,7 @@ public class LocationIndexTest extends AbstractIndexTest<LocationIndexModel, Loc
         query().where("one >= ?", value(0)).count();
     }
 
-	@Override
+    @Override
     @Test(expected = IllegalArgumentException.class)
     public void geNull() {
         createCompareTestModels();

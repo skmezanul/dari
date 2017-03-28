@@ -166,7 +166,7 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
             }
             allids = new ArrayList<>();
             for (M item : list) {
-                if (item !=null && item.getState() != null && item.getState().getSimpleValues() != null
+                if (item != null && item.getState() != null && item.getState().getSimpleValues() != null
                         && item.getState().getSimpleValues() instanceof Map) {
                     Map<String, Object> m = item.getState().getSimpleValues();
                     if (m.get(keyArr[i]) != null) {
@@ -196,7 +196,7 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
 
         List<String> allids = new ArrayList<>();
         for (M item : list) {
-            Map<String,Object> m = item.getState().getSimpleValues();
+            Map<String, Object> m = item.getState().getSimpleValues();
             if (m.get("referenceOne") != null) {
                 if (m.get("referenceOne") instanceof Map) {
                     @SuppressWarnings("unchecked")
@@ -208,9 +208,9 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
             }
         }
         List<M> remaining = query().where("one = missing").and("_id = ?", allids).selectAll();
-		assertThat("remaining count", remaining.size(), is(1));
-		
-		assertCount(1L, "referenceOne/one != missing");
+        assertThat("remaining count", remaining.size(), is(1));
+
+        assertCount(1L, "referenceOne/one != missing");
     }
 
 
@@ -581,42 +581,42 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
                 }
             }
         }
-        assertThat(listReferenceOne, hasSize(total/2));
-        assertThat(listOne, hasSize(total/2));
+        assertThat(listReferenceOne, hasSize(total / 2));
+        assertThat(listOne, hasSize(total / 2));
         assertThat(listOne, containsInAnyOrder(listReferenceOne.toArray()));
 
         // 26 from this
         List<M> model1 = query().where("referenceOne != missing").selectAll();
         List<UUID> list1 = new ArrayList<>();
-        for (M m1: model1) {
+        for (M m1 : model1) {
             if (m1.getReferenceOne() != null) {
                 list1.add(m1.getId());
             }
         }
-        assertThat(list1, hasSize(total/2));
+        assertThat(list1, hasSize(total / 2));
         assertThat(list1, containsInAnyOrder(listReferenceOne.toArray()));
 
         // 26 from this - same ones
         List<M> model2 = query().where("referenceOne/one != missing").selectAll();
         List<UUID> list2 = new ArrayList<>();
-        for (M m2: model2) {
+        for (M m2 : model2) {
             list2.add(m2.getId());
         }
-        assertThat(list2, hasSize(total/2));
+        assertThat(list2, hasSize(total / 2));
         assertThat(list2, containsInAnyOrder(list1.toArray()));
         assertThat(list2, containsInAnyOrder(listOne.toArray()));
 
         Set<UUID> list3 = new HashSet<>();
         list3.addAll(list1);
         list3.addAll(list2);
-        assertThat(list3, hasSize(total/2));
+        assertThat(list3, hasSize(total / 2));
 
         List<M> models = query().where("((referenceOne/one != missing) or (referenceOne != missing))").selectAll();
         List<UUID> modelsList = new ArrayList<>();
-        for (M mList: models) {
+        for (M mList : models) {
             modelsList.add(mList.getId());
         }
-        assertThat(models, hasSize(total/2));
+        assertThat(models, hasSize(total / 2));
         assertThat(modelsList, containsInAnyOrder(list3.toArray()));
 
         for (int i = 0, size = models.size(); i < size; ++ i) {
@@ -709,7 +709,7 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
         assertThat(models, hasSize(total));
 
         for (int i = 0, size = models.size(); i < size; ++ i) {
-            assertThat(models.get(i).getOne(), is(value(total - i-1)));
+            assertThat(models.get(i).getOne(), is(value(total - i - 1)));
         }
 
     }
