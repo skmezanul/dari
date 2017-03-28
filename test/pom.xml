@@ -21,23 +21,23 @@
 
     <dependencies>
 
-        <dependency>
+<!--        <dependency>
             <groupId>com.psddev</groupId>
             <artifactId>dari-elastic</artifactId>
             <version>3.3-SNAPSHOT</version>
-        </dependency>
+        </dependency>-->
 
-        <dependency>
+<!--        <dependency>
             <groupId>com.psddev</groupId>
             <artifactId>dari-elasticsearch</artifactId>
             <version>3.3-SNAPSHOT</version>
-        </dependency>
+        </dependency>-->
 
-        <dependency>
+<!--        <dependency>
             <groupId>com.psddev</groupId>
             <artifactId>dari-h2</artifactId>
             <version>3.3-SNAPSHOT</version>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.psddev</groupId>
@@ -87,24 +87,35 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.hamcrest</groupId>
             <artifactId>hamcrest-all</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-jdk14</artifactId>
-            <scope>test</scope>
         </dependency>
 
     </dependencies>
 
-    <profiles>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.18.1</version>
+                <configuration>
+                    <skipTests>true</skipTests>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+
+<!--    <profiles>
         <profile>
             <id>ElasticTests</id>
             <activation>
@@ -138,7 +149,7 @@
                     <groups>${testcase.groups}</groups>
                     <excludedGroups>${testcase.excludegroups}</excludedGroups>
                 </configuration>
-              <!--  <executions>
+              &lt;!&ndash;  <executions>
                     <execution>
                         <id>elastic</id>
                         <goals>
@@ -151,10 +162,10 @@
                             <groups>com.psddev.dari.test.H2Test</groups>
                         </configuration>
                     </execution>
-                </executions>-->
+                </executions>&ndash;&gt;
             </plugin>
         </plugins>
-    </build>
+    </build>-->
 
 
 </project>

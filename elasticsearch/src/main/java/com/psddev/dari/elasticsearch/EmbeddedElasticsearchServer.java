@@ -117,11 +117,12 @@ public class EmbeddedElasticsearchServer {
     /**
      * Cleanup the directory created for Embedded Elastic
      */
-    private static void deleteDataDirectory() {
+    public static void deleteDataDirectory() {
         try {
+            LOGGER.info("Cleanup directory {}", DEFAULT_DATA_DIRECTORY);
             FileUtils.deleteDirectory(new File(DEFAULT_DATA_DIRECTORY));
         } catch (IOException e) {
-            throw new RuntimeException("Could not delete data directory of embedded elasticsearch server", e);
+            LOGGER.info("Cleanup directory is not there... {}", DEFAULT_DATA_DIRECTORY);
         }
     }
 }

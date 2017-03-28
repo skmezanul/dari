@@ -35,10 +35,11 @@ import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.UuidUtils;
 import org.apache.commons.lang3.time.DateUtils;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
@@ -74,6 +75,8 @@ import org.elasticsearch.search.aggregations.bucket.range.Range;
 import org.elasticsearch.search.aggregations.bucket.range.RangeAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.max.Max;
+import org.elasticsearch.search.aggregations.metrics.max.MaxAggregationBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
@@ -135,12 +138,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
-    public static final String DATA_FIELD = "data";
 
+    public static final String DATA_FIELD = "data";
     public static final String ID_FIELD = "_id";
+    public static final String IDS_FIELD = "_ids";
     public static final String UID_FIELD = "_uid";      // special for aggregations/sort
     public static final String TYPE_ID_FIELD = "_type";
     public static final String ALL_FIELD = "_all";
+    public static final String UPDATEDATE_FIELD = "updateDate";
     public static final int INITIAL_FETCH_SIZE = 1000;
     public static final int SUBQUERY_MAX_ROWS = 5000;   // dari/subQueryResolveLimit
     public static final int TIMEOUT = 30000;            // 30 seconds
@@ -429,9 +434,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Override to support in Elastic
      */
+    //@Override
+    //public Date readLastUpdate(Query<?> query) {
+    //    return null;
+    //}
     @Override
     public Date readLastUpdate(Query<?> query) {
-        return null;
+        return readUpdateMax(query);
     }
 
     public boolean isAlive(TransportClient client) {
@@ -451,24 +460,30 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     public static String getVersion(String nodeHost) {
         try {
-            HttpClient httpClient = HttpClientBuilder.create().build();
+            CloseableHttpClient httpClient = HttpClients.createDefault();
 
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
-            HttpResponse response = httpClient.execute(getRequest);
-            String json = EntityUtils.toString(response.getEntity());
-            JSONObject j = new JSONObject(json);
-            if (j != null) {
-                if (j.get("version") != null) {
-                    if (j.getJSONObject("version") != null) {
-                        JSONObject jo = j.getJSONObject("version");
-                        String version = jo.getString("number");
-                        if (!ELASTIC_VERSION.equals(version)) {
-                            LOGGER.warn("Warning: Elasticsearch {} version is not {}", version, ELASTIC_VERSION);
+            CloseableHttpResponse response = httpClient.execute(getRequest);
+            try {
+                HttpEntity entity = response.getEntity();
+                String json = EntityUtils.toString(entity);
+                EntityUtils.consume(entity);
+                JSONObject j = new JSONObject(json);
+                if (j != null) {
+                    if (j.get("version") != null) {
+                        if (j.getJSONObject("version") != null) {
+                            JSONObject jo = j.getJSONObject("version");
+                            String version = jo.getString("number");
+                            if (!ELASTIC_VERSION.equals(version)) {
+                                LOGGER.warn("Warning: Elasticsearch {} version is not {}", version, ELASTIC_VERSION);
+                            }
+                            return version;
                         }
-                        return version;
                     }
                 }
+            } finally {
+                response.close();
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -487,18 +502,22 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     public static String getClusterName(String nodeHost) {
         try {
-            HttpClient httpClient = HttpClientBuilder.create().build();
-
+            CloseableHttpClient httpClient = HttpClients.createDefault();
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
-            HttpResponse response = httpClient.execute(getRequest);
-            String json;
-            json = EntityUtils.toString(response.getEntity());
-            JSONObject j = new JSONObject(json);
-            if (j != null) {
-                if (j.get("cluster_name") != null) {
-                    return j.getString("cluster_name");
+            CloseableHttpResponse response = httpClient.execute(getRequest);
+            try {
+                HttpEntity entity = response.getEntity();
+                String json = EntityUtils.toString(entity);
+                EntityUtils.consume(entity);
+                JSONObject j = new JSONObject(json);
+                if (j != null) {
+                    if (j.get("cluster_name") != null) {
+                        return j.getString("cluster_name");
+                    }
                 }
+            } finally {
+                response.close();
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -517,18 +536,22 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     public static boolean checkAlive(String nodeHost) {
         try {
-            HttpClient httpClient = HttpClientBuilder.create().build();
-
+            CloseableHttpClient httpClient = HttpClients.createDefault();
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
-            HttpResponse response = httpClient.execute(getRequest);
-            String json;
-            json = EntityUtils.toString(response.getEntity());
-            JSONObject j = new JSONObject(json);
-            if (j != null) {
-                if (j.get("cluster_name") != null) {
-                    return true;
+            CloseableHttpResponse response = httpClient.execute(getRequest);
+            try {
+                HttpEntity entity = response.getEntity();
+                String json = EntityUtils.toString(entity);
+                EntityUtils.consume(entity);
+                JSONObject j = new JSONObject(json);
+                if (j != null) {
+                    if (j.get("cluster_name") != null) {
+                        return true;
+                    }
                 }
+            } finally {
+                response.close();
             }
         } catch (Exception e) {
             LOGGER.warn("Warning: Elasticsearch is not already running");
@@ -553,45 +576,50 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         try {
             String nodes = getNodeHost() + "_nodes";
-
-            HttpClient httpClient = HttpClientBuilder.create().build();
+            CloseableHttpClient httpClient = HttpClients.createDefault();
             HttpGet get = new HttpGet(nodes);
             get.addHeader("accept", "application/json");
-            HttpResponse response = httpClient.execute(get);
-            String json = EntityUtils.toString(response.getEntity());
+            CloseableHttpResponse response = httpClient.execute(get);
+            try {
+                HttpEntity entity = response.getEntity();
+                String json = EntityUtils.toString(entity);
+                EntityUtils.consume(entity);
 
-            JSONObject j = new JSONObject(json);
-            if (j != null) {
-                if (j.get("nodes") != null) {
-                    if (j.getJSONObject("nodes") != null) {
-                        JSONObject jo = j.getJSONObject("nodes");
-                        Iterator<?> keys = jo.keys();
+                JSONObject j = new JSONObject(json);
+                if (j != null) {
+                    if (j.get("nodes") != null) {
+                        if (j.getJSONObject("nodes") != null) {
+                            JSONObject jo = j.getJSONObject("nodes");
+                            Iterator<?> keys = jo.keys();
 
-                        while (keys.hasNext()) {
-                            String key = (String) keys.next();
-                            if (jo.get(key) instanceof JSONObject) {
-                                JSONObject node = (JSONObject) jo.get(key);
-                                JSONArray modules = node.getJSONArray("modules");
-                                for (int i = 0; i < modules.length(); i++) {
-                                    JSONObject module = modules.getJSONObject(i);
-                                    String name = (String) module.get("name");
-                                    if (name.equals(moduleName)) {
-                                        return true;
+                            while (keys.hasNext()) {
+                                String key = (String) keys.next();
+                                if (jo.get(key) instanceof JSONObject) {
+                                    JSONObject node = (JSONObject) jo.get(key);
+                                    JSONArray modules = node.getJSONArray("modules");
+                                    for (int i = 0; i < modules.length(); i++) {
+                                        JSONObject module = modules.getJSONObject(i);
+                                        String name = (String) module.get("name");
+                                        if (name.equals(moduleName)) {
+                                            return true;
+                                        }
                                     }
-                                }
-                                JSONArray plugins = node.getJSONArray("plugins");
-                                for (int i = 0; i < plugins.length(); i++) {
-                                    JSONObject plugin = plugins.getJSONObject(i);
-                                    String name = (String) plugin.get("name");
-                                    if (name.equals(pluginName)) {
-                                        return true;
+                                    JSONArray plugins = node.getJSONArray("plugins");
+                                    for (int i = 0; i < plugins.length(); i++) {
+                                        JSONObject plugin = plugins.getJSONObject(i);
+                                        String name = (String) plugin.get("name");
+                                        if (name.equals(pluginName)) {
+                                            return true;
+                                        }
                                     }
-                                }
 
+                                }
                             }
                         }
                     }
                 }
+            } finally {
+                response.close();
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -758,6 +786,65 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         return new PaginatedResult<>(offset, limit, groupings);
+    }
+
+    /**
+     * Return results for Max() updateDate
+     */
+    public <T> Date readUpdateMax(Query<T> query) {
+
+        TransportClient client = openConnection();
+        if (client == null || !isAlive(client)) {
+            return null;
+        }
+
+        Set<UUID> typeIds = query.getConcreteTypeIds(this);
+
+        if (query.getGroup() != null && typeIds.size() == 0) {
+            // should limit by the type
+            LOGGER.debug("Elasticsearch readUpdateMax is to limit by from() but did not load typeIds! [{}]", query.getGroup());
+        }
+        String[] typeIdStrings = typeIds.size() == 0
+                ? new String[]{}
+                : typeIds.stream().map(UUID::toString).toArray(String[]::new);
+
+        List<String> indexNames = new ArrayList<>();
+        for (UUID u : typeIds) {
+            indexNames.add(getIndexName() + u.toString().replaceAll("-", ""));
+        }
+        String[] indexIdStrings = indexNames.toArray(new String[0]);
+        checkIndexes(indexIdStrings);
+
+        SearchResponse response;
+        QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
+        SearchRequestBuilder srb;
+
+        if (typeIds.size() > 0) {
+            srb = client.prepareSearch(indexIdStrings)
+                    .setFetchSource(!query.isReferenceOnly())
+                    .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
+            srb.setTypes(typeIdStrings);
+        } else {
+            srb = client.prepareSearch(getIndexName() + "*")
+                    .setFetchSource(!query.isReferenceOnly())
+                    .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
+        }
+
+        srb.setQuery(qb)
+                .setFrom(0)
+                .setSize(0);
+
+        MaxAggregationBuilder ab = AggregationBuilders.max("agg").field(UPDATEDATE_FIELD);
+        srb.addAggregation(ab);
+
+        LOGGER.debug("Elasticsearch readUpdateMax typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+        response = srb.execute().actionGet();
+        response.getHits();
+
+        Max agg = response.getAggregations().get("agg");
+        double value = agg.getValue();
+        return new Date((long) value);
+
     }
 
     /**
@@ -930,7 +1017,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private final Map<Query.MappedKey, String> specialSortFields; {
         Map<Query.MappedKey, String> m = new HashMap<>();
-        m.put(Query.MappedKey.ID, "_ids");
+        m.put(Query.MappedKey.ID, IDS_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
         m.put(Query.MappedKey.ANY, ALL_FIELD);
         specialSortFields = m;
@@ -938,7 +1025,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private final Map<Query.MappedKey, String> specialRangeFields; {
         Map<Query.MappedKey, String> m = new HashMap<>();
-        m.put(Query.MappedKey.ID, "_ids");
+        m.put(Query.MappedKey.ID, IDS_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
         m.put(Query.MappedKey.ANY, ALL_FIELD);
         specialRangeFields = m;
@@ -962,7 +1049,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * @throws Query.NoFieldException No field matches this key
      */
     private Query.MappedKey mapFullyDenormalizedKey(Query<?> query, String key) {
-        if (key.equals("_ids")) {
+        if (key.equals(IDS_FIELD)) {
             key = "_id";
         }
         Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), key);
@@ -1539,7 +1626,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * add Raw for fields that are not _ids, _id, _type
      */
     private static String addRaw(String query) {
-        if ("_ids".equals(query) || "_id".equals(query) || "_type".equals(query)) {
+        if (IDS_FIELD.equals(query) || "_id".equals(query) || "_type".equals(query)) {
             return query;
         } else {
             if (query.endsWith("." + RAW_FIELD)) {
@@ -3055,7 +3142,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 }
                                 t.remove("_id");
                                 t.remove("_type");
-                                t.put("_ids", documentId); // Elastic range for iterator default _id will not work
+                                t.put(UPDATEDATE_FIELD, this.now());
+                                t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
 
                                 LOGGER.debug("All field [{}]", allBuilder.toString());
                                 LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
@@ -3173,7 +3261,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 }
                                 t.remove("_id");
                                 t.remove("_type");
-                                t.put("_ids", documentId);
+                                t.put(UPDATEDATE_FIELD,  this.now());
+                                t.put(IDS_FIELD, documentId);
 
                                 // if you move TypeId you need to add the whole document and remove old
                                 if (!oldTypeId.equals(documentTypeUUID) || !oldId.equals(documentUUID)) {
