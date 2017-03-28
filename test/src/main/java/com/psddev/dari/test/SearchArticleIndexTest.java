@@ -6,7 +6,6 @@ import com.psddev.dari.db.Sorter;
 import com.psddev.dari.util.TypeDefinition;
 import org.hamcrest.Matchers;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 
 import java.util.List;
 

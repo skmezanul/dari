@@ -6,7 +6,6 @@ import com.psddev.dari.db.Region;
 import com.psddev.dari.util.ObjectUtils;
 import org.junit.After;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 
 import java.util.List;
 
@@ -49,7 +48,7 @@ public class RegionLocationTest extends AbstractTest {
         search.setOne(Region.sphericalCircle(0.0d, 0.0d, 5d));
         search.save();
 
-        List<RegionIndexModel> fooResult = Query.from(RegionIndexModel.class).where("one = ?", new Location(0d,0d)).selectAll();
+        List<RegionIndexModel> fooResult = Query.from(RegionIndexModel.class).where("one = ?", new Location(0d, 0d)).selectAll();
 
         assertThat(fooResult, hasSize(1));
 
@@ -64,7 +63,7 @@ public class RegionLocationTest extends AbstractTest {
     public void testGeoLocationQueryLocationWithRegion() throws Exception {
 
         LocationIndexModel search = new LocationIndexModel();
-        search.setOne(new Location(0d,0d));
+        search.setOne(new Location(0d, 0d));
         search.save();
 
         List<LocationIndexModel> fooResult = Query.from(LocationIndexModel.class).where("one = ?", Region.sphericalCircle(0.0d, 0.0d, 5d)).selectAll();
@@ -73,15 +72,15 @@ public class RegionLocationTest extends AbstractTest {
 
         assertThat(fooResult.get(0).getOne().getX(), is(0.0d));
         assertThat(fooResult.get(0).getOne().getY(), is(0.0d));
-        assertThat(fooResult.get(0).getOne().toString(), is(new Location(0d,0d).toString()));
-        assertThat(ObjectUtils.toJson(fooResult.get(0).getOne()), is(ObjectUtils.toJson(new Location(0d,0d))));
+        assertThat(fooResult.get(0).getOne().toString(), is(new Location(0d, 0d).toString()));
+        assertThat(ObjectUtils.toJson(fooResult.get(0).getOne()), is(ObjectUtils.toJson(new Location(0d, 0d))));
     }
 
     @Test
     public void testGeoLocationQueryLocationWithLocation() throws Exception {
 
         LocationIndexModel search = new LocationIndexModel();
-        search.setOne(new Location(0d,0d));
+        search.setOne(new Location(0d, 0d));
         search.save();
 
         List<LocationIndexModel> fooResult = Query.from(LocationIndexModel.class).where("one = ?", new Location(0d, 0d)).selectAll();
@@ -90,8 +89,8 @@ public class RegionLocationTest extends AbstractTest {
 
         assertThat(fooResult.get(0).getOne().getX(), is(0.0d));
         assertThat(fooResult.get(0).getOne().getY(), is(0.0d));
-        assertThat(fooResult.get(0).getOne().toString(), is(new Location(0d,0d).toString()));
-        assertThat(ObjectUtils.toJson(fooResult.get(0).getOne()), is(ObjectUtils.toJson(new Location(0d,0d))));
+        assertThat(fooResult.get(0).getOne().toString(), is(new Location(0d, 0d).toString()));
+        assertThat(ObjectUtils.toJson(fooResult.get(0).getOne()), is(ObjectUtils.toJson(new Location(0d, 0d))));
     }
 
     @Test

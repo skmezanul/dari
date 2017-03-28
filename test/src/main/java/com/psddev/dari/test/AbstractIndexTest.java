@@ -334,8 +334,8 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
     }
 
     /**
-     * referenceOne = missing => this is model().create, and model().one(value(0)).create()
-     * referenceOne/one = missing => this is model().referenceOne(model().create()).create(), model().one(value(0)), which is model().create()
+     * referenceOne = missing => this is model().create, and model().one(VALUE(0)).create()
+     * referenceOne/one = missing => this is model().referenceOne(model().create()).create(), model().one(VALUE(0)), which is model().create()
      * thus = 3
      */
     @Test

@@ -62,14 +62,14 @@ public class LocationIndexTest extends AbstractIndexTest<LocationIndexModel, Loc
         createCompareTestModels();
         query().and("one > ?", (Object) null).count();
     }
-	
+
     @Override
     @Test(expected = IllegalArgumentException.class)
     public void ge() {
         createCompareTestModels();
         query().where("one >= ?", value(0)).count();
     }
-	
+
 	@Override
     @Test(expected = IllegalArgumentException.class)
     public void geNull() {
@@ -83,7 +83,7 @@ public class LocationIndexTest extends AbstractIndexTest<LocationIndexModel, Loc
         createCompareTestModels();
         query().where("one < ?", value(0)).count();
     }
-	
+
 	@Override
     @Test(expected = IllegalArgumentException.class)
     public void ltNull() {
@@ -97,7 +97,7 @@ public class LocationIndexTest extends AbstractIndexTest<LocationIndexModel, Loc
         createCompareTestModels();
         query().where("one <= ?", value(0)).count();
     }
-	
+
 	@Override
     @Test(expected = IllegalArgumentException.class)
     public void leNull() {

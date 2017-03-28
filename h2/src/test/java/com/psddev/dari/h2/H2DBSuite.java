@@ -1,8 +1,21 @@
 package com.psddev.dari.h2;
 
-import com.psddev.dari.db.Database;
+import com.psddev.dari.test.LocationIndexTestH2;
+import com.psddev.dari.test.ModificationDenormalizedTestH2;
+import com.psddev.dari.test.ModificationEmbeddedTestH2;
+import com.psddev.dari.test.NumberIndexTestH2;
+import com.psddev.dari.test.ReadTestH2;
+import com.psddev.dari.test.RegionIndexTestH2;
+import com.psddev.dari.test.RegionLocationTestH2;
+import com.psddev.dari.test.SearchArticleIndexTestH2;
+import com.psddev.dari.test.SearchIndexTestH2;
+import com.psddev.dari.test.SingletonTest;
+import com.psddev.dari.test.StateIndexTest;
+import com.psddev.dari.test.StringIndexTestH2;
+import com.psddev.dari.test.TypeIndexTest;
+import com.psddev.dari.test.UuidIndexTestH2;
+import com.psddev.dari.test.WriteTest;
 import com.psddev.dari.util.Settings;
-import com.psddev.dari.test.*;
 import com.zaxxer.hikari.HikariDataSource;
 import junit.framework.JUnit4TestAdapter;
 import org.junit.runner.RunWith;

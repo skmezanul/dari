@@ -529,19 +529,19 @@ public class SearchIndexTest extends AbstractTest {
     public void testDateNewestBoost() throws Exception {
         Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
             SearchIndexModel model = new SearchIndexModel();
-            model.post_date = d;
+            model.postDate = d;
             model.save();
         });
 
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
-                .sortNewest(2.0, "post_date")
+                .sortNewest(2.0, "postDate")
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(4));
-        assertThat("check 0 and 1 order", fooResult.get(0).post_date.getTime(), greaterThan(fooResult.get(1).post_date.getTime()));
-        assertThat("check 1 and 2 order", fooResult.get(1).post_date.getTime(), greaterThan(fooResult.get(2).post_date.getTime()));
-        assertThat("check 2 and 3 order", fooResult.get(2).post_date.getTime(), greaterThan(fooResult.get(3).post_date.getTime()));
+        assertThat("check 0 and 1 order", fooResult.get(0).postDate.getTime(), greaterThan(fooResult.get(1).postDate.getTime()));
+        assertThat("check 1 and 2 order", fooResult.get(1).postDate.getTime(), greaterThan(fooResult.get(2).postDate.getTime()));
+        assertThat("check 2 and 3 order", fooResult.get(2).postDate.getTime(), greaterThan(fooResult.get(3).postDate.getTime()));
     }
 
     @Test
@@ -552,13 +552,13 @@ public class SearchIndexTest extends AbstractTest {
                 DateUtils.addDays(begin, -5),
                 DateUtils.addDays(begin, -10)).forEach(d -> {
             SearchIndexModel model = new SearchIndexModel();
-            model.post_date = d;
+            model.postDate = d;
             model.save();
         });
 
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
-                .where("post_date lessthan ?", begin)
+                .where("postDate lessthan ?", begin)
                 .selectAll();
 
         // should not include the to:
@@ -566,7 +566,7 @@ public class SearchIndexTest extends AbstractTest {
 
         List<SearchIndexModel> fooResult1 = Query
                 .from(SearchIndexModel.class)
-                .where("post_date lessthan ?", DateUtils.addSeconds(begin, 1))
+                .where("postDate lessthan ?", DateUtils.addSeconds(begin, 1))
                 .selectAll();
         assertThat("check size", fooResult1, hasSize(4));
     }
@@ -579,13 +579,13 @@ public class SearchIndexTest extends AbstractTest {
                 DateUtils.addDays(begin, 1),
                 DateUtils.addDays(begin, 2)).forEach(d -> {
             SearchIndexModel model = new SearchIndexModel();
-            model.post_date = d;
+            model.postDate = d;
             model.save();
         });
 
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
-                .where("post_date greaterthan ?", begin)
+                .where("postDate greaterthan ?", begin)
                 .selectAll();
 
         // should not include the from:
@@ -593,7 +593,7 @@ public class SearchIndexTest extends AbstractTest {
 
         List<SearchIndexModel> fooResult1 = Query
                 .from(SearchIndexModel.class)
-                .where("post_date greaterthan ?", DateUtils.addSeconds(begin, -1))
+                .where("postDate greaterthan ?", DateUtils.addSeconds(begin, -1))
                 .selectAll();
         assertThat("check size", fooResult1, hasSize(4));
     }
@@ -629,19 +629,19 @@ public class SearchIndexTest extends AbstractTest {
     public void testDateOldestBoost() throws Exception {
         Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
             SearchIndexModel model = new SearchIndexModel();
-            model.post_date = d;
+            model.postDate = d;
             model.save();
         });
 
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
-                .sortOldest(2.0, "post_date")
+                .sortOldest(2.0, "postDate")
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(4));
-        assertThat("check 0 and 1 order", fooResult.get(0).post_date.getTime(), lessThan(fooResult.get(1).post_date.getTime()));
-        assertThat("check 1 and 2 order", fooResult.get(1).post_date.getTime(), lessThan(fooResult.get(2).post_date.getTime()));
-        assertThat("check 2 and 3 order", fooResult.get(2).post_date.getTime(), lessThan(fooResult.get(3).post_date.getTime()));
+        assertThat("check 0 and 1 order", fooResult.get(0).postDate.getTime(), lessThan(fooResult.get(1).postDate.getTime()));
+        assertThat("check 1 and 2 order", fooResult.get(1).postDate.getTime(), lessThan(fooResult.get(2).postDate.getTime()));
+        assertThat("check 2 and 3 order", fooResult.get(2).postDate.getTime(), lessThan(fooResult.get(3).postDate.getTime()));
     }
 
     // sortOldest not supported H2
@@ -649,19 +649,19 @@ public class SearchIndexTest extends AbstractTest {
     public void testDateOldestBoostRelevant() throws Exception {
         Stream.of(new java.util.Date(), DateUtils.addHours(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -5), DateUtils.addDays(new java.util.Date(), -10)).forEach(d -> {
             SearchIndexModel model = new SearchIndexModel();
-            model.post_date = d;
+            model.postDate = d;
             model.save();
         });
 
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
-                .sortOldest(2.0, "post_date").sortRelevant(10.0, "post_date matches ?", new java.util.Date())
+                .sortOldest(2.0, "postDate").sortRelevant(10.0, "postDate matches ?", new java.util.Date())
                 .selectAll();
 
         assertThat("check size", fooResult, hasSize(4));
-        assertThat("check 0 and 1 order", fooResult.get(0).post_date.getTime(), lessThan(fooResult.get(1).post_date.getTime()));
-        assertThat("check 1 and 2 order", fooResult.get(1).post_date.getTime(), lessThan(fooResult.get(2).post_date.getTime()));
-        assertThat("check 2 and 3 order", fooResult.get(2).post_date.getTime(), lessThan(fooResult.get(3).post_date.getTime()));
+        assertThat("check 0 and 1 order", fooResult.get(0).postDate.getTime(), lessThan(fooResult.get(1).postDate.getTime()));
+        assertThat("check 1 and 2 order", fooResult.get(1).postDate.getTime(), lessThan(fooResult.get(2).postDate.getTime()));
+        assertThat("check 2 and 3 order", fooResult.get(2).postDate.getTime(), lessThan(fooResult.get(3).postDate.getTime()));
     }
 
     @Test
@@ -777,13 +777,13 @@ public class SearchIndexTest extends AbstractTest {
     public void testTimeout() throws Exception {
         Stream.of(new java.util.Date()).forEach(d -> {
             SearchIndexModel model = new SearchIndexModel();
-            model.post_date = d;
+            model.postDate = d;
             model.save();
         });
 
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
-                .sortOldest(2.0, "post_date")
+                .sortOldest(2.0, "postDate")
                 .timeout(500.0)
                 .selectAll();
 
@@ -1055,7 +1055,7 @@ public class SearchIndexTest extends AbstractTest {
             for (int j = 0; j < i*2; j++) {
                 SearchIndexModel model = new SearchIndexModel();
                 model.one = "test " + i;
-                model.post_date = post_date;
+                model.postDate = post_date;
                 model.save();
             }
         }
@@ -1063,7 +1063,7 @@ public class SearchIndexTest extends AbstractTest {
         // date first, so it will be lowest to highest count
         long count = 1;
         List<Grouping<SearchIndexModel>> groupBy =
-                Query.from(SearchIndexModel.class).groupBy("post_date", "one");
+                Query.from(SearchIndexModel.class).groupBy("postDate", "one");
         for (Grouping<SearchIndexModel> grouping : groupBy) {
             List<Object> cycleKeys = grouping.getKeys();
             String date = cycleKeys.get(0).toString();

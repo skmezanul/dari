@@ -1,8 +1,6 @@
 package com.psddev.dari.test;
 
-import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Region;
-import com.psddev.dari.db.Sorter;
 import org.junit.Test;
 
 public class LocationIndexTestH2 extends LocationIndexTest {

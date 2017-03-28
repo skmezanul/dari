@@ -8,7 +8,6 @@ import com.psddev.dari.util.PaginatedResult;
 import org.apache.commons.lang3.time.DateUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,11 +29,11 @@ public class ReadTest extends AbstractTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReadTest.class);
 
-    private static Set<ReadModel> MODELS;
+    private static Set<ReadModel> models;
 
     @BeforeClass
     public static void createModels() {
-        MODELS = new HashSet<>();
+        models = new HashSet<>();
 
         // b
         // cb, b
@@ -52,7 +51,7 @@ public class ReadTest extends AbstractTest {
                 if (text.length() > 0) {
                     model.text = text.toString();
                     model.save();
-                    MODELS.add(model);
+                    models.add(model);
                 }
             }
         }
@@ -62,7 +61,7 @@ public class ReadTest extends AbstractTest {
     public void all() {
         assertThat(
                 new HashSet<>(Query.from(ReadModel.class).selectAll()),
-                is(MODELS));
+                is(models));
     }
 
     @Test
@@ -107,14 +106,14 @@ public class ReadTest extends AbstractTest {
     public void count() {
         assertThat(
                 Query.from(ReadModel.class).count(),
-                is((long) MODELS.size()));
+                is((long) models.size()));
     }
 
     @Test
     public void first() {
         assertThat(
                 Query.from(ReadModel.class).first(),
-                isIn(MODELS));
+                isIn(models));
     }
 
     void iterable(boolean disableByIdIterator, int fetchSize, boolean isOption) {
@@ -131,7 +130,7 @@ public class ReadTest extends AbstractTest {
                     .forEach(result::add);
         }
 
-        assertThat(result, is(MODELS));
+        assertThat(result, is(models));
     }
 
     @Test
@@ -228,7 +227,7 @@ public class ReadTest extends AbstractTest {
     public void partial() {
         PaginatedResult<ReadModel> result = Query.from(ReadModel.class).select(0, 1);
 
-        assertThat(result.getCount(), is((long) MODELS.size()));
+        assertThat(result.getCount(), is((long) models.size()));
         assertThat(result.getItems(), hasSize(1));
     }
 

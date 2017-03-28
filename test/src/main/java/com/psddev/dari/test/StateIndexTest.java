@@ -3,7 +3,6 @@ package com.psddev.dari.test;
 import com.psddev.dari.db.Query;
 import org.junit.After;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 
 import java.util.ArrayList;
 import java.util.Collections;

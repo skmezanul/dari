@@ -1,11 +1,6 @@
 package com.psddev.dari.test;
 
-import com.psddev.dari.db.Location;
-import com.psddev.dari.db.Region;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
-
-import java.util.List;
 
 public class RegionIndexTestH2 extends RegionIndexTest {
 
@@ -72,4 +67,3 @@ public class RegionIndexTestH2 extends RegionIndexTest {
     public void eq() {
     }
 }
-

@@ -7,7 +7,6 @@ import org.hamcrest.core.Every;
 import org.hamcrest.core.Is;
 import org.junit.After;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,10 +20,10 @@ import static org.junit.Assert.assertThat;
 
 public class ModificationEmbeddedTest extends AbstractTest {
 
-    final static String value = "foo";
-    final static String junkValue = "junk";
-    final static List<String> values = Arrays.asList("foo", "bar", "baz");
-    final static List<String> junkValues = Arrays.asList("abe", "lincoln", "president");
+    static final String VALUE = "foo";
+    static final String JUNKVALUE = "junk";
+    static final List<String> VALUES = Arrays.asList("foo", "bar", "baz");
+    static final List<String> JUNKVALUES = Arrays.asList("abe", "lincoln", "president");
 
     protected Query<ModificationEmbeddedModel> query() {
         return Query.from(ModificationEmbeddedModel.class);
@@ -68,26 +67,26 @@ public class ModificationEmbeddedTest extends AbstractTest {
     @Test
     public void testSingleString() {
 
-        List<IndexTag> eList = buildList(values);
-        Set<IndexTag> eSet = buildSet(values);
-        IndexTag eValue = buildValue(value);
+        List<IndexTag> eList = buildList(VALUES);
+        Set<IndexTag> eSet = buildSet(VALUES);
+        IndexTag eValue = buildValue(VALUE);
 
-        List<IndexTag> eListJunk = buildList(junkValues);
-        Set<IndexTag> eSetJunk = buildSet(junkValues);
-        IndexTag eValueJunk = buildValue(junkValue);
+        List<IndexTag> eListJunk = buildList(JUNKVALUES);
+        Set<IndexTag> eSetJunk = buildSet(JUNKVALUES);
+        IndexTag eValueJunk = buildValue(JUNKVALUE);
 
         ModificationEmbeddedModel test = new ModificationEmbeddedModel();
-        test.setName(value);
+        test.setName(VALUE);
         test.as(TaggableEmbeddedModification.class).setOtherTags(eList);
-        test.as(TaggableEmbeddedModification.class).setName(value);
+        test.as(TaggableEmbeddedModification.class).setName(VALUE);
         test.as(TaggableEmbeddedModification.class).setPrimaryTag(eValue);
         test.as(TaggableEmbeddedModification.class).setOtherTagsSet(eSet);
         test.save();
 
         ModificationEmbeddedModel test2 = new ModificationEmbeddedModel();
-        test2.setName(junkValue);
+        test2.setName(JUNKVALUE);
         test2.as(TaggableEmbeddedModification.class).setOtherTags(eListJunk);
-        test2.as(TaggableEmbeddedModification.class).setName(junkValue);
+        test2.as(TaggableEmbeddedModification.class).setName(JUNKVALUE);
         test2.as(TaggableEmbeddedModification.class).setPrimaryTag(eValueJunk);
         test2.as(TaggableEmbeddedModification.class).setOtherTagsSet(eSetJunk);
         test2.save();
@@ -95,21 +94,21 @@ public class ModificationEmbeddedTest extends AbstractTest {
         List<ModificationEmbeddedModel> junk = Query.from(ModificationEmbeddedModel.class).where("tgd.otherTags/name = ?", "junk").selectAll();
         assertThat(junk, hasSize(0));
 
-        List<ModificationEmbeddedModel> foo1 = Query.from(ModificationEmbeddedModel.class).where("tgd.otherTags/name = ?", value).selectAll();
+        List<ModificationEmbeddedModel> foo1 = Query.from(ModificationEmbeddedModel.class).where("tgd.otherTags/name = ?", VALUE).selectAll();
         assertThat(foo1, hasSize(1));
-        assertThat(foo1.get(0).getName(), is(value));
-        List<IndexTag> foo1Other= foo1.get(0).as(TaggableEmbeddedModification.class).getOtherTags();
-        assertThat(foo1Other.get(0).getName(), is(values.get(0)));
-        assertThat(foo1Other.get(1).getName(), is(values.get(1)));
-        assertThat(foo1Other.get(2).getName(), is(values.get(2)));
+        assertThat(foo1.get(0).getName(), is(VALUE));
+        List<IndexTag> foo1Other = foo1.get(0).as(TaggableEmbeddedModification.class).getOtherTags();
+        assertThat(foo1Other.get(0).getName(), is(VALUES.get(0)));
+        assertThat(foo1Other.get(1).getName(), is(VALUES.get(1)));
+        assertThat(foo1Other.get(2).getName(), is(VALUES.get(2)));
 
-        List<ModificationEmbeddedModel> fooResult = Query.from(ModificationEmbeddedModel.class).where("tgd.primaryTag/name = ?", value).selectAll();
+        List<ModificationEmbeddedModel> fooResult = Query.from(ModificationEmbeddedModel.class).where("tgd.primaryTag/name = ?", VALUE).selectAll();
         assertThat(fooResult, hasSize(1));
-        assertThat(foo1.get(0).getName(), is(value));
+        assertThat(foo1.get(0).getName(), is(VALUE));
 
-        List<ModificationEmbeddedModel> foo2Result = Query.from(ModificationEmbeddedModel.class).where("tgd.otherTagsSet/name = ?", values).selectAll();
+        List<ModificationEmbeddedModel> foo2Result = Query.from(ModificationEmbeddedModel.class).where("tgd.otherTagsSet/name = ?", VALUES).selectAll();
         assertThat(foo2Result, hasSize(1));
-        assertThat(foo1.get(0).getName(), is(value));
+        assertThat(foo1.get(0).getName(), is(VALUE));
     }
 
     @Test(expected = Query.NoIndexException.class)
@@ -117,7 +116,7 @@ public class ModificationEmbeddedTest extends AbstractTest {
         ModificationEmbeddedModel test = new ModificationEmbeddedModel();
         test.save();
 
-        Query.from(ModificationEmbeddedModel.class).where("tgd.name = ?", value).selectAll();
+        Query.from(ModificationEmbeddedModel.class).where("tgd.name = ?", VALUE).selectAll();
     }
 
     private IndexTag buildValue(String value) {
@@ -125,6 +124,5 @@ public class ModificationEmbeddedTest extends AbstractTest {
         e.setName(value);
         return e;
     }
-
 }
 

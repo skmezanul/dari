@@ -15,14 +15,15 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.Assert.assertThat;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.hasSize;
 
 public class ModificationDenormalizedTest extends AbstractTest {
 
-    final static String value = "foo";
-    final static String junkValue = "junk";
-    final static List<String> values = Arrays.asList("foo", "bar", "baz");
-    final static List<String> junkValues = Arrays.asList("abe", "lincoln", "president");
+    static final String VALUE = "foo";
+    static final String JUNKVALUE = "junk";
+    static final List<String> VALUES = Arrays.asList("foo", "bar", "baz");
+    static final List<String> JUNKVALUES = Arrays.asList("abe", "lincoln", "president");
 
     protected Query<ModificationDenormalizedModel> query() {
         return Query.from(ModificationDenormalizedModel.class);
@@ -40,7 +41,7 @@ public class ModificationDenormalizedTest extends AbstractTest {
         test.setName("Test");
         test.save();
 
-        List<ModificationDenormalizedModel> m  = Query.from(ModificationDenormalizedModel.class).selectAll();
+        List<ModificationDenormalizedModel> m = Query.from(ModificationDenormalizedModel.class).selectAll();
         long c = Query.from(ModificationDenormalizedModel.class).count();
 
         assertThat(c, is(1L));
@@ -72,25 +73,25 @@ public class ModificationDenormalizedTest extends AbstractTest {
 
     @Test
     public void testSingleString() {
-        List<IndexTag> eList = buildList(values);
-        Set<IndexTag> eSet = buildSet(values);
-        IndexTag eValue = buildValue(value);
-        List<IndexTag> eListJunk = buildList(junkValues);
-        Set<IndexTag> eSetJunk = buildSet(junkValues);
-        IndexTag eValueJunk = buildValue(junkValue);
+        List<IndexTag> eList = buildList(VALUES);
+        Set<IndexTag> eSet = buildSet(VALUES);
+        IndexTag eValue = buildValue(VALUE);
+        List<IndexTag> eListJunk = buildList(JUNKVALUES);
+        Set<IndexTag> eSetJunk = buildSet(JUNKVALUES);
+        IndexTag eValueJunk = buildValue(JUNKVALUE);
 
         ModificationDenormalizedModel test = new ModificationDenormalizedModel();
-        test.setName(value);
+        test.setName(VALUE);
         test.as(TaggableDenormalizedModification.class).setOtherTags(eList);
-        test.as(TaggableDenormalizedModification.class).setName(value);
+        test.as(TaggableDenormalizedModification.class).setName(VALUE);
         test.as(TaggableDenormalizedModification.class).setPrimaryTag(eValue);
         test.as(TaggableDenormalizedModification.class).setOtherTagsSet(eSet);
         test.save();
 
         ModificationDenormalizedModel test2 = new ModificationDenormalizedModel();
-        test2.setName(junkValue);
+        test2.setName(JUNKVALUE);
         test2.as(TaggableDenormalizedModification.class).setOtherTags(eListJunk);
-        test2.as(TaggableDenormalizedModification.class).setName(junkValue);
+        test2.as(TaggableDenormalizedModification.class).setName(JUNKVALUE);
         test2.as(TaggableDenormalizedModification.class).setPrimaryTag(eValueJunk);
         test2.as(TaggableDenormalizedModification.class).setOtherTagsSet(eSetJunk);
         test2.save();
@@ -98,21 +99,21 @@ public class ModificationDenormalizedTest extends AbstractTest {
         List<ModificationDenormalizedModel> junk = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTags/name = ?", "junk").selectAll();
         assertThat(junk, hasSize(0));
 
-        List<ModificationDenormalizedModel> foo1 = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTags/name = ?", value).selectAll();
+        List<ModificationDenormalizedModel> foo1 = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTags/name = ?", VALUE).selectAll();
         assertThat(foo1, hasSize(1));
-        assertThat(foo1.get(0).getName(), is(value));
-        List<IndexTag> foo1Other= foo1.get(0).as(TaggableDenormalizedModification.class).getOtherTags();
-        assertThat(foo1Other.get(0).getName(), is(values.get(0)));
-        assertThat(foo1Other.get(1).getName(), is(values.get(1)));
-        assertThat(foo1Other.get(2).getName(), is(values.get(2)));
+        assertThat(foo1.get(0).getName(), is(VALUE));
+        List<IndexTag> foo1Other = foo1.get(0).as(TaggableDenormalizedModification.class).getOtherTags();
+        assertThat(foo1Other.get(0).getName(), is(VALUES.get(0)));
+        assertThat(foo1Other.get(1).getName(), is(VALUES.get(1)));
+        assertThat(foo1Other.get(2).getName(), is(VALUES.get(2)));
 
-        List<ModificationDenormalizedModel> fooResult = Query.from(ModificationDenormalizedModel.class).where("tgd.primaryTag/name = ?", value).selectAll();
+        List<ModificationDenormalizedModel> fooResult = Query.from(ModificationDenormalizedModel.class).where("tgd.primaryTag/name = ?", VALUE).selectAll();
         assertThat(fooResult, hasSize(1));
-        assertThat(foo1.get(0).getName(), is(value));
+        assertThat(foo1.get(0).getName(), is(VALUE));
 
-        List<ModificationDenormalizedModel> foo2Result = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTagsSet/name = ?", values).selectAll();
+        List<ModificationDenormalizedModel> foo2Result = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTagsSet/name = ?", VALUES).selectAll();
         assertThat(foo2Result, hasSize(1));
-        assertThat(foo1.get(0).getName(), is(value));
+        assertThat(foo1.get(0).getName(), is(VALUE));
     }
 
     @Test(expected = Query.NoIndexException.class)
@@ -120,25 +121,25 @@ public class ModificationDenormalizedTest extends AbstractTest {
         ModificationDenormalizedModel test = new ModificationDenormalizedModel();
         test.save();
 
-        Query.from(ModificationDenormalizedModel.class).where("tgd.name = ?", value).selectAll();
+        Query.from(ModificationDenormalizedModel.class).where("tgd.name = ?", VALUE).selectAll();
     }
 
     @Test
     public void testRefIdString() {
-        List<IndexTag> eList = buildList(values);
-        Set<IndexTag> eSet = buildSet(values);
-        IndexTag eValue = buildValue(value);
+        List<IndexTag> eList = buildList(VALUES);
+        Set<IndexTag> eSet = buildSet(VALUES);
+        IndexTag eValue = buildValue(VALUE);
 
         ModificationDenormalizedModel test = new ModificationDenormalizedModel();
-        test.setName(value);
+        test.setName(VALUE);
         test.as(TaggableDenormalizedModification.class).setOtherTags(eList);
-        test.as(TaggableDenormalizedModification.class).setName(value);
+        test.as(TaggableDenormalizedModification.class).setName(VALUE);
         test.as(TaggableDenormalizedModification.class).setPrimaryTag(eValue);
         test.as(TaggableDenormalizedModification.class).setOtherTagsSet(eSet);
         test.save();
 
         List<UUID> refs = new ArrayList<>();
-        for (IndexTag e: eList) {
+        for (IndexTag e : eList) {
             refs.add(e.getId());
         }
 
@@ -147,33 +148,33 @@ public class ModificationDenormalizedTest extends AbstractTest {
 
         List<ModificationDenormalizedModel> one = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTags = ?", refs.get(0)).selectAll();
         assertThat(one, hasSize(1));
-        assertThat(one.get(0).getName(), is(value));
+        assertThat(one.get(0).getName(), is(VALUE));
         List<IndexTag> oneOther= one.get(0).as(TaggableDenormalizedModification.class).getOtherTags();
-        assertThat(oneOther.get(0).getName(), is(values.get(0)));
-        assertThat(oneOther.get(1).getName(), is(values.get(1)));
-        assertThat(oneOther.get(2).getName(), is(values.get(2)));
+        assertThat(oneOther.get(0).getName(), is(VALUES.get(0)));
+        assertThat(oneOther.get(1).getName(), is(VALUES.get(1)));
+        assertThat(oneOther.get(2).getName(), is(VALUES.get(2)));
 
         List<ModificationDenormalizedModel> many = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTags = ?", refs).selectAll();
         assertThat(many, hasSize(1));
-        assertThat(one.get(0).getName(), is(value));
+        assertThat(one.get(0).getName(), is(VALUE));
 
         List<UUID> refsSet = new ArrayList<>();
-        for (IndexTag e: eSet) {
+        for (IndexTag e : eSet) {
             refsSet.add(e.getId());
         }
 
         List<ModificationDenormalizedModel> oneSet = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTagsSet = ?", refsSet.get(0)).selectAll();
         assertThat(oneSet, hasSize(1));
-        assertThat(one.get(0).getName(), is(value));
+        assertThat(one.get(0).getName(), is(VALUE));
         List<ModificationDenormalizedModel> manySet = Query.from(ModificationDenormalizedModel.class).where("tgd.otherTagsSet = ?", refsSet).selectAll();
         assertThat(manySet, hasSize(1));
-        assertThat(one.get(0).getName(), is(value));
+        assertThat(one.get(0).getName(), is(VALUE));
 
         UUID refValue = eValue.getId();
 
         List<ModificationDenormalizedModel> primary = Query.from(ModificationDenormalizedModel.class).where("tgd.primaryTag = ?", refValue).selectAll();
         assertThat(primary, hasSize(1));
-        assertThat(one.get(0).getName(), is(value));
+        assertThat(one.get(0).getName(), is(VALUE));
     }
 
 }

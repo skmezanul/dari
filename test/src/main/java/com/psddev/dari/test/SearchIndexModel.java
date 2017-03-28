@@ -96,12 +96,12 @@ public class SearchIndexModel extends Record {
     }
 
     @Indexed
-    public Date post_date;
+    public Date postDate;
     public Date getPostDate() {
-        return post_date;
+        return postDate;
     }
     public void setPostDate(Date post_date) {
-        this.post_date = post_date;
+        this.postDate = post_date;
     }
 
     @Indexed

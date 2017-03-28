@@ -8,7 +8,6 @@ import com.psddev.dari.db.State;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 import org.junit.rules.ExpectedException;
 
 import java.util.ArrayList;

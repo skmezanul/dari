@@ -5,7 +5,6 @@ import com.psddev.dari.db.Record;
 import com.psddev.dari.db.Recordable;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 
 import java.util.stream.IntStream;
 

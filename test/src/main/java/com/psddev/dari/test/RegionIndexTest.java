@@ -3,7 +3,6 @@ package com.psddev.dari.test;
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Region;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 
 import java.util.List;
 
