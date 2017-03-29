@@ -24,11 +24,23 @@
       }
     },
     {
+      "data_template": {
+        "path_match": "data.*",
+        "mapping": {
+          "type": "{dynamic_type}",
+          "include_in_all": false,
+          "index": "no",
+          "ignore_malformed": true
+        }
+      }
+    },
+    {
       "int_template": {
         "match": "_*",
         "match_mapping_type": "string",
         "mapping": {
-          "type": "keyword"
+          "type": "keyword",
+          "ignore_above": 1024
         }
       }
     },
@@ -40,7 +52,8 @@
           "type": "text",
           "fields": {
             "raw": {
-              "type": "keyword"
+              "type": "keyword",
+              "ignore_above": 512
             },
             "match": {
               "type": "text",

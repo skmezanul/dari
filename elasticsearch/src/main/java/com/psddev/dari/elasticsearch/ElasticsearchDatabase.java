@@ -10,7 +10,6 @@ import com.psddev.dari.db.AbstractGrouping;
 import com.psddev.dari.db.AtomicOperation;
 import com.psddev.dari.db.ComparisonPredicate;
 import com.psddev.dari.db.CompoundPredicate;
-import com.psddev.dari.db.Database;
 import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Modification;
@@ -138,6 +137,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
+    public static final UUID GLOBALS_ID = new UUID(-1L, -1L);
 
     public static final String DATA_FIELD = "data";
     public static final String ID_FIELD = "_id";
@@ -245,6 +245,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private String indexName;
     private int searchTimeout = TIMEOUT;
     private int subQueryResolveLimit = SUBQUERY_MAX_ROWS;
+    private boolean hasGroup = false;
     private transient TransportClient client;
     private boolean painlessModule = false;
     /**
@@ -359,6 +360,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     @Override
     protected void doInitialize(String settingsKey, Map<String, Object> settings) {
 
+        String groupsPattern = ObjectUtils.to(String.class, settings.get(GROUPS_SUB_SETTING));
+
+        if (groupsPattern == null || ObjectUtils.isBlank(groupsPattern) || groupsPattern.equals("+/")) {
+            this.hasGroup = false;
+        } else {
+            this.hasGroup = true;
+        }
+
         String clusterName = ObjectUtils.to(String.class, settings.get(CLUSTER_NAME_SUB_SETTING));
 
         Preconditions.checkNotNull(clusterName);
@@ -375,7 +384,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             this.subQueryResolveLimit = SUBQUERY_MAX_ROWS;
         } else {
             this.subQueryResolveLimit = Integer.parseInt(subQueryResolveLimit);
-
         }
 
         String clusterTimeout = ObjectUtils.to(String.class, settings.get(SEARCH_TIMEOUT_SETTING));
@@ -985,7 +993,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (!objectState.isReferenceOnly()) {
             Map<String, Object> source = hit.getSource();
 
-            if (ObjectUtils.isBlank(source.get(DATA_FIELD))) {
+            if (source == null || ObjectUtils.isBlank(source.get(DATA_FIELD))) {
                 Object original = objectState.getDatabase().readFirst(Query.from(Object.class).where("_id = ?", objectState.getId()));
                 if (original != null) {
                     objectState.setValues(State.getInstance(original).getSimpleValues());
@@ -2274,31 +2282,38 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } catch (Exception error) {
             LOGGER.info("Using default setting - switch to resource file");
             return "{\n"
-                    + "    \"analysis\": { \n"
-                    + "      \"analyzer\": {\n"
-                    + "        \"text_analyzer\": {\n"
-                    + "          \"char_filter\":  [ \"html_strip\" ],\n"
-                    + "          \"tokenizer\": \"whitespace\",\n"
-                    + "          \"filter\" : [\"text_delimiter\", \"lowercase\", \"text_stemmer\"]\n"
-                    + "        }\n"
+                    + "  \"index.mapping.total_fields.limit\": 3000,\n"
+                    + "  \"index.mapping.ignore_malformed\": true,\n"
+                    + "  \"index\": {\n"
+                    + "    \"refresh_interval\" : \"2s\",\n"
+                    + "    \"number_of_shards\": \"3\",\n"
+                    + "    \"number_of_replicas\": \"1\"\n"
+                    + "  },\n"
+                    + "  \"analysis\": {\n"
+                    + "    \"analyzer\": {\n"
+                    + "      \"text_analyzer\": {\n"
+                    + "        \"char_filter\":  [ \"html_strip\" ],\n"
+                    + "        \"tokenizer\": \"whitespace\",\n"
+                    + "        \"filter\" : [\"text_delimiter\", \"lowercase\", \"text_stemmer\"]\n"
+                    + "      }\n"
+                    + "    },\n"
+                    + "    \"filter\" : {\n"
+                    + "      \"text_delimiter\" : {\n"
+                    + "        \"type\" : \"word_delimiter\",\n"
+                    + "        \"catenate_all\": false,\n"
+                    + "        \"catenate_numbers\": true,\n"
+                    + "        \"catenate_words\": true,\n"
+                    + "        \"generate_number_parts\": true,\n"
+                    + "        \"generate_word_parts\": true,\n"
+                    + "        \"split_on_case_change\": true\n"
                     + "      },\n"
-                    + "      \"filter\" : {\n"
-                    + "        \"text_delimiter\" : {\n"
-                    + "          \"type\" : \"word_delimiter\",\n"
-                    + "          \"catenate_all\": false,\n"
-                    + "          \"catenate_numbers\": true,\n"
-                    + "          \"catenate_words\": true,\n"
-                    + "          \"generate_number_parts\": true,\n"
-                    + "          \"generate_word_parts\": true,\n"
-                    + "          \"split_on_case_change\": true\n"
-                    + "        },\n"
-                    + "        \"text_stemmer\" : {\n"
-                    + "          \"type\" : \"stemmer\",\n"
-                    + "          \"name\" : \"porter2\"\n"
-                    + "        }\n"
+                    + "      \"text_stemmer\" : {\n"
+                    + "        \"type\" : \"stemmer\",\n"
+                    + "        \"name\" : \"porter2\"\n"
                     + "      }\n"
                     + "    }\n"
-                    + "  }";
+                    + "  }\n"
+                    + "}";
         }
     }
 
@@ -2312,64 +2327,72 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } catch (Exception error) {
             LOGGER.info("Using default mapping - switch to resource file");
             return "{\n"
-                    + "\"properties\" : {\n"
-                    + "          \"_ids\": {\n"
-                    + "                  \"type\":\"keyword\"\n"
-                    + "           }"
-                    + "       },"
-                    + "      \"dynamic_templates\": [\n"
-                    + "        {\n"
-                    + "          \"locationgeo\": {\n"
-                    + "            \"match\": \""
-                    + LOCATION_FIELD
-                    + "\",\n"
-                    + "            \"match_mapping_type\": \"string\",\n"
-                    + "            \"mapping\": {\n"
-                    + "              \"type\": \"geo_point\"\n"
-                    + "            }\n"
-                    + "          }\n"
-                    + "        },\n"
-                    + "        {\n"
-                    + "          \"shapegeo\": {\n"
-                    + "            \"match\": \""
-                    + REGION_FIELD
-                    + "\",\n"
-                    + "            \"match_mapping_type\": \"object\",\n"
-                    + "            \"mapping\": {\n"
-                    + "              \"type\": \"geo_shape\"\n"
-                    + "            }\n"
-                    + "          }\n"
-                    + "        },\n"
-                    + "        {\n"
-                    + "          \"int_template\": {\n"
-                    + "            \"match\": \"_*\",\n"
-                    + "            \"match_mapping_type\": \"string\",\n"
-                    + "            \"mapping\": {\n"
-                    + "              \"type\": \"keyword\"\n"
-                    + "            }\n"
-                    + "          }\n"
-                    + "        },\n"
-                    + "        {\n"
-                    + "          \"notanalyzed\": {\n"
-                    + "            \"match\": \"*\",\n"
-                    + "            \"match_mapping_type\": \"string\",\n"
-                    + "            \"mapping\": {\n"
+                    + "  \"properties\" : {\n"
+                    + "    \"_ids\": {\n"
+                    + "      \"type\": \"keyword\"\n"
+                    + "    }\n"
+                    + "  },\n"
+                    + "  \"dynamic_templates\": [\n"
+                    + "    {\n"
+                    + "      \"locationgeo\": {\n"
+                    + "        \"match\": \"_location\",\n"
+                    + "        \"match_mapping_type\": \"string\",\n"
+                    + "        \"mapping\": {\n"
+                    + "          \"type\": \"geo_point\"\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    },\n"
+                    + "    {\n"
+                    + "      \"shapegeo\": {\n"
+                    + "        \"match\": \"_polygon\",\n"
+                    + "        \"match_mapping_type\": \"object\",\n"
+                    + "        \"mapping\": {\n"
+                    + "          \"type\": \"geo_shape\"\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    },\n"
+                    + "    {\n"
+                    + "      \"data_template\": {\n"
+                    + "        \"path_match\": \"data.*\",\n"
+                    + "        \"mapping\": {\n"
+                    + "          \"type\": \"{dynamic_type}\",\n"
+                    + "          \"include_in_all\": false,\n"
+                    + "          \"index\": \"no\",\n"
+                    + "          \"ignore_malformed\": true\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    },\n"
+                    + "    {\n"
+                    + "      \"int_template\": {\n"
+                    + "        \"match\": \"_*\",\n"
+                    + "        \"match_mapping_type\": \"string\",\n"
+                    + "        \"mapping\": {\n"
+                    + "          \"type\": \"keyword\",\n"
+                    + "          \"ignore_above\": 1024\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    },\n"
+                    + "    {\n"
+                    + "      \"notanalyzed\": {\n"
+                    + "        \"match\": \"*\",\n"
+                    + "        \"match_mapping_type\": \"string\",\n"
+                    + "        \"mapping\": {\n"
+                    + "          \"type\": \"text\",\n"
+                    + "          \"fields\": {\n"
+                    + "            \"raw\": {\n"
+                    + "              \"type\": \"keyword\",\n"
+                    + "              \"ignore_above\": 512\n"
+                    + "            },\n"
+                    + "            \"match\": {\n"
                     + "              \"type\": \"text\",\n"
-                    + "              \"analyzer\": \"text_analyzer\",\n"
-                    + "              \"fields\": {\n"
-                    + "                \"raw\": {\n"
-                    + "                  \"type\": \"keyword\"\n"
-                    + "                },\n"
-                    + "                \"match\": {\n"
-                    + "                  \"type\": \"text\",\n"
-                    + "                  \"analyzer\": \"text_analyzer\"\n"
-                    + "                }\n"
-                    + "              }\n"
+                    + "              \"analyzer\": \"text_analyzer\"\n"
                     + "            }\n"
                     + "          }\n"
                     + "        }\n"
-                    + "      ]\n"
-                    + "    }\n";
+                    + "      }\n"
+                    + "    }\n"
+                    + "  ]\n"
+                    + "}\n";
         } // com.psddev.dari.db.ObjectType/fields text or boolean?
     }
 
@@ -2715,14 +2738,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Used to get the Value for a Method
-     */
-    private static Object getStateMethodValue(State state, ObjectMethod method) {
-        Object methodResult = state.getByPath(method.getInternalName());
-        return State.toSimpleValue(methodResult, method.isEmbedded(), false);
-    }
-
-    /**
      * Add Indexed Values and Indexed Methods to Elastic
      */
     public void addDocumentValues(Map<String, Object> extras, StringBuilder allBuilder, boolean includeInAny, ObjectField field, String name, Object value) {
@@ -2782,9 +2797,21 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
 
                     } else {
+                        // remove duplicates and nulls
+                        Set<String> existing = new HashSet<>();
                         for (Object item : valueMap.values()) {
-                            // force to String
-                            addDocumentValues(extras, allBuilder, includeInAny, field, name, String.valueOf(item));
+                            if (item != null) {
+                                if (name.equals(ObjectType.class.getName() + "/fields") || name.equals(ObjectType.class.getName() + "/indexes")) {
+                                    if (!(item instanceof Boolean)) {
+                                        existing.add(String.valueOf(item));
+                                    }
+                                } else {
+                                    existing.add(String.valueOf(item));
+                                }
+                            }
+                        }
+                        for (String item : existing) {
+                            addDocumentValues(extras, allBuilder, includeInAny, field, name, item);
                         }
                     }
                     return;
@@ -2831,7 +2858,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                             includeInAny,
                                             method,
                                             name + "/" + method.getInternalName(),
-                                            getStateMethodValue(valueState, method)
+                                            Static.getStateMethodValue(valueState, method)
                                     );
                                 }
                             }
@@ -3030,7 +3057,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (state.getType() != null) {
             List<ObjectMethod> methods = new ArrayList<>(state.getType().getMethods());
-            methods.addAll(this.getEnvironment().getMethods());
+            // when doing bulk with getEnvironment().getMethods() and hasGroup false get raise condition
+            // state.getId().equals(GLOBALS_ID)
+            //  methods.addAll(getEnvironment().getMethods());
 
             for (ObjectMethod method : methods) {
                 addDocumentValues(
@@ -3039,7 +3068,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         true,
                         method,
                         method.getUniqueName(),
-                        getStateMethodValue(state, method)
+                        Static.getStateMethodValue(state, method)
                 );
             }
         }
@@ -3050,7 +3079,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     @Override
     protected void doWriteRecalculations(TransportClient client, boolean isImmediate, Map<ObjectIndex, List<State>> recalculations) throws Exception {
         if (recalculations != null) {
-            LOGGER.info("doWriteRecalculations");
             int count = 0;
             Set<State> states = new HashSet<>();
             for (Map.Entry<ObjectIndex, List<State>> entry : recalculations.entrySet()) {
@@ -3058,7 +3086,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 states.addAll(entry.getValue());
             }
             if (count > 0) {
-                LOGGER.info("doWriteRecalculations {}", count);
                 doWrites(client, isImmediate, new ArrayList<>(states), new ArrayList<>(), new ArrayList<>());
             }
         }
@@ -3091,16 +3118,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (saves != null) {
                 for (State state : saves) {
-
-                    String documentType = state.getTypeId().toString();
+                    String documentType = state.getVisibilityAwareTypeId().toString();
                     String newIndexname = indexName + documentType.replaceAll("-", "");
                     indexSet.add(newIndexname);
                 }
             }
 
+            // double check for deletes
             if (deletes != null) {
                 for (State state : deletes) {
-
                     String documentType = state.getTypeId().toString();
                     String newIndexname = indexName + documentType.replaceAll("-", "");
                     indexSet.add(newIndexname);
@@ -3114,13 +3140,38 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             String indexName = getIndexName();
 
             if (saves != null) {
+                    // "groups" are set in context.xml are aggregate and limit the saves
+                    Set<String> databaseGroups = getGroups();
                     for (State state : saves) {
                         try {
+                            if (hasGroup) {
+                                ObjectType type = state.getType();
+
+                                if (type != null) {
+                                    boolean savable = false;
+
+                                    for (String typeGroup : type.getGroups()) {
+                                        if (databaseGroups.contains(typeGroup)) {
+                                            savable = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (!savable) {
+                                        continue;
+                                    }
+                                } else {
+                                    continue;
+                                }
+                            }
+
                             boolean isNew = state.isNew();
-                            UUID documentTypeUUID = state.getTypeId();
-                            String documentType = documentTypeUUID.toString();
                             UUID documentUUID = state.getId();
                             String documentId = documentUUID.toString();
+
+                            UUID documentTypeUUID = state.getVisibilityAwareTypeId();
+                            String documentType = documentTypeUUID.toString();
+
                             String newIndexname = indexName + documentType.replaceAll("-", "");
                             List<AtomicOperation> atomicOperations = state.getAtomicOperations();
                             StringBuilder allBuilder = new StringBuilder();
@@ -3128,10 +3179,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             if (isNew || atomicOperations.isEmpty()) {
                                 Map<String, Object> t = new HashMap<>();
                                 t.put(DATA_FIELD, state.getSimpleValues());
-
-                                // these 2 are disruptive to t
-                                //convertLocationToName(t, LOCATION_FIELD);
-                                //convertRegionToName(t, REGION_FIELD);
 
                                 Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
                                 Map<String, Object> extraLabel = addLabel(state);
@@ -3152,7 +3199,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
 
                                 LOGGER.debug("All field [{}]", allBuilder.toString());
-                                LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                                LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                         newIndexname, documentType, documentId, t.toString());
                                 bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 
@@ -3276,15 +3323,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     String oldDocumentId = oldId.toString();
                                     String oldIndexname = indexName + oldDocumentType.replaceAll("-", "");
                                     bulk.add(client.prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
-                                    LOGGER.info("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
+                                    LOGGER.debug("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
                                             newIndexname, documentType, documentId, t.toString());
                                     bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                                 } else if (sendFullUpdate) {
-                                    LOGGER.info("Elasticsearch doWrites sendFullUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
+                                    LOGGER.debug("Elasticsearch doWrites sendFullUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
                                             newIndexname, documentType, documentId, t.toString());
                                     bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(t));
                                 } else if (sendExtraUpdate) {
-                                    LOGGER.info("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
+                                    LOGGER.debug("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
                                             newIndexname, documentType, documentId, extra.toString());
                                     bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(extra));
                                 }
@@ -3321,10 +3368,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                 }
             }
-            LOGGER.debug("Elasticsearch Writing [{}]", bulk.request().requests().toString());
-            bulk.execute().actionGet();
-            if (isImmediate) {
-                commitTransaction(client, true);
+
+            if (bulk.request().requests().size() > 0) {
+                LOGGER.debug("Elasticsearch Writing [{}]", bulk.request().requests().size());
+                bulk.execute().actionGet();
+                if (isImmediate) {
+                    commitTransaction(client, true);
+                }
             }
         } catch (Exception error) {
             LOGGER.warn(

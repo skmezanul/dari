@@ -16,11 +16,8 @@ import com.psddev.dari.util.AsyncQueue;
 import com.psddev.dari.util.CollectionUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Settings;
-import com.psddev.dari.util.StringUtils;
 import com.psddev.dari.util.Task;
 import com.psddev.dari.util.TaskExecutor;
-import com.psddev.dari.util.UuidUtils;
-import javafx.scene.input.TouchPoint;
 import org.elasticsearch.node.Node;
 import org.hamcrest.Matchers;
 import org.junit.After;
@@ -294,12 +291,12 @@ public class ElasticInitializationTest {
         assertThat("max length", fooResult.get(0).getMessage().length(), Matchers.is(equalTo(2000)));
         List<SearchIndexModel> fooResult1 = Query
                 .from(SearchIndexModel.class)
-                .where("message = ?", message.substring(0,ElasticsearchDatabase.MAX_BINARY_FIELD_LENGTH))
+                .where("message startswith ?", message.substring(0, 255))
                 .selectAll();
         assertThat("check database size", fooResult1, hasSize(1));
         List<SearchIndexModel> fooResult2 = Query
                 .from(SearchIndexModel.class)
-                .where("message = ?", message.substring(0,ElasticsearchDatabase.MAX_BINARY_FIELD_LENGTH+1))
+                .where("message startswith ?", message.substring(0, 256))
                 .selectAll();
         assertThat("after the limit", fooResult2, hasSize(0));
     }
