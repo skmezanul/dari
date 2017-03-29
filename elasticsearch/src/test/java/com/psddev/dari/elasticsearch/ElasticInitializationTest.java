@@ -1,11 +1,26 @@
 package com.psddev.dari.elasticsearch;
 
+import com.psddev.dari.db.AbstractDatabase;
+import com.psddev.dari.db.AsyncDatabaseReader;
+import com.psddev.dari.db.AsyncDatabaseWriter;
+import com.psddev.dari.db.BulkDebugServlet;
 import com.psddev.dari.db.Database;
+import com.psddev.dari.db.Modification;
+import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Query;
+import com.psddev.dari.db.Record;
+import com.psddev.dari.db.SqlDatabase;
+import com.psddev.dari.db.WriteOperation;
 import com.psddev.dari.test.SearchIndexModel;
+import com.psddev.dari.util.AsyncQueue;
 import com.psddev.dari.util.CollectionUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Settings;
+import com.psddev.dari.util.StringUtils;
+import com.psddev.dari.util.Task;
+import com.psddev.dari.util.TaskExecutor;
+import com.psddev.dari.util.UuidUtils;
+import javafx.scene.input.TouchPoint;
 import org.elasticsearch.node.Node;
 import org.hamcrest.Matchers;
 import org.junit.After;
@@ -14,9 +29,13 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -66,6 +85,133 @@ public class ElasticInitializationTest {
         put(ElasticsearchDatabase.INDEX_NAME_SUB_SETTING + "1/" + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "localhost");
 
         database.initialize("", settings);
+    }
+
+    @Test
+    public void testBulk() {
+
+        String name = Settings.getOrError(String.class, Database.DEFAULT_DATABASE_SETTING, "No default database!");
+
+        LOGGER.debug("Name: {}", name);
+
+        for (int i = 0; i < 50; i++) {
+            SearchIndexModel m = new SearchIndexModel();
+            m.setOne("Testing " + i);
+            m.save();
+        }
+
+        Database source = Database.Static.getInstance("elasticsearch");
+        Database destination = Database.Static.getInstance("elasticsearch");
+
+        String executor = BulkDebugServlet.COPIER_PREFIX + " from " + source + " to " + destination;
+        AsyncQueue<Object> queue = new AsyncQueue<>();
+        Query<Object> query = Query
+                .fromType(null)
+                .resolveToReferenceOnly();
+
+        if (destination instanceof AbstractDatabase) {
+            Set<String> destinationGroups = ((AbstractDatabase<?>) destination).getGroups();
+
+            if (!destinationGroups.contains(UUID.randomUUID().toString())) {
+                Set<UUID> unsavableTypeIds = source.getEnvironment()
+                        .getTypes()
+                        .stream()
+                        .map(Record::getId)
+                        .collect(Collectors.toSet());
+
+                for (ObjectType type : source.getEnvironment().getTypes()) {
+                    if (type.getObjectClass() == null
+                            || type.getGroups().contains(Modification.class.getName())
+                            || type.isAbstract()
+                            || type.isEmbedded()) {
+                        unsavableTypeIds.remove(type.getId());
+                    } else {
+                        for (String typeGroup : type.getGroups()) {
+                            if (destinationGroups.contains(typeGroup)) {
+                                unsavableTypeIds.remove(type.getId());
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                query.and("_type != ?", unsavableTypeIds);
+            }
+        }
+
+        query.getOptions().put(SqlDatabase.USE_JDBC_FETCH_SIZE_QUERY_OPTION, false);
+
+        boolean deleteDestination = false;
+
+        if (deleteDestination) {
+            destination.deleteByQuery(query);
+        }
+
+        (new AsyncDatabaseReader<Object>(
+                executor, queue, source, query) {
+            @Override
+            protected Object produce() {
+                Object obj = super.produce();
+                if (obj instanceof Record) {
+                    this.setProgress(this.getProgress() + " (last: " + ((Record) obj).getId() + ")");
+                }
+                return obj;
+            }
+        }).submit();
+
+        queue.closeAutomatically();
+
+        int writersCount = 5;
+        int commitSize = 200;
+
+        long maximumDataLength = Runtime.getRuntime().freeMemory() / 10 / writersCount / commitSize;
+
+        LOGGER.debug("maximum data length: " + maximumDataLength);
+
+        for (int i = 0; i < writersCount; ++ i) {
+            AsyncDatabaseWriter<Object> writer = new AsyncDatabaseWriter<>(
+                    executor, queue, destination, WriteOperation.SAVE_UNSAFELY, commitSize, true);
+
+            writer.setCommitSizeJitter(0.2);
+            writer.setMaximumDataLength(maximumDataLength);
+            writer.submit();
+        }
+
+        List<TaskExecutor> copyExecutors = new ArrayList<>();
+        for (TaskExecutor executor1 : TaskExecutor.Static.getAll()) {
+            if (executor1.getName().startsWith(BulkDebugServlet.COPIER_PREFIX)) {
+                copyExecutors.add(executor1);
+            }
+        }
+
+        boolean done = false;
+        while (!done) {
+            for (TaskExecutor executor2 : copyExecutors) {
+                LOGGER.debug("name: {} term: {} shut: {}", executor2.getName(), executor2.isTerminated() ? "true":"false",
+                        executor2.isShutdown() ? "true":"false");
+                if (executor2.isTerminated() || executor2.isShutdown()) {
+                    done = true;
+                } else {
+                    List<Object> tasks = executor2.getTasks();
+                    for (Object taskObject : tasks) {
+                        if (!(taskObject instanceof Task)) {
+                            continue;
+                        }
+
+                        Task task = (Task) taskObject;
+                        LOGGER.info("Progress: {} {} {}", executor2.getName(), task.getName(), task.getProgress());
+                        if (!task.isRunning()) {
+                            done = true;
+                        }
+                    }
+                }
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (Exception e) {
+                LOGGER.warn("Sleep threw exception");
+            }
+        }
     }
 
     @Test(expected = NullPointerException.class)

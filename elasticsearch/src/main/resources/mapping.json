@@ -1,4 +1,9 @@
 {
+  "properties" : {
+    "_ids": {
+      "type": "keyword"
+    }
+  },
   "dynamic_templates": [
     {
       "locationgeo": {

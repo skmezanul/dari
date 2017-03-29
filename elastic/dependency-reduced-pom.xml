@@ -14,7 +14,7 @@
     <plugins>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>2.4.1</version>
+        <version>2.4.3</version>
         <executions>
           <execution>
             <id>shade-elastic</id>
@@ -35,6 +35,8 @@
                 </transformer>
                 <transformer />
               </transformers>
+              <shadedArtifactAttached>false</shadedArtifactAttached>
+              <shadedClassifierName>fat</shadedClassifierName>
               <artifactSet>
                 <includes>
                   <include>org.elasticsearch:*</include>
@@ -100,10 +102,6 @@
                 <relocation>
                   <pattern>net.java.dev.jna</pattern>
                   <shadedPattern>${elasticsearch.package}.java.dev.jna</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.apache.lucene</pattern>
-                  <shadedPattern>${elasticsearch.package}.apache.lucene</shadedPattern>
                 </relocation>
                 <relocation>
                   <pattern>org.apache.http</pattern>

@@ -2314,9 +2314,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             return "{\n"
                     + "\"properties\" : {\n"
                     + "          \"_ids\": {\n"
-                    + "                  \"type\":\"string\",\n"
-                    + "                  \"index\": \"not_analyzed\",\n"
-                    + "                  \"store\": \"false\"\n"
+                    + "                  \"type\":\"keyword\"\n"
                     + "           }"
                     + "       },"
                     + "      \"dynamic_templates\": [\n"
@@ -3032,7 +3030,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (state.getType() != null) {
             List<ObjectMethod> methods = new ArrayList<>(state.getType().getMethods());
-            methods.addAll(Database.Static.getDefault().getEnvironment().getMethods());
+            methods.addAll(this.getEnvironment().getMethods());
 
             for (ObjectMethod method : methods) {
                 addDocumentValues(
@@ -3052,6 +3050,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     @Override
     protected void doWriteRecalculations(TransportClient client, boolean isImmediate, Map<ObjectIndex, List<State>> recalculations) throws Exception {
         if (recalculations != null) {
+            LOGGER.info("doWriteRecalculations");
             int count = 0;
             Set<State> states = new HashSet<>();
             for (Map.Entry<ObjectIndex, List<State>> entry : recalculations.entrySet()) {
@@ -3059,6 +3058,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 states.addAll(entry.getValue());
             }
             if (count > 0) {
+                LOGGER.info("doWriteRecalculations {}", count);
                 doWrites(client, isImmediate, new ArrayList<>(states), new ArrayList<>(), new ArrayList<>());
             }
         }
@@ -3080,6 +3080,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
         try {
+            client = openConnection();
+            if (client == null || !isAlive(client)) {
+                LOGGER.warn("Connection not open for doWrites");
+                return;
+            }
+
             /* verify all indexes exist */
             Set<String> indexSet = new HashSet<>();
 
@@ -3146,7 +3152,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
 
                                 LOGGER.debug("All field [{}]", allBuilder.toString());
-                                LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                                LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                         newIndexname, documentType, documentId, t.toString());
                                 bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 
@@ -3270,15 +3276,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     String oldDocumentId = oldId.toString();
                                     String oldIndexname = indexName + oldDocumentType.replaceAll("-", "");
                                     bulk.add(client.prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
-                                    LOGGER.debug("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
+                                    LOGGER.info("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
                                             newIndexname, documentType, documentId, t.toString());
                                     bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                                 } else if (sendFullUpdate) {
-                                    LOGGER.debug("Elasticsearch doWrites sendFullUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
+                                    LOGGER.info("Elasticsearch doWrites sendFullUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
                                             newIndexname, documentType, documentId, t.toString());
                                     bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(t));
                                 } else if (sendExtraUpdate) {
-                                    LOGGER.debug("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
+                                    LOGGER.info("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
                                             newIndexname, documentType, documentId, extra.toString());
                                     bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(extra));
                                 }
