@@ -1014,13 +1014,13 @@ public class SearchIndexTest extends AbstractTest {
             List<Object> cycleKeys = grouping.getKeys();
             String name = String.valueOf(cycleKeys.get(0));
             long count = grouping.getCount();
-            assertThat(count, is(4L));
+            assertThat(name + " " + count, count, is(4L));
         }
 
         assertEquals(2, groupBy.getCount());
     }
 
-    // Default group order should be highest to lowest. H2 does not do that.
+    // Order is indeterminate without Sort
     @Test
     public void testGroupOrder() {
         for (int i = 1; i <= 4; i++) {
@@ -1034,45 +1034,106 @@ public class SearchIndexTest extends AbstractTest {
         // from highest to smallest count
         long count = 4;
         List<Grouping<SearchIndexModel>> groupBy =
-                Query.from(SearchIndexModel.class).groupBy("one");
+                Query.from(SearchIndexModel.class).sortDescending("one").groupBy("one");
         for (Grouping<SearchIndexModel> grouping : groupBy) {
             List<Object> cycleKeys = grouping.getKeys();
             String name = String.valueOf(cycleKeys.get(0));
-            assertThat("testGroupOrder highest to lowest", grouping.getCount(), is(count * 2));
+            assertThat(name + ":testGroupOrder highest to lowest", grouping.getCount(), is(count * 2));
             count = count - 1;
         }
 
         assertThat(groupBy, hasSize(4));
     }
 
-    // H2 order is low to high, need to check
     @Test
     public void testGroupDateandOne() {
         Date begin = new Date();
         for (int i = 1; i <= 4; i++) {
-            Date postDate = DateUtils.addSeconds(begin, +1);
+            int count = i * 2;
             for (int j = 0; j < i * 2; j++) {
                 SearchIndexModel model = new SearchIndexModel();
-                model.one = "test " + i;
+                model.one = String.valueOf(count);
+                model.postDate = begin;
+                model.save();
+            }
+        }
+
+        List<Grouping<SearchIndexModel>> groupBy =
+                Query.from(SearchIndexModel.class).groupBy("postDate", "one");
+
+        groupBy.forEach(g -> {
+            Date postDate = (Date) g.getKeys().get(0);
+            String one = String.valueOf(g.getKeys().get(1));
+            long count = Integer.parseInt(one);
+
+            assertThat(postDate + ": count", g.getCount(), is(count));
+            assertThat(postDate + ": date", one, is(String.valueOf(count)));
+        });
+        assertThat(groupBy, hasSize(4));
+
+        List<Grouping<SearchIndexModel>> groupBySort =
+                Query.from(SearchIndexModel.class).sortDescending("postDate").sortDescending("one").groupBy("postDate", "one");
+
+        long count = 4;
+        for (Grouping<SearchIndexModel> grouping : groupBySort) {
+            List<Object> cycleKeys = grouping.getKeys();
+            Date postDate = (Date) cycleKeys.get(0);
+            String one = String.valueOf(grouping.getKeys().get(1));
+            assertThat(postDate + ": count", grouping.getCount(), is(count * 2));
+            assertThat(postDate + ": one", one, is(String.valueOf(count * 2)));
+            count = count - 1;
+        }
+
+        assertThat(groupBySort, hasSize(4));
+    }
+
+    @Test
+    public void testSortGroup()
+    {
+        Date begin = new Date();
+        Date postDate = begin;
+        for (int i = 1; i <= 4; i++) {
+            postDate = DateUtils.addMinutes(postDate, 1);
+            for (int j = 0; j < i * 2; j++) {
+                SearchIndexModel model = new SearchIndexModel();
+                if ((j & 1) == 0 ) {
+                    model.one = "even";
+                } else {
+                    model.one = "odd";
+                }
                 model.postDate = postDate;
                 model.save();
             }
         }
 
-        // date first, so it will be lowest to highest count
-        long count = 1;
-        List<Grouping<SearchIndexModel>> groupBy =
-                Query.from(SearchIndexModel.class).groupBy("postDate", "one");
-        for (Grouping<SearchIndexModel> grouping : groupBy) {
+        List<Grouping<SearchIndexModel>> groupPostDate =
+                Query.from(SearchIndexModel.class).groupBy("postDate");
+        assertThat(groupPostDate, hasSize(4));
+
+        List<Grouping<SearchIndexModel>> groupOne =
+                Query.from(SearchIndexModel.class).groupBy("one");
+        assertThat(groupOne, hasSize(2));
+
+        List<Grouping<SearchIndexModel>> groupBySort =
+                Query.from(SearchIndexModel.class).sortDescending("postDate").sortDescending("one").groupBy("postDate", "one");
+
+        long count = 4;
+        String oddEven = "odd";
+        for (Grouping<SearchIndexModel> grouping : groupBySort) {
             List<Object> cycleKeys = grouping.getKeys();
-            String date = cycleKeys.get(0).toString();
+            Date postDate2 = (Date) cycleKeys.get(0);
             String one = String.valueOf(grouping.getKeys().get(1));
-            assertThat(grouping.getCount(), is(count * 2));
-            assertThat(one, is("test " + count));
-            count = count + 1;
+            assertThat(postDate2 + ": count", grouping.getCount(), is(count));
+            assertThat(postDate2 + ": one", one, is(oddEven));
+            if (oddEven.equals("odd")) {
+                oddEven = "even";
+            } else {
+                oddEven = "odd";
+                count = count - 1;
+            }
         }
 
-        assertThat(groupBy, hasSize(4));
+        assertThat(groupBySort, hasSize(8));
     }
 
     @Test
