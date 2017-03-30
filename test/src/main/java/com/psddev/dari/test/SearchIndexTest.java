@@ -1583,5 +1583,31 @@ public class SearchIndexTest extends AbstractTest {
         assertThat(bothAndMissingResult, hasSize(0));
     }
 
+    @Test
+    public void testEmbeddedPersonSubType() {
+
+        SearchIndexModel search = new SearchIndexModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = "tough";
+        search.personEmbedded = new PersonIndexModel();
+        search.personEmbedded.personName = "Tony";
+        search.save();
+
+        List<SearchIndexModel> fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("personEmbedded/personName = ?", "Tony")
+                .selectAll();
+
+        assertThat(fooResult, hasSize(1));
+
+        List<SearchIndexModel> fooResult1 = Query
+                .from(SearchIndexModel.class)
+                .where("personEmbedded/com.psddev.dari.test.PersonIndexModel/personName = ?", "Tony")
+                .selectAll();
+
+        assertThat(fooResult1, hasSize(1));
+
+    }
 }
 

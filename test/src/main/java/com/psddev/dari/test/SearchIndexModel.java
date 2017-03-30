@@ -162,5 +162,9 @@ public class SearchIndexModel extends Record {
         this.personReference = personReference;
     }
 
+    @Embedded
+    @Indexed
+    public PersonIndexModel personEmbedded;
+
 }
 
