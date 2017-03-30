@@ -1051,14 +1051,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         specialFields = m;
     }
 
+    /**
+     * Convert key to Query
+     */
     private static String convertKeyToQuery(String key) {
         if (key.equals(IDS_FIELD)) {
-            return(ID_FIELD);
-        }
-        else if (key.equals(ALL_FIELD)) {
-            return(ANY_FIELD);
+            return ID_FIELD;
+        } else if (key.equals(ALL_FIELD)) {
+            return ANY_FIELD;
         } else {
-            return(key);
+            return key;
         }
     }
 
