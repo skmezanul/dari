@@ -2357,7 +2357,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "        \"mapping\": {\n"
                     + "          \"type\": \"{dynamic_type}\",\n"
                     + "          \"include_in_all\": false,\n"
-                    + "          \"index\": \"no\",\n"
+                    + "          \"index\": false,\n"
                     + "          \"ignore_malformed\": true\n"
                     + "        }\n"
                     + "      }\n"

@@ -29,7 +29,7 @@
         "mapping": {
           "type": "{dynamic_type}",
           "include_in_all": false,
-          "index": "no",
+          "index": false,
           "ignore_malformed": true
         }
       }
