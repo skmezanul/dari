@@ -7,6 +7,8 @@ import com.psddev.dari.db.BulkDebugServlet;
 import com.psddev.dari.db.Database;
 import com.psddev.dari.db.Modification;
 import com.psddev.dari.db.ObjectType;
+import com.psddev.dari.db.Predicate;
+import com.psddev.dari.db.PredicateParser;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.Record;
 import com.psddev.dari.db.SqlDatabase;
@@ -18,9 +20,11 @@ import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.Settings;
 import com.psddev.dari.util.Task;
 import com.psddev.dari.util.TaskExecutor;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.node.Node;
 import org.hamcrest.Matchers;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -299,6 +303,56 @@ public class ElasticInitializationTest {
                 .where("message startswith ?", message.substring(0, 256))
                 .selectAll();
         assertThat("after the limit", fooResult2, hasSize(0));
+    }
+
+    @Test
+    public void testPredicates() {
+        SearchIndexModel s = new SearchIndexModel();
+        s.setOne("3");
+        s.setD(3d);
+        s.save();
+
+        ElasticsearchDatabase e = (ElasticsearchDatabase) Database.Static.getDefault();
+        Query q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.EQUALS_ANY_OPERATOR + " ?", "3");
+        QueryBuilder x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.NOT_EQUALS_ALL_OPERATOR + " ?", "3");
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.LESS_THAN_OPERATOR + " ?", 3d);
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR + " ?", 3d);
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.GREATER_THAN_OPERATOR + " ?", 3d);
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR + " ?", 3d);
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.STARTS_WITH_OPERATOR + " ?", "3");
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.CONTAINS_OPERATOR + " ?", "3");
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.MATCHES_ANY_OPERATOR + " ?", "3");
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
+        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.MATCHES_ALL_OPERATOR + " ?", "3");
+        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        Assert.assertTrue(x.toString().contains("_all"));
+
     }
 
     @Test

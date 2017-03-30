@@ -144,7 +144,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String IDS_FIELD = "_ids";
     public static final String UID_FIELD = "_uid";      // special for aggregations/sort
     public static final String TYPE_ID_FIELD = "_type";
-    public static final String ALL_FIELD = "_all";
+    public static final String ALL_FIELD = "_all";      // switch to this in elastic
+    public static final String ANY_FIELD = "_any";
     public static final String UPDATEDATE_FIELD = "updateDate";
     public static final int INITIAL_FETCH_SIZE = 1000;
     public static final int SUBQUERY_MAX_ROWS = 5000;   // dari/subQueryResolveLimit
@@ -1050,6 +1051,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         specialFields = m;
     }
 
+    private static String convertKeyToQuery(String key) {
+        if (key.equals(IDS_FIELD)) {
+            return(ID_FIELD);
+        }
+        else if (key.equals(ALL_FIELD)) {
+            return(ANY_FIELD);
+        } else {
+            return(key);
+        }
+    }
+
     /**
      * Denormalize the key or return Query.NoFieldException
      *
@@ -1057,17 +1069,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * @throws Query.NoFieldException No field matches this key
      */
     private Query.MappedKey mapFullyDenormalizedKey(Query<?> query, String key) {
-        if (key.equals(IDS_FIELD)) {
-            key = "_id";
-        }
-        Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), key);
+
+        Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), convertKeyToQuery(key));
         if (mappedKey == null) {
             return null;
         }
         if (isReference(key, query)) {
             return mappedKey;
         } else if (mappedKey.hasSubQuery()) {
-            throw new Query.NoFieldException(query.getGroup(), key);
+            throw new Query.NoFieldException(query.getGroup(), convertKeyToQuery(key));
         }
         return mappedKey;
     }
@@ -1384,7 +1394,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private boolean isReference(String queryKey, Query<?> query) {
         try {
-            Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), queryKey);
+            Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), convertKeyToQuery(queryKey));
             if (mappedKey != null) {
                 if (mappedKey.hasSubQuery()) {
                     return true;
@@ -1788,7 +1798,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * For Matches, add ".match" to the query
      */
     private static String matchesAnalyzer(String operator, String key) {
-        if (key.endsWith("." + RAW_FIELD) || key.equals("_any") || key.equals(ALL_FIELD)) {
+        if (key.endsWith("." + RAW_FIELD) || key.equals(ALL_FIELD)) {
             return key;
         }
         if (operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
@@ -1800,7 +1810,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * This is the main method for querying Elastic. Converts predicate and query into QueryBuilder
      */
-    private QueryBuilder predicateToQueryBuilder(Predicate predicate, Query<?> query) {
+    QueryBuilder predicateToQueryBuilder(Predicate predicate, Query<?> query) {
         if (predicate == null) {
             return QueryBuilders.matchAllQuery();
         }
@@ -1825,7 +1835,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         } else if (predicate instanceof ComparisonPredicate) {
             ComparisonPredicate comparison = (ComparisonPredicate) predicate;
-            //String pKey = "_any".equals(comparison.getKey()) ? ALL_FIELD : comparison.getKey();
             String operator = comparison.getOperator();
 
             String queryKey = comparison.getKey();
@@ -1882,8 +1891,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     //List<String> ids1 = referenceSwitcher(mappedKey.getSubQueryKeyField().getInternalName(), query);
                     if (ids != null && ids.size() > 0) {
-                        Query part1 = Query.from(query.getObjectClass()).where(elasticField + " != missing");
-                        Query part2 = Query.fromAll().where(elasticField + " = ?", ids);
+                        Query part1 = Query.from(query.getObjectClass()).where(convertKeyToQuery(elasticField) + " != missing");
+                        Query part2 = Query.fromAll().where(convertKeyToQuery(elasticField) + " = ?", ids);
                         Query combinedParts = Query.fromAll().where(part1.getPredicate()).and(part2.getPredicate());
                         LOGGER.debug("returning subQuery ids [{}] [{}]", ids.size(), combinedParts.getPredicate());
                         return predicateToQueryBuilder(combinedParts.getPredicate(), query);
