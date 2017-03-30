@@ -113,7 +113,7 @@ public class ElasticDBSuite {
             ElasticSetupDatabase();
             TestSuite suite = new TestSuite();
             suite.addTest(new JUnit4TestAdapter(ElasticInitializationTest.class));
-/*            suite.addTest(new JUnit4TestAdapter(LocationIndexTest.class));
+            suite.addTest(new JUnit4TestAdapter(LocationIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(ModificationDenormalizedTest.class));
             suite.addTest(new JUnit4TestAdapter(ModificationEmbeddedTest.class));
             suite.addTest(new JUnit4TestAdapter(NumberIndexTest.class));
@@ -128,7 +128,7 @@ public class ElasticDBSuite {
             suite.addTest(new JUnit4TestAdapter(StringIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(TypeIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(UuidIndexTest.class));
-            suite.addTest(new JUnit4TestAdapter(WriteTest.class));*/
+            suite.addTest(new JUnit4TestAdapter(WriteTest.class));
             return suite;
         }
 
