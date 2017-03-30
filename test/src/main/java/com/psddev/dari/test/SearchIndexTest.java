@@ -1088,15 +1088,14 @@ public class SearchIndexTest extends AbstractTest {
     }
 
     @Test
-    public void testSortGroup()
-    {
+    public void testSortGroup() {
         Date begin = new Date();
         Date postDate = begin;
         for (int i = 1; i <= 4; i++) {
             postDate = DateUtils.addMinutes(postDate, 1);
             for (int j = 0; j < i * 2; j++) {
                 SearchIndexModel model = new SearchIndexModel();
-                if ((j & 1) == 0 ) {
+                if ((j & 1) == 0) {
                     model.one = "even";
                 } else {
                     model.one = "odd";
