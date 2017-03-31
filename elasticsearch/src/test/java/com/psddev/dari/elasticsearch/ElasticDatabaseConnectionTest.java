@@ -29,9 +29,9 @@ public class ElasticDatabaseConnectionTest {
                 .put("client.transport.sniff", true).build();
 
         ElasticsearchNode n = new ElasticsearchNode();
-        n.port = 9300;
-        n.restPort = 9200;
-        n.hostname = "localhost";
+        n.setPort(9300);
+        n.setRestPort(9200);
+        n.setHostname("localhost");
         nodes.add(n);
         TransportClient c = ElasticsearchDatabaseConnection.getClient(nodeSettings, nodes);
         TransportClient c1 = ElasticsearchDatabaseConnection.getClient(nodeSettings, nodes);

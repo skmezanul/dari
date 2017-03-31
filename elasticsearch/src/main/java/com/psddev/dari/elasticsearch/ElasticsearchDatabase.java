@@ -153,8 +153,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
     public static final String SCORE_EXTRA = "elastic.score";
     public static final String NORMALIZED_SCORE_EXTRA = "elastic.normalizedScore";
-    private static final String elasticMapping = getMapping("");
-    private static final String elasticSetting = getSetting("");
+    private static final String ELASTIC_MAPPING = getMapping("");
+    private static final String ELASTIC_SETTING = getSetting("");
 
     public class IndexKey {
         private String indexId;
@@ -425,9 +425,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 Preconditions.checkNotNull(clusterHostname);
 
                 ElasticsearchNode n = new ElasticsearchNode();
-                n.hostname = clusterHostname;
-                n.port = Integer.parseInt(clusterPort);
-                n.restPort = Integer.parseInt(clusterRestPort);
+                n.setHostname(clusterHostname);
+                n.setPort(Integer.parseInt(clusterPort));
+                n.setRestPort(Integer.parseInt(clusterRestPort));
 
                 this.clusterNodes.add(n);
 
@@ -448,10 +448,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Override to support in Elastic
      */
-    //@Override
-    //public Date readLastUpdate(Query<?> query) {
-    //    return null;
-    //}
     @Override
     public Date readLastUpdate(Query<?> query) {
         return readUpdateMax(query);
@@ -2423,8 +2419,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .prepareExists(indexName)
                     .execute().actionGet().isExists();
             if (!indexExists) {
-                CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", elasticMapping)
-                        .setSettings(elasticSetting);
+                CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", ELASTIC_MAPPING)
+                        .setSettings(ELASTIC_SETTING);
                 CreateIndexResponse createIndexResponse = cirb.execute().actionGet();
                 if (!createIndexResponse.isAcknowledged()) {
                     LOGGER.warn("Could not create index {}", indexName);

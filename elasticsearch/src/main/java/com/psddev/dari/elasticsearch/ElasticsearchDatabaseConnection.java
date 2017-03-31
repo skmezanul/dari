@@ -20,7 +20,6 @@ class ElasticsearchDatabaseConnection {
 
     /**
      * Check nodes are not empty and isAlive
-     *
      */
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public static boolean isAlive(TransportClient client) {
@@ -34,7 +33,7 @@ class ElasticsearchDatabaseConnection {
     private static String getHash(Settings nodeSettings, List<ElasticsearchNode> nodes) {
         StringBuilder hash = new StringBuilder();
         for (ElasticsearchNode n : nodes) {
-            hash.append(n.hostname + " " + n.port + " " + n.restPort + " ");
+            hash.append(n.getHostname() + " " + n.getPort() + " " + n.getRestPort() + " ");
         }
         hash.append(nodeSettings.get("cluster.name"));
         return hash.toString();
@@ -46,7 +45,7 @@ class ElasticsearchDatabaseConnection {
     public static synchronized void closeClients() {
         Iterator<String> it = clientConnections.keySet().iterator();
 
-        while (it.hasNext()){
+        while (it.hasNext()) {
             String key = it.next();
             TransportClient c = clientConnections.get(key);
             if (c != null) {
@@ -72,7 +71,7 @@ class ElasticsearchDatabaseConnection {
             try {
                 c = new PreBuiltTransportClient(nodeSettings);
                 for (ElasticsearchNode n : nodes) {
-                    c.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.hostname), n.port));
+                    c.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.getHostname()), n.getPort()));
                 }
                 clientConnections.put(getHash(nodeSettings, nodes), c);
                 LOGGER.info("Creating connection {}", getHash(nodeSettings, nodes));

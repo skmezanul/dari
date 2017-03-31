@@ -77,9 +77,9 @@ public class ElasticInitializationTest {
         assertThat(database.getClusterName(), is(elasticCluster));
         assertThat(database.getClusterNodes(), hasSize(1));
         List<ElasticsearchNode> n = database.getClusterNodes();
-        assertThat(n.get(0).hostname, is("localhost"));
-        assertThat(n.get(0).port, is(9300));
-        assertThat(n.get(0).restPort, is(9200));
+        assertThat(n.get(0).getHostname(), is("localhost"));
+        assertThat(n.get(0).getPort(), is(9300));
+        assertThat(n.get(0).getRestPort(), is(9200));
     }
 
     @Test(expected = NullPointerException.class)
