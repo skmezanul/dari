@@ -1,5 +1,5 @@
 {
-  "index.mapping.total_fields.limit": 3000,
+  "index.mapping.total_fields.limit": 20000,
   "index.mapping.ignore_malformed": true,
   "index": {
     "refresh_interval" : "2s",

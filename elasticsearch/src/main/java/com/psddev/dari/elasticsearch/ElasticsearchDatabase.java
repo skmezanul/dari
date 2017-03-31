@@ -32,6 +32,7 @@ import com.psddev.dari.db.UnsupportedPredicateException;
 import com.psddev.dari.db.UpdateNotifier;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
+import com.psddev.dari.util.SparseSet;
 import com.psddev.dari.util.UuidUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.http.HttpEntity;
@@ -40,6 +41,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
@@ -133,6 +135,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
+    public static final String DEFAULT_DATAFIELD_TYPE_SETTING = "defaultDataFieldType";
+    public static final String DATA_TYPE_RAW_SETTING = "dataTypesRaw";
+    public static final String JSON_DATAFIELD_TYPE = "json";
+    public static final String RAW_DATAFIELD_TYPE = "raw";
 
     public static final String DATA_FIELD = "data";
     public static final String ID_FIELD = "_id";
@@ -242,6 +248,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private String clusterName;
     private String indexName;
     private int searchTimeout = TIMEOUT;
+    private String defaultDataFieldType = JSON_DATAFIELD_TYPE;
+    private String dataTypesRaw = null;
+    private SparseSet dataTypesRawSparseSet = null;
     private int subQueryResolveLimit = SUBQUERY_MAX_ROWS;
     private boolean hasGroup = false;
     private transient TransportClient client;
@@ -399,6 +408,23 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } else {
             this.searchTimeout = Integer.parseInt(clusterTimeout);
 
+        }
+
+        String defaultDataFieldType = ObjectUtils.to(String.class, settings.get(DEFAULT_DATAFIELD_TYPE_SETTING));
+
+        if (defaultDataFieldType == null) {
+            this.defaultDataFieldType = JSON_DATAFIELD_TYPE;
+        } else {
+            if (!defaultDataFieldType.equals(JSON_DATAFIELD_TYPE) && !defaultDataFieldType.equals(RAW_DATAFIELD_TYPE)) {
+                this.defaultDataFieldType = JSON_DATAFIELD_TYPE;
+            } else {
+                this.defaultDataFieldType = defaultDataFieldType;
+            }
+        }
+
+        this.dataTypesRaw = ObjectUtils.to(String.class, settings.get(DATA_TYPE_RAW_SETTING));
+        if (this.dataTypesRaw != null) {
+            this.dataTypesRawSparseSet = new SparseSet(this.dataTypesRaw);
         }
 
         boolean done = false;
@@ -902,6 +928,27 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Indicates if the field in Elastic should be writting in Json (Stringized) or Raw (Object) in data field
+     */
+    private boolean isJson(State stateValue) {
+        if (this.dataTypesRaw == null || ObjectUtils.isBlank(this.dataTypesRaw)) {
+            return this.defaultDataFieldType.equals(JSON_DATAFIELD_TYPE);
+        }
+        if (stateValue != null) {
+            if (stateValue.getType() != null) {
+                if (stateValue.getType().getGroups() != null) {
+                    for (String g : stateValue.getType().getGroups()) {
+                        if (dataTypesRawSparseSet.contains(g)) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return this.defaultDataFieldType.equals(JSON_DATAFIELD_TYPE);
+    }
+
+    /**
      * Read partial results from Elastic - convert Query to SearchRequestBuilder
      *
      * @see #getSubQueryResolveLimit()
@@ -1002,8 +1049,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
 
             } else {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> values = (Map<String, Object>) source.get(DATA_FIELD);
+                Map<String, Object> values;
+                if (isJson(objectState)) {
+                    String data = (String) source.get(DATA_FIELD);
+                    values = (Map<String, Object>) ObjectUtils.fromJson(data);
+                } else {
+                    values = (Map<String, Object>) source.get(DATA_FIELD);
+                }
                 objectState.setValues(values);
             }
         }
@@ -2294,7 +2346,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } catch (Exception error) {
             LOGGER.info("Using default setting - switch to resource file");
             return "{\n"
-                    + "  \"index.mapping.total_fields.limit\": 3000,\n"
+                    + "  \"index.mapping.total_fields.limit\": 20000,\n"
                     + "  \"index.mapping.ignore_malformed\": true,\n"
                     + "  \"index\": {\n"
                     + "    \"refresh_interval\" : \"2s\",\n"
@@ -2363,6 +2415,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "        }\n"
                     + "      }\n"
                     + "    },\n"
+                    + "    {\n"
+                    + "      \"data_template_top\": {\n"
+                    + "        \"match\": \"data\",\n"
+                    + "        \"mapping\": {\n"
+                    + "          \"type\": \"{dynamic_type}\",\n"
+                    + "          \"include_in_all\": false,\n"
+                    + "          \"index\": false,\n"
+                    + "          \"ignore_malformed\": true\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    },"
                     + "    {\n"
                     + "      \"data_template\": {\n"
                     + "        \"path_match\": \"data.*\",\n"
@@ -3187,7 +3250,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                             if (isNew || atomicOperations.isEmpty()) {
                                 Map<String, Object> t = new HashMap<>();
-                                t.put(DATA_FIELD, state.getSimpleValues());
+                                if (isJson(state)) {
+                                    t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
+                                } else {
+                                    t.put(DATA_FIELD, state.getSimpleValues());
+                                }
 
                                 Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
                                 Map<String, Object> extraLabel = addLabel(state);
@@ -3237,6 +3304,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                                 if (!this.painlessModule) {
                                     LOGGER.info("Painless module is not installed");
+                                    sendFullUpdate = true;
+                                }
+
+                                if (isJson(state)) {
                                     sendFullUpdate = true;
                                 }
 
@@ -3300,7 +3371,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                                 boolean sendExtraUpdate = false;
                                 Map<String, Object> t = new HashMap<>();
-                                t.put(DATA_FIELD, state.getSimpleValues());
+                                if (isJson(state)) {
+                                    t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
+                                } else {
+                                    t.put(DATA_FIELD, state.getSimpleValues());
+                                }
                                 Map<String, Object> extra = new HashMap<>();
                                 Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
                                 Map<String, Object> extraLabel = addLabel(state);
@@ -3382,8 +3457,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 LOGGER.debug("Elasticsearch Writing [{}]", bulk.numberOfActions());
                 BulkResponse bulkResponse = bulk.get();
                 if (bulkResponse.hasFailures()) {
-                    for (BulkItemResponse r : bulkResponse.getItems()) {
-                        LOGGER.warn("Errors on Bulk Update {}", r.getFailureMessage());
+                    BulkItemResponse[] resItems = bulkResponse.getItems();
+                    for (int i = 0; i < resItems.length; i++) {
+                        BulkItemResponse r = resItems[i];
+                        if (r.isFailed()) {
+                            ActionRequest ireq = bulk.request().requests().get(i);
+                            LOGGER.warn("Errors on Bulk {} {} {} {} [{}]",
+                                    r.getIndex(), r.getType(), r.getId(), r.getFailureMessage(),
+                                    ireq);
+                        }
                     }
                 }
                 if (isImmediate) {
