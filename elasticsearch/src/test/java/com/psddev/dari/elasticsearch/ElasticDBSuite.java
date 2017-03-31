@@ -112,6 +112,7 @@ public class ElasticDBSuite {
             LOGGER.info("Starting Elastic test");
             ElasticSetupDatabase();
             TestSuite suite = new TestSuite();
+            suite.addTest(new JUnit4TestAdapter(ElasticDatabaseConnectionTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticInitializationTest.class));
             suite.addTest(new JUnit4TestAdapter(LocationIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(ModificationDenormalizedTest.class));

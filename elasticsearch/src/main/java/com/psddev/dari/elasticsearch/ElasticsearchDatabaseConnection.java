@@ -9,10 +9,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
+import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 class ElasticsearchDatabaseConnection {
-    private static TransportClient client = null;
+    private static ConcurrentHashMap<String, TransportClient> clientConnections = new ConcurrentHashMap<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     /**
@@ -26,12 +28,30 @@ class ElasticsearchDatabaseConnection {
     }
 
     /**
+     * Generate hash that is only on nodes and cluster
+     */
+    private static String getHash(Settings nodeSettings, List<ElasticsearchNode> nodes) {
+        StringBuilder hash = new StringBuilder();
+        for (ElasticsearchNode n : nodes) {
+            hash.append(n.hostname + " " + n.port + " " + n.restPort + " ");
+        }
+        hash.append(nodeSettings.get("cluster.name"));
+        return hash.toString();
+    }
+
+    /**
      * Force a close
      */
-    public static synchronized void closeClient() {
-        if (client != null) {
-            client.close();
-            client = null;
+    public static synchronized void closeClients() {
+        Iterator<String> it = clientConnections.keySet().iterator();
+
+        while (it.hasNext()){
+            String key = it.next();
+            TransportClient c = clientConnections.get(key);
+            if (c != null) {
+                c.close();
+                clientConnections.remove(key);
+            }
         }
     }
 
@@ -40,48 +60,32 @@ class ElasticsearchDatabaseConnection {
      *
      * @return {code null} is error
      */
-    public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchDatabase.Node> nodes) {
+    public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchNode> nodes) {
         if (nodeSettings == null || nodes.size() == 0) {
             LOGGER.warn("Elasticsearch openConnection missing nodeSettings/nodes");
             nodeSettings = Settings.builder()
                     .put("client.transport.sniff", true).build();
         }
-        if (client == null) {
+        TransportClient c = clientConnections.get(getHash(nodeSettings, nodes));
+        if (c == null || !isAlive(c)) {
             try {
-                client = new PreBuiltTransportClient(nodeSettings);
-                for (ElasticsearchDatabase.Node n : nodes) {
-                    client.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.hostname), n.port));
+                c = new PreBuiltTransportClient(nodeSettings);
+                for (ElasticsearchNode n : nodes) {
+                    c.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.hostname), n.port));
                 }
-                if (!isAlive(client)) {
-                    LOGGER.warn("Elasticsearch openConnection Not Alive!");
-                    return null;
-                }
-                return client;
+                clientConnections.put(getHash(nodeSettings, nodes), c);
+                LOGGER.info("Creating connection {}", getHash(nodeSettings, nodes));
+                return c;
             } catch (Exception error) {
                 LOGGER.warn(
-                        String.format("Elasticsearch openConnection Cannot open ES Exception [%s: %s]",
+                        String.format("Elasticsearch getClient Cannot open ES Exception [%s: %s]",
                                 error.getClass().getName(),
                                 error.getMessage()),
                         error);
             }
             return null;
         } else {
-            try {
-                if (!isAlive(client)) {
-                    LOGGER.warn("Elasticsearch openConnection Not Alive!");
-                    client = new PreBuiltTransportClient(nodeSettings);
-                    for (ElasticsearchDatabase.Node n : nodes) {
-                        client.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.hostname), n.port));
-                    }
-                }
-            } catch (Exception error) {
-                LOGGER.warn(
-                        String.format("Elasticsearch openConnection Cannot open ES Exception [%s: %s]",
-                                error.getClass().getName(),
-                                error.getMessage()),
-                        error);
-            }
-            return client;
+            return c;
         }
     }
 }

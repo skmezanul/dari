@@ -47,7 +47,9 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
+import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -120,12 +122,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
-    public class Node {
-        public String hostname;
-        public int port;
-        public int restPort;
-    }
-
     public static final String ELASTIC_VERSION = "5.2.2";
     public static final String DEFAULT_DATABASE_NAME = "dari/defaultDatabase";
     public static final String DATABASE_NAME = "elasticsearch";
@@ -137,7 +133,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
-    public static final UUID GLOBALS_ID = new UUID(-1L, -1L);
 
     public static final String DATA_FIELD = "data";
     public static final String ID_FIELD = "_id";
@@ -158,10 +153,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
     public static final String SCORE_EXTRA = "elastic.score";
     public static final String NORMALIZED_SCORE_EXTRA = "elastic.normalizedScore";
+    private static final String elasticMapping = getMapping("");
+    private static final String elasticSetting = getSetting("");
 
     public class IndexKey {
         private String indexId;
-        private List<Node> clusterNodes;
+        private List<ElasticsearchNode> clusterNodes;
         private org.elasticsearch.common.settings.Settings nodeSettings;
 
         public String getIndexId() {
@@ -172,11 +169,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             this.indexId = indexId;
         }
 
-        public List<Node> getClusterNodes() {
+        public List<ElasticsearchNode> getClusterNodes() {
             return clusterNodes;
         }
 
-        public void setClusterNodes(List<Node> clusterNodes) {
+        public void setClusterNodes(List<ElasticsearchNode> clusterNodes) {
             this.clusterNodes = clusterNodes;
         }
 
@@ -239,7 +236,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String RAW_FIELD = "raw";
     public static final String MATCH_FIELD = "match";
 
-    private final List<Node> clusterNodes = new ArrayList<>();
+    private final List<ElasticsearchNode> clusterNodes = new ArrayList<>();
     private org.elasticsearch.common.settings.Settings nodeSettings;
 
     private String clusterName;
@@ -249,6 +246,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private boolean hasGroup = false;
     private transient TransportClient client;
     private boolean painlessModule = false;
+
+    /**
+     * get the Nodes for the Cluster
+     */
+    public List<ElasticsearchNode> getClusterNodes() {
+        return clusterNodes;
+    }
+
     /**
      * The amount of rows per subquery(join) Elastic Search wrapped
      *
@@ -419,7 +424,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                 Preconditions.checkNotNull(clusterHostname);
 
-                Node n = new Node();
+                ElasticsearchNode n = new ElasticsearchNode();
                 n.hostname = clusterHostname;
                 n.port = Integer.parseInt(clusterPort);
                 n.restPort = Integer.parseInt(clusterRestPort);
@@ -2331,7 +2336,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * The actual map for Elasticsearch
      */
-    public static String getMapping(String path) {
+    private static String getMapping(String path) {
         try {
             LOGGER.debug("trying resource mapping.json mapping");
             return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "mapping.json").toURI())));
@@ -2411,18 +2416,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Elastic mapping which will set the types used for Elastic on index creation
      *
      */
-    public static synchronized void defaultMap(TransportClient client, String indexName) {
-
-        String jsonMapping = getMapping("");
-        String jsonSettings = getSetting("");
+    private static synchronized void defaultMap(TransportClient client, String indexName) {
 
         if (client != null) {
             boolean indexExists = client.admin().indices()
                     .prepareExists(indexName)
                     .execute().actionGet().isExists();
             if (!indexExists) {
-                CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", jsonMapping)
-                        .setSettings(jsonSettings);
+                CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", elasticMapping)
+                        .setSettings(elasticSetting);
                 CreateIndexResponse createIndexResponse = cirb.execute().actionGet();
                 if (!createIndexResponse.isAcknowledged()) {
                     LOGGER.warn("Could not create index {}", indexName);
@@ -3380,12 +3382,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
             }
 
-            if (bulk.request().requests().size() > 0) {
-                LOGGER.debug("Elasticsearch Writing [{}]", bulk.request().requests().size());
-                bulk.execute().actionGet();
+            if (bulk.numberOfActions() > 0) {
+                LOGGER.debug("Elasticsearch Writing [{}]", bulk.numberOfActions());
+                BulkResponse bulkResponse = bulk.get();
+                if (bulkResponse.hasFailures()) {
+                    for (BulkItemResponse r : bulkResponse.getItems()) {
+                        LOGGER.warn("Errors on Bulk Update {}", r.getFailureMessage());
+                    }
+                }
                 if (isImmediate) {
                     commitTransaction(client, true);
                 }
+            } else {
+                LOGGER.info("Elasticsearch bulk request had 0 actions");
             }
         } catch (Exception error) {
             LOGGER.warn(
