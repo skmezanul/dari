@@ -11,10 +11,11 @@ import org.slf4j.LoggerFactory;
 import java.net.InetAddress;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 class ElasticsearchDatabaseConnection {
-    private static ConcurrentHashMap<String, TransportClient> clientConnections = new ConcurrentHashMap<>();
+    private static Map<String, TransportClient> clientConnections = new ConcurrentHashMap<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     /**
