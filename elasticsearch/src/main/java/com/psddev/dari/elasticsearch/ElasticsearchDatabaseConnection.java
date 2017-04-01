@@ -1,5 +1,9 @@
 package com.psddev.dari.elasticsearch;
 
+import com.google.common.base.Charsets;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.settings.Settings;
@@ -28,15 +32,29 @@ class ElasticsearchDatabaseConnection {
     }
 
     /**
-     * Generate hash that is only on nodes and cluster
+     * Human readable and used to hash a string
      */
-    private static String getHash(Settings nodeSettings, List<ElasticsearchNode> nodes) {
+    private static String getHashString(Settings nodeSettings, List<ElasticsearchNode> nodes) {
         StringBuilder hash = new StringBuilder();
         for (ElasticsearchNode n : nodes) {
             hash.append(n.getHostname() + " " + n.getPort() + " " + n.getRestPort() + " ");
         }
         hash.append(nodeSettings.get("cluster.name"));
         return hash.toString();
+    }
+
+    /**
+     * Generate hash that is only on nodes and cluster
+     */
+    private static String getHash(Settings nodeSettings, List<ElasticsearchNode> nodes) {
+        String hash = getHashString(nodeSettings, nodes);
+
+        HashFunction hf = Hashing.md5();
+        HashCode hc = hf.newHasher()
+                .putString(hash, Charsets.UTF_8)
+                .hash();
+
+        return hc.toString().toUpperCase();
     }
 
     /**
@@ -74,7 +92,7 @@ class ElasticsearchDatabaseConnection {
                     c.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.getHostname()), n.getPort()));
                 }
                 clientConnections.put(getHash(nodeSettings, nodes), c);
-                LOGGER.info("Creating connection {}", getHash(nodeSettings, nodes));
+                LOGGER.info("Creating connection {}", getHashString(nodeSettings, nodes));
                 return c;
             } catch (Exception error) {
                 LOGGER.warn(

@@ -96,7 +96,7 @@ public class ElasticDBSuite {
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, "1000");
 
-            String nodeHost = ElasticsearchDatabase.getNodeHost();
+            String nodeHost = ElasticsearchDatabase.getNodeHost("localhost", "9200");
             if (!ElasticsearchDatabase.checkAlive(nodeHost)) {
                 LOGGER.info("Starting Embedded");
                 // ok create embedded since it is not already running for test
