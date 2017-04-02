@@ -50,17 +50,21 @@ public class EmbeddedElasticsearchServer {
     /**
      * setup with clusterName
      */
+    @SuppressWarnings("unchecked")
     public static synchronized void setup(String clusterName) {
 
         List plugins = new ArrayList();
+        //noinspection unchecked
         plugins.add(Netty4Plugin.class);
         if (installPainlessPlugin) {
+            //noinspection unchecked
             plugins.add(PainlessPlugin.class);
         }
 
         try {
             LOGGER.info("Setting up new Elasticsearch embedded node");
             initialized = true;
+            //noinspection unchecked
             node = new MyNode(
                     Settings.builder()
                             .put("transport.type", "netty4")

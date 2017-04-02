@@ -30,8 +30,6 @@ import static org.junit.Assert.assertThat;
 
 public class ElasticInitializationTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticInitializationTest.class);
-
     private ElasticsearchDatabase database;
     private Map<String, Object> settings;
 

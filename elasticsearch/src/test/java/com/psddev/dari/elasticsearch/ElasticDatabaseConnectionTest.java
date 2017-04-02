@@ -14,11 +14,12 @@ import static org.junit.Assert.assertThat;
 
 public class ElasticDatabaseConnectionTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticDatabaseConnectionTest.class);
+    private static final int ELASTICPORT = 9300;
+    private static final int ELASTICRESTPORT = 9200;
 
     @Test
     public void testMultipleConnections() {
-        String nodeHost = "http://localhost:9200/";
+        String nodeHost = "http://localhost:" + ELASTICRESTPORT + "/";
         String elasticCluster = ElasticsearchDatabase.getClusterName(nodeHost);
 
         org.elasticsearch.common.settings.Settings nodeSettings;
@@ -29,8 +30,8 @@ public class ElasticDatabaseConnectionTest {
                 .put("client.transport.sniff", true).build();
 
         ElasticsearchNode n = new ElasticsearchNode();
-        n.setPort(9300);
-        n.setRestPort(9200);
+        n.setPort(ELASTICPORT);
+        n.setRestPort(ELASTICRESTPORT);
         n.setHostname("localhost");
         nodes.add(n);
         TransportClient c = ElasticsearchDatabaseConnection.getClient(nodeSettings, nodes);

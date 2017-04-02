@@ -53,6 +53,68 @@ public class SearchIndexTest extends AbstractTest {
     }
 
     @Test
+    public void testTypes() throws Exception {
+        Date now = new Date();
+        SearchIndexModel search = new SearchIndexModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = "tough";
+        search.postDate = now;
+        search.l = 5L;
+        search.isOn = true;
+        search.idBox = UUID.fromString("0000014f-74eb-d39d-a9ff-74eb74240000");
+        search.save();
+
+        List<SearchIndexModel> fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("postDate = ?", now)
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("isOn = ?", true)
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("idBox = ?", UUID.fromString("0000014f-74eb-d39d-a9ff-74eb74240000"))
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("l = ?", 5L)
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("l >= ?", 5L)
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("l > ?", 4L)
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("l < ?", 6L)
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("l <= ?", 5L)
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+    }
+
+    @Test
     public void testOne() throws Exception {
         SearchIndexModel search = new SearchIndexModel();
         search.eid = "939393";

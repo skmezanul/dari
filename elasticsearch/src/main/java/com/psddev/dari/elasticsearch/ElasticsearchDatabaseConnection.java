@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 class ElasticsearchDatabaseConnection {
-    private static Map<String, TransportClient> clientConnections = new ConcurrentHashMap<>();
+    private static final Map<String, TransportClient> clientConnections = new ConcurrentHashMap<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     /**
@@ -37,7 +37,7 @@ class ElasticsearchDatabaseConnection {
     private static String getHashString(Settings nodeSettings, List<ElasticsearchNode> nodes) {
         StringBuilder hash = new StringBuilder();
         for (ElasticsearchNode n : nodes) {
-            hash.append(n.getHostname() + " " + n.getPort() + " " + n.getRestPort() + " ");
+            hash.append(n.getHostname()).append(" ").append(n.getPort()).append(" ").append(n.getRestPort()).append(" ");
         }
         hash.append(nodeSettings.get("cluster.name"));
         return hash.toString();

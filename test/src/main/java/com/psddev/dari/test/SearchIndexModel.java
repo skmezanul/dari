@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 public class SearchIndexModel extends Record {
 
@@ -102,6 +103,24 @@ public class SearchIndexModel extends Record {
     }
     public void setPostDate(Date postDate) {
         this.postDate = postDate;
+    }
+
+    @Indexed
+    public UUID idBox;
+    public UUID getIdBox() {
+        return idBox;
+    }
+    public void setIdBox(UUID idBox) {
+        this.idBox = idBox;
+    }
+
+    @Indexed
+    public Boolean isOn;
+    public Boolean getIsOn() {
+        return isOn;
+    }
+    public void setIsOn(Boolean isOn) {
+        this.isOn = isOn;
     }
 
     @Indexed

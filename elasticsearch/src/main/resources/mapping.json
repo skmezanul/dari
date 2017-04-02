@@ -15,6 +15,30 @@
       }
     },
     {
+      "boolean_type": {
+        "match": "_boolean",
+        "mapping": {
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "date_type": {
+        "match": "_date",
+        "mapping": {
+          "type": "long"
+        }
+      }
+    },
+    {
+      "number_type": {
+        "match": "_number",
+        "mapping": {
+          "type": "double"
+        }
+      }
+    },
+    {
       "shapegeo": {
         "match": "_polygon",
         "match_mapping_type": "object",
