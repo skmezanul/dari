@@ -25,7 +25,6 @@ import com.psddev.dari.db.Recordable;
 import com.psddev.dari.db.Region;
 import com.psddev.dari.db.Sorter;
 import com.psddev.dari.db.State;
-import com.psddev.dari.util.Settings;
 import com.psddev.dari.db.StateSerializer;
 import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.db.UnsupportedPredicateException;
