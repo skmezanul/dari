@@ -1029,7 +1029,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         srb.setTrackScores(true);
 
         try {
-            LOGGER.info("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+            LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
             Float maxScore = hits.getMaxScore();
@@ -1041,7 +1041,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 items.add(createSavedObjectWithHit(hit, query, maxScore));
             }
 
-            LOGGER.info("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+            LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
             return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
 
@@ -2106,35 +2106,33 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             String pKey = queryKey;
 
-            if (queryKey.indexOf('/') != -1) {
-                if (mappedKey != null && mappedKey.hasSubQuery()) {
-                    // Elasticsearch like Solr does not support joins in 5.2. Might be memory issue and slow!
-                    // to do this requires query, take results and send to other query. Sample tests do this.
+            if (mappedKey != null) {
+                // Elasticsearch like Solr does not support joins in 5.2. Might be memory issue and slow!
+                // to do this requires query, take results and send to other query. Sample tests do this.
 
-                    Query<?> valueQuery = mappedKey.getSubQueryTypeWithComparison(comparison);
+                Query<?> valueQuery = mappedKey.getSubQueryTypeWithComparison(comparison);
 
-                    List<String> ids = new ArrayList<>();
-                    if (valueQuery != null) {
-
-                        if (valueQuery != null) {
-                            for (Object item : readPartial(
-                                    valueQuery, 0, this.subQueryResolveLimit)
-                                    .getItems()) {
-                                UUID u = State.getInstance(item).getId();
-                                ids.add(u.toString());
-                            }
-                            LOGGER.debug("Get Sub Query: [{}] {}", valueQuery.getPredicate(), ids.size());
-                        }
+                List<String> ids = new ArrayList<>();
+                if (valueQuery != null) {
+                    for (Object item : readPartial(
+                            valueQuery, 0, this.subQueryResolveLimit)
+                            .getItems()) {
+                        UUID u = State.getInstance(item).getId();
+                        ids.add(u.toString());
                     }
-
-                    if (ids != null && ids.size() > 0) {
-                        Query part1 = Query.from(query.getObjectClass()).where(convertKeyToQuery(elasticField) + " != missing");
-                        Query part2 = Query.fromAll().where(convertKeyToQuery(elasticField) + " = ?", ids);
-                        Query combinedParts = Query.fromAll().where(part1.getPredicate()).and(part2.getPredicate());
-                        LOGGER.debug("returning subQuery ids [{}] [{}]", ids.size(), combinedParts.getPredicate());
-                        return predicateToQueryBuilder(combinedParts.getPredicate(), query);
-                    }
+                    LOGGER.debug("Get Sub Query: [{}] {}", valueQuery.getPredicate(), ids.size());
                 } else {
+                    // overwrite UUID and CLASS
+                    values = comparison.resolveValues(this);
+                }
+
+                if (ids != null && ids.size() > 0) {
+                    Query part1 = Query.from(query.getObjectClass()).where(convertKeyToQuery(elasticField) + " != missing");
+                    Query part2 = Query.fromAll().where(convertKeyToQuery(elasticField) + " = ?", ids);
+                    Query combinedParts = Query.fromAll().where(part1.getPredicate()).and(part2.getPredicate());
+                    LOGGER.debug("returning subQuery ids [{}] [{}]", ids.size(), combinedParts.getPredicate());
+                    return predicateToQueryBuilder(combinedParts.getPredicate(), query);
+                } else if (queryKey.indexOf('/') != -1) {
                     // fields().size not the same as array in keys "/"
                     List<String> keyArr = Arrays.asList(queryKey.split("/"));
                     if (mappedKey.getFields().size() != keyArr.size()) {
@@ -3515,7 +3513,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
 
                             LOGGER.debug("All field [{}]", allBuilder.toString());
-                            LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                            LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 

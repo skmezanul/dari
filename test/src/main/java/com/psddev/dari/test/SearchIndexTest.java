@@ -586,6 +586,30 @@ public class SearchIndexTest extends AbstractTest {
 
     }
 
+    @Test
+    public void testSubQuery() {
+        SearchIndexModel model = new SearchIndexModel();
+        model.one = "first";
+        model.save();
+
+        SearchIndexModel model1 = new SearchIndexModel();
+        model1.one = "second";
+        model1.save();
+
+        List<SearchIndexModel> fooResult = Query
+                .from(SearchIndexModel.class).and("id != ?", Query.from(Object.class).where("id = ?", model.getId().toString()))
+                .selectAll();
+        assertThat("check size", fooResult, hasSize(1));
+        assertThat("id check", model1.getId(), is(fooResult.get(0).getId()));
+
+        List<SearchIndexModel> fooResult1 = Query
+                .from(SearchIndexModel.class).and("id != ?", Query.from(SearchIndexModel.class).where("one startswith ?", "firs"))
+                .selectAll();
+        assertThat("check size 2", fooResult1, hasSize(1));
+        assertThat("id check 2", model1.getId(), is(fooResult1.get(0).getId()));
+
+    }
+
     // sortNewest not supported H2
     @Test
     public void testDateNewestBoost() throws Exception {
@@ -1555,12 +1579,19 @@ public class SearchIndexTest extends AbstractTest {
         search.personReference = person;
         search.save();
 
+        List<SearchIndexModel> fooSubResult = Query
+                .from(SearchIndexModel.class)
+                .where("personReference = ?", Query.from(PersonIndexModel.class).where("personName = ?", "Tony"))
+                .selectAll();
+        assertThat(fooSubResult, hasSize(1));
+
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
                 .where("personReference/personName = ?", "Tony")
                 .selectAll();
 
         assertThat(fooResult, hasSize(1));
+        assertThat(fooResult.get(0).getId(), is(fooSubResult.get(0).getId()));
 
         List<SearchIndexModel> missingResult = Query
                 .from(SearchIndexModel.class)
