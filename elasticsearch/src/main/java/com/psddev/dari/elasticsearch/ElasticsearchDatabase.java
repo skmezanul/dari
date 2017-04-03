@@ -1046,7 +1046,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
 
         } catch (Exception error) {
-            LOGGER.info("Elasticsearch threw Exception srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+            LOGGER.warn("Elasticsearch threw Exception srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
             LOGGER.warn(
                     String.format("readPartial threw Exception [%s: %s]",
                             error.getClass().getName(),
@@ -1322,11 +1322,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     /**
      * When indexing to Elastic this appends type to the string for Elastic
+     * file, uri, url are Strings
      */
     private String addIndexFieldType(String internalType, String key, Object value) {
+        //LOGGER.info("key: [{}]", key);
         if (IDS_FIELD.equals(key) || ID_FIELD.equals(key) || TYPE_ID_FIELD.equals(key) || (internalType == null)) {
             return key;
         } else {
+            //LOGGER.info("key: [{}], internalType [{}]", key, internalType);
             // might want to use string for ANY_TYPE for value
             if (ObjectField.ANY_TYPE.equals(internalType)) {
                 if (value instanceof Boolean) {
@@ -3095,19 +3098,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
 
                     } else {
- /*                       for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
-                            String subName = entry.getKey().toString();
-
-                            if (value != null) {
-                                addDocumentValues(
-                                        extras,
-                                        allBuilder,
-                                        includeInAny,
-                                        field,
-                                        name + "/" + subName,
-                                        entry.getValue());
-                            }
-                        }  */
+                        // We could keep track of the level - and MAP 1 more level with entrySet() name + "/" + getKey()
                         for (Object item : valueMap.values()) {
                             addDocumentValues(extras, allBuilder, includeInAny, field, name, item);
                         }
@@ -3219,6 +3210,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         Object truncatedValue = value;
+
+        String fname = addIndexFieldType(field.getInternalItemType(), name, truncatedValue);
+        if (fname.endsWith("." + STRING_FIELD) && !(truncatedValue instanceof String)) {
+            truncatedValue = String.valueOf(truncatedValue);
+        }
+        //LOGGER.info("fname: {}, truncatedValue: {}", fname, truncatedValue.toString());
+
         // all field fair game is String and does not start with "_" which are IDs
         if (!name.startsWith("_")) {
             if (value instanceof String) {
@@ -3228,7 +3226,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
         }
 
-        String fname = addIndexFieldType(field.getInternalItemType(), name, truncatedValue);
         if (extras.get(fname) == null) {
             setValue(extras, fname, truncatedValue);
         } else {
@@ -3349,6 +3346,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return m;
     }
 
+    /**
+     *
+     * The _label used for the record
+     */
     public Map<String, Object> addLabel(State state) {
         Map<String, Object> m = new HashMap<>();
 

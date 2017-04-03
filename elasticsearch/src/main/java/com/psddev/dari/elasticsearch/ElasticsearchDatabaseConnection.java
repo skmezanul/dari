@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 class ElasticsearchDatabaseConnection {
-    private static final Map<String, TransportClient> clientConnections = new ConcurrentHashMap<>();
+    private static final Map<String, TransportClient> CLIENT_CONNECTIONS = new ConcurrentHashMap<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     /**
@@ -61,14 +61,14 @@ class ElasticsearchDatabaseConnection {
      * Force a close
      */
     public static synchronized void closeClients() {
-        Iterator<String> it = clientConnections.keySet().iterator();
+        Iterator<String> it = CLIENT_CONNECTIONS.keySet().iterator();
 
         while (it.hasNext()) {
             String key = it.next();
-            TransportClient c = clientConnections.get(key);
+            TransportClient c = CLIENT_CONNECTIONS.get(key);
             if (c != null) {
                 c.close();
-                clientConnections.remove(key);
+                CLIENT_CONNECTIONS.remove(key);
             }
         }
     }
@@ -84,14 +84,14 @@ class ElasticsearchDatabaseConnection {
             nodeSettings = Settings.builder()
                     .put("client.transport.sniff", true).build();
         }
-        TransportClient c = clientConnections.get(getHash(nodeSettings, nodes));
+        TransportClient c = CLIENT_CONNECTIONS.get(getHash(nodeSettings, nodes));
         if (c == null || !isAlive(c)) {
             try {
                 c = new PreBuiltTransportClient(nodeSettings);
                 for (ElasticsearchNode n : nodes) {
                     c.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.getHostname()), n.getPort()));
                 }
-                clientConnections.put(getHash(nodeSettings, nodes), c);
+                CLIENT_CONNECTIONS.put(getHash(nodeSettings, nodes), c);
                 LOGGER.info("Creating connection {}", getHashString(nodeSettings, nodes));
                 return c;
             } catch (Exception error) {
