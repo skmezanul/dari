@@ -238,11 +238,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     public static final String LOCATION_FIELD = "_location";
     public static final String BOOLEAN_FIELD = "_boolean";
+    public static final String STRING_FIELD = "_string";
     public static final String DATE_FIELD = "_date";
     public static final String NUMBER_FIELD = "_number";
     public static final String REGION_FIELD = "_polygon";
-    public static final String RAW_FIELD = "raw";   // UUID, String not text, and RECORD
-    public static final String MATCH_FIELD = "match";
+    public static final String RAW_FIELD = STRING_FIELD + ".raw";   // UUID, String not text, and RECORD
+    public static final String MATCH_FIELD = STRING_FIELD + ".match";
 
     private final List<ElasticsearchNode> clusterNodes = new ArrayList<>();
     private org.elasticsearch.common.settings.Settings nodeSettings;
@@ -1028,7 +1029,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         srb.setTrackScores(true);
 
         try {
-            LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+            LOGGER.info("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
             Float maxScore = hits.getMaxScore();
@@ -1040,7 +1041,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 items.add(createSavedObjectWithHit(hit, query, maxScore));
             }
 
-            LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+            LOGGER.info("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
             return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
 
@@ -1241,27 +1242,31 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Interrogate the field and convert to Elasticsearch
+     * Interrogate the field and convert to Normal field
      */
     private String getField(String key) {
         if (key.endsWith("." + RAW_FIELD)) {
-            key = key.replaceAll("\\." + RAW_FIELD + "$", "");
+            key = key.substring(0, key.length() - ("." + RAW_FIELD).length());
         } else if (key.endsWith("." + LOCATION_FIELD)) {
-            key = key.replaceAll("\\." + LOCATION_FIELD + "$", "");
+            key = key.substring(0, key.length() - ("." + LOCATION_FIELD).length());
+        } else if (key.endsWith("." + MATCH_FIELD)) {
+            key = key.substring(0, key.length() - ("." + MATCH_FIELD).length());
         } else if (key.endsWith("." + REGION_FIELD)) {
-            key = key.replaceAll("\\." + REGION_FIELD + "$", "");
+            key = key.substring(0, key.length() - ("." + REGION_FIELD).length());
         } else if (key.endsWith("." + BOOLEAN_FIELD)) {
-            key = key.replaceAll("\\." + BOOLEAN_FIELD + "$", "");
+            key = key.substring(0, key.length() - ("." + BOOLEAN_FIELD).length());
         } else if (key.endsWith("." + DATE_FIELD)) {
-            key = key.replaceAll("\\." + DATE_FIELD + "$", "");
+            key = key.substring(0, key.length() - ("." + DATE_FIELD).length());
         } else if (key.endsWith("." + NUMBER_FIELD)) {
-            key = key.replaceAll("\\." + NUMBER_FIELD + "$", "");
+            key = key.substring(0, key.length() - ("." + NUMBER_FIELD).length());
+        } else if (key.endsWith("." + STRING_FIELD)) {
+            key = key.substring(0, key.length() - ("." + STRING_FIELD).length());
         }
         return key;
     }
 
     /**
-     * When querying this appends type to the string for Elastic
+     * When querying from Elastic this appends type to the string for Elastic
      */
     private String addQueryFieldType(String internalType, String key, boolean isExact) {
         if (IDS_FIELD.equals(key) || ID_FIELD.equals(key) || TYPE_ID_FIELD.equals(key) || (internalType == null)) {
@@ -1310,29 +1315,61 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     return key + "." + NUMBER_FIELD;
                 }
             } else {
-                return key;
+                return key + "." + STRING_FIELD;
             }
         }
     }
 
     /**
-     * When indexing this appends type to the string for Elastic
+     * When indexing to Elastic this appends type to the string for Elastic
      */
-    private String addIndexFieldType(String internalType, String key) {
+    private String addIndexFieldType(String internalType, String key, Object value) {
         if (IDS_FIELD.equals(key) || ID_FIELD.equals(key) || TYPE_ID_FIELD.equals(key) || (internalType == null)) {
             return key;
         } else {
-            if (ObjectField.UUID_TYPE.equals(internalType) || ObjectField.TEXT_TYPE.equals(internalType)) {
-                if (key.endsWith("." + RAW_FIELD)) {
-                    return key.replaceAll("\\." + RAW_FIELD + "$", "");
+            // might want to use string for ANY_TYPE for value
+            if (ObjectField.ANY_TYPE.equals(internalType)) {
+                if (value instanceof Boolean) {
+                    if (key.endsWith("." + BOOLEAN_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + BOOLEAN_FIELD;
+                    }
+                } else if (value instanceof Date) {
+                    if (key.endsWith("." + DATE_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + DATE_FIELD;
+                    }
+                } else if (value instanceof Number) {
+                    if (key.endsWith("." + NUMBER_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + NUMBER_FIELD;
+                    }
                 } else {
-                    return key;
+                    if (key.endsWith("." + STRING_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + STRING_FIELD;
+                    }
+                }
+            } else if (ObjectField.UUID_TYPE.equals(internalType) || ObjectField.TEXT_TYPE.equals(internalType)) {
+                if (key.endsWith("." + "raw")) {
+                    return key.substring(0, key.length() - ("." + "raw").length());
+                } else {
+                    if (key.endsWith("." + STRING_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + STRING_FIELD;
+                    }
                 }
             } else if (ObjectField.RECORD_TYPE.equals(internalType)) {
-                if (key.endsWith("." + RAW_FIELD)) {
-                    return key.replaceAll("\\." + RAW_FIELD + "$", "");
+                // back to STRING_FIELD
+                if (key.endsWith("." + "raw")) {
+                    return key.substring(0, key.length() - ("." + "raw").length());
                 } else {
-                    return key;
+                    return key + "." + STRING_FIELD;
                 }
             } else if (ObjectField.LOCATION_TYPE.equals(internalType)) {
                 if (key.endsWith("." + LOCATION_FIELD) || key.endsWith(".x") || key.endsWith(".y")) {
@@ -1365,13 +1402,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     return key + "." + NUMBER_FIELD;
                 }
             } else {
-                return key;
+                if (key.endsWith("." + STRING_FIELD)) {
+                    return key;
+                } else {
+                    return key + "." + STRING_FIELD;
+                }
             }
         }
     }
 
     /**
-     * Interrogate the field type and convert to Elasticsearch
+     * Interrogate the field type and convert to Elasticsearch for unmapped sort types
      */
     private String getFieldType(String key, Query<?> query) {
         if (key.equals(UID_FIELD) || key.equals(ID_FIELD) || key.equals(TYPE_ID_FIELD)) {
@@ -2040,10 +2081,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 elasticField = specialRangeFields.get(mappedKey);
             }
 
+            String elasticPostFieldExact = null;
             if (elasticField == null) {
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
                     elasticField = mappedKey.getIndexKey(null); // whole string
+                    elasticPostFieldExact = addQueryFieldType(internalType, elasticField, true);
                 }
             }
 
@@ -2052,7 +2095,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
 
             String key = elasticField;
+            if (elasticPostFieldExact == null) {
+                elasticPostFieldExact = key;
+            }
 
+            String finalElasticPostFieldExact = elasticPostFieldExact;
             List<Object> values = comparison.getValues();
 
             String simpleKey = null;
@@ -2106,12 +2153,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
-                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(key)
+                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(finalElasticPostFieldExact)
                                     : equalsAnyQuery(finalSimpleKey, key, key, query, v, ShapeRelation.WITHIN));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::mustNot, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
-                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(key)
+                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(finalElasticPostFieldExact)
                                     : equalsAnyQuery(finalSimpleKey, key, key, query, v, ShapeRelation.WITHIN));
                     }
 
@@ -2265,7 +2312,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : QueryBuilders.prefixQuery(key, String.valueOf(v)));
+                            : QueryBuilders.prefixQuery(key + "." + STRING_FIELD, String.valueOf(v)));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
@@ -2569,6 +2616,25 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "      }\n"
                     + "    },\n"
                     + "    {\n"
+                    + "      \"string_type\": {\n"
+                    + "        \"match\": \"_string\",\n"
+                    + "        \"match_mapping_type\": \"string\",\n"
+                    + "        \"mapping\": {\n"
+                    + "          \"type\": \"text\",\n"
+                    + "          \"fields\": {\n"
+                    + "            \"raw\": {\n"
+                    + "              \"type\": \"keyword\",\n"
+                    + "              \"ignore_above\": 512\n"
+                    + "            },\n"
+                    + "            \"match\": {\n"
+                    + "              \"type\": \"text\",\n"
+                    + "              \"analyzer\": \"text_analyzer\"\n"
+                    + "            }\n"
+                    + "          }\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    },\n"
+                    + "    {\n"
                     + "      \"shapegeo\": {\n"
                     + "        \"match\": \"_polygon\",\n"
                     + "        \"match_mapping_type\": \"object\",\n"
@@ -2587,7 +2653,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "          \"ignore_malformed\": true\n"
                     + "        }\n"
                     + "      }\n"
-                    + "    },"
+                    + "    },\n"
                     + "    {\n"
                     + "      \"data_template\": {\n"
                     + "        \"path_match\": \"data.*\",\n"
@@ -3031,24 +3097,20 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
 
                     } else {
-                        // remove duplicates and nulls
-                        Set<String> existing = new HashSet<>();
-                        for (Object item : valueMap.values()) {
-                            if (item != null) {
-                                if (name.equals(ObjectType.class.getName() + "/fields") || name.equals(ObjectType.class.getName() + "/indexes")) {
-                                    if (!(item instanceof Boolean)) {
-                                        existing.add(String.valueOf(item));
-                                    }
-                                } else {
-                                    if (!(item instanceof Map) && !(item instanceof List)) {
-                                        existing.add(String.valueOf(item));
-                                    } else {
-                                        addDocumentValues(extras, allBuilder, includeInAny, field, name, item);
-                                    }
-                                }
+ /*                       for (Map.Entry<?, ?> entry : valueMap.entrySet()) {
+                            String subName = entry.getKey().toString();
+
+                            if (value != null) {
+                                addDocumentValues(
+                                        extras,
+                                        allBuilder,
+                                        includeInAny,
+                                        field,
+                                        name + "/" + subName,
+                                        entry.getValue());
                             }
-                        }
-                        for (String item : existing) {
+                        }  */
+                        for (Object item : valueMap.values()) {
                             addDocumentValues(extras, allBuilder, includeInAny, field, name, item);
                         }
                     }
@@ -3168,7 +3230,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
         }
 
-        String fname = addIndexFieldType(field.getInternalItemType(), name);
+        String fname = addIndexFieldType(field.getInternalItemType(), name, truncatedValue);
         if (extras.get(fname) == null) {
             setValue(extras, fname, truncatedValue);
         } else {
@@ -3241,17 +3303,21 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 extras.put(name, vList);
             } else {
                 List vList = (List) extras.get(name);
-                //noinspection unchecked
-                vList.add(value);
-                extras.put(name, vList);
+                if (!vList.contains(value)) {
+                    //noinspection unchecked
+                    vList.add(value);
+                    extras.put(name, vList);
+                }
             }
         } else {
             List vList = new ArrayList<>();
             //noinspection unchecked
             vList.add(extras.get(name));
-            //noinspection unchecked
-            vList.add(value);
-            extras.put(name, vList);
+            if (!vList.contains(value)) {
+                //noinspection unchecked
+                vList.add(value);
+                extras.put(name, vList);
+            }
         }
     }
 
@@ -3449,7 +3515,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
 
                             LOGGER.debug("All field [{}]", allBuilder.toString());
-                            LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                            LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 

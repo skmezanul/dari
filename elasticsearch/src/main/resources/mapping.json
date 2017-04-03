@@ -39,6 +39,25 @@
       }
     },
     {
+      "string_type": {
+        "match": "_string",
+        "match_mapping_type": "string",
+        "mapping": {
+          "type": "text",
+          "fields": {
+            "raw": {
+              "type": "keyword",
+              "ignore_above": 512
+            },
+            "match": {
+              "type": "text",
+              "analyzer": "text_analyzer"
+            }
+          }
+        }
+      }
+    },
+    {
       "shapegeo": {
         "match": "_polygon",
         "match_mapping_type": "object",
