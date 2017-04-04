@@ -1,0 +1,72 @@
+Config for Elastic Search 5.2.2+ Setup Ubuntu
+
+1. Install Elasticsearch v5.2.2 / Kibana
+
+wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.2.2.deb
+dpkg -i elasticsearch-5.2.2.deb
+
+wget https://artifacts.elastic.co/downloads/elasticsearch/kibana-5.2.2.deb
+dpkg -i kibana-5.2.2.deb
+
+2. Install Java 1.8.0_73 or later (Vagrant boxes need to be upgraded)
+apt-get update
+apt-get install python-software-properties
+add-apt-repository ppa:webupd8team/java
+apt-get update
+apt-get install oracle-java8-installer
+
+3. Setup elasticsearch.yml for performance /etc/elasticsearch/elasticsearch.yml
+#elasticsearch.yml - set size to # of cores
+#for search operation
+thread_pool.search.size: 2
+thread_pool.search.queue_size: 200
+
+#for bulk operations
+thread_pool.bulk.size: 2
+thread_pool.bulk.queue_size: 1000
+
+#for indexing operations
+thread_pool.index.size: 2
+thread_pool.index.queue_size: 1000
+
+# Force all memory to be locked, forcing the JVM to never swap
+bootstrap.memory_lock: true
+
+# Indices settings
+indices.memory.index_buffer_size: 30%
+
+network.host: 172.28.128.XXX
+http.port: 9200
+
+4. Set
+sysctl -w vm.max_map_count=262144
+
+In /etc/sysctl.conf
+vm.max_map_count = 262144
+
+sysctl -p
+
+5. Set memory edit jvm.options file: set half of memory - stop /etc/init.d/solr stop to save mem
+-Xms2g
+-Xmx2g
+
+6. Start /etc/security/limits.conf
+root - nofile 100000
+elasticsearch  -  nofile  65536
+elasticsearch	-	nproc	5000
+root	-	nproc	5000
+
+ 7. Uncomment /etc/pam.d/su on Ubuntu
+ # session    required   pam_limits.so
+
+ 8. Check GET _nodes/stats/process?filter_path=**.max_file_descriptor
+
+ 9. Start Elastic
+ /etc/init.d/elasticsearch start
+
+ Check GET _nodes/stats/process?filter_path=**.max_file_descriptor
+ Check GET _nodes?filter_path=**.mlockall
+
+ 10. Another window
+ /etc/init.d/kibana start
+

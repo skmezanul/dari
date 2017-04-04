@@ -72,6 +72,10 @@ public class EmbeddedElasticsearchServer {
                             .put("cluster.name", clusterName)
                             .put("http.enabled", "true")
                             .put("path.home", DEFAULT_DATA_DIRECTORY)
+                            .put("thread_pool.bulk.size", 1)
+                            .put("thread_pool.bulk.queue_size", 100)
+                            .put("thread_pool.search.size", 1)
+                            .put("thread_pool.search.queue_size", 100)
                             .build(),
                     plugins);
 

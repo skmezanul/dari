@@ -48,9 +48,11 @@ import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
+import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.bulk.Retry;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
@@ -62,6 +64,7 @@ import org.elasticsearch.common.geo.builders.ShapeBuilders;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.unit.DistanceUnit;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.GeoShapeQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -3693,7 +3696,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (bulk.numberOfActions() > 0) {
                 LOGGER.debug("Elasticsearch Writing [{}]", bulk.numberOfActions());
-                BulkResponse bulkResponse = bulk.get();
+                // this is 8 retries which should solve most issues
+                Retry retry = Retry.on(EsRejectedExecutionException.class).policy(BackoffPolicy.exponentialBackoff());
+                BulkResponse bulkResponse = retry.withSyncBackoff(client, bulk.request());
                 if (bulkResponse.hasFailures()) {
                     BulkItemResponse[] resItems = bulkResponse.getItems();
                     for (int i = 0; i < resItems.length; i++) {
