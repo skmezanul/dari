@@ -1563,6 +1563,39 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check size 4", tagList4, hasSize(1));
     }
 
+    @Test
+    public void testHtml() {
+        SearchIndexModel search = new SearchIndexModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = "<p>tough</p> car";
+        search.save();
+
+        List<SearchIndexModel> fooHtml = Query
+                .from(SearchIndexModel.class)
+                .where("message = ?", "tough car")
+                .selectAll();
+        assertThat(fooHtml, hasSize(1));
+
+        List<SearchIndexModel> fooHtml2 = Query
+                .from(SearchIndexModel.class)
+                .where("message matches ?", "tough")
+                .selectAll();
+        assertThat(fooHtml2, hasSize(1));
+
+        SearchIndexModel search1 = new SearchIndexModel();
+        search1.eid = "939344";
+        search1.name = "Joe";
+        search1.message = "0000015b-3d08-dbe0-a5df-3fdc8d650000";
+        search1.save();
+
+        List<SearchIndexModel> fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("message = ?", "0000015b-3d08-dbe0-a5df-3fdc8d650000")
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+    }
+
     /**
      * This one tests 2 different Record Classes
      */

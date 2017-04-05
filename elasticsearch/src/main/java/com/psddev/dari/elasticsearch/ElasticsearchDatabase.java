@@ -90,6 +90,7 @@ import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -3199,6 +3200,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         String trimmed = value.toString().trim();
+        trimmed = Jsoup.parse(trimmed).text();
         Matcher uuidMatcher = UUID_PATTERN.matcher(trimmed);
         int uuidLast = 0;
 
@@ -3222,7 +3224,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (value instanceof String) {
             value = ((String) value).trim();
-            // don't save empty strings to be compatible with Solr
+            // don't save empty strings to be compatible with Solr exists
             if (((String) value).length() == 0) {
                 return;
             }
@@ -3239,8 +3241,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         // all field fair game is String and does not start with "_" which are IDs
         if (!name.startsWith("_")) {
             if (value instanceof String) {
-                if (((String) value).length() > MAX_BINARY_FIELD_LENGTH) {
-                    truncatedValue = ((String) value).substring(0, MAX_BINARY_FIELD_LENGTH);
+                truncatedValue = trimmed;
+                if (((String) truncatedValue).length() > MAX_BINARY_FIELD_LENGTH) {
+                    truncatedValue = ((String) truncatedValue).substring(0, MAX_BINARY_FIELD_LENGTH);
                 }
             }
         }
