@@ -76,6 +76,7 @@ import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.range.Range;
 import org.elasticsearch.search.aggregations.bucket.range.RangeAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
@@ -771,17 +772,22 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
 
-            Range agg = response.getAggregations().get("agg");
+            Aggregations aggregations = response.getAggregations();
 
-            for (Range.Bucket entry : agg.getBuckets()) {
-                String key = entry.getKeyAsString();             // Range as key
-                Number from = (Number) entry.getFrom();          // Bucket from
-                Number to = (Number) entry.getTo();              // Bucket to
-                long docCount = entry.getDocCount();             // Doc count
+            if (aggregations != null) {
+                Range agg = aggregations.get("agg");
 
-                LOGGER.debug("hits [{}], key [{}], from [{}], to [{}], doc_count [{}]", hits.getTotalHits(),  key, from, to, docCount);
-                groupings.add(new ElasticGrouping<>(Collections.singletonList(key), query, fields, docCount));
+                for (Range.Bucket entry : agg.getBuckets()) {
+                    String key = entry.getKeyAsString();             // Range as key
+                    Number from = (Number) entry.getFrom();          // Bucket from
+                    Number to = (Number) entry.getTo();              // Bucket to
+                    long docCount = entry.getDocCount();             // Doc count
+
+                    LOGGER.debug("hits [{}], key [{}], from [{}], to [{}], doc_count [{}]",  new Object[] {hits.getTotalHits(), key, from, to, docCount});
+                    groupings.add(new ElasticGrouping<>(Collections.singletonList(key), query, fields, docCount));
+                }
             }
+
         } else {
             if (typeIds.size() > 0) {
                 srb = client.prepareSearch(indexIdStrings)
@@ -828,13 +834,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
 
-            Terms agg = response.getAggregations().get("agg");
+            Aggregations aggregations = response.getAggregations();
 
-            for (Terms.Bucket entry : agg.getBuckets()) {
-                String key = entry.getKeyAsString();    // Term
-                long docCount = entry.getDocCount();    // Doc count
-                LOGGER.debug("key [{}], doc_count [{}]", key, docCount);
-                groupings.add(new ElasticGrouping<>(Collections.singletonList(key), query, fields, docCount));
+            if (aggregations != null) {
+                Terms agg = aggregations.get("agg");
+
+                for (Terms.Bucket entry : agg.getBuckets()) {
+                    String key = entry.getKeyAsString();    // Term
+                    long docCount = entry.getDocCount();    // Doc count
+                    LOGGER.debug("key [{}], doc_count [{}]", key, docCount);
+                    groupings.add(new ElasticGrouping<>(Collections.singletonList(key), query, fields, docCount));
+                }
             }
         }
 
@@ -1032,7 +1042,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         srb.setTrackScores(true);
 
         try {
-            LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+            LOGGER.debug(
+                    String.format("Elasticsearch srb index [%s] typeIds [%s] - [%s]",
+                            (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings),
+                            (typeIdStrings.length == 0 ? "" : typeIdStrings),
+                            srb.toString()));
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
             Float maxScore = hits.getMaxScore();
@@ -1049,9 +1063,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
 
         } catch (Exception error) {
-            LOGGER.warn("Elasticsearch threw Exception srb index [{}] typeIds [{}] - [{}]", (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings), (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
             LOGGER.warn(
-                    String.format("readPartial threw Exception [%s: %s]",
+                    String.format("index [%s] typeIds [%s] - [%s] readPartial threw Exception [%s: %s]",
+                            (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings),
+                            (typeIdStrings.length == 0 ? "" : typeIdStrings),
+                            srb.toString(),
                             error.getClass().getName(),
                             error.getMessage()),
                     error);
@@ -3649,15 +3665,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 String oldIndexname = indexName + oldDocumentType.replaceAll("-", "");
                                 bulk.add(client.prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
                                 LOGGER.debug("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
-                                        newIndexname, documentType, documentId, t.toString());
+                                        new Object[] {newIndexname, documentType, documentId, t.toString()});
                                 bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                             } else if (sendFullUpdate) {
                                 LOGGER.debug("Elasticsearch doWrites sendFullUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
-                                        newIndexname, documentType, documentId, t.toString());
+                                        new Object[] {newIndexname, documentType, documentId, t.toString()});
                                 bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(t));
                             } else if (sendExtraUpdate) {
                                 LOGGER.debug("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
-                                        newIndexname, documentType, documentId, extra.toString());
+                                        new Object[] {newIndexname, documentType, documentId, extra.toString()});
                                 bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(extra));
                             }
                         }
@@ -3679,7 +3695,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String newIndexname = indexName + documentType.replaceAll("-", "");
 
                     LOGGER.debug("Elasticsearch doWrites deleting index [{}] and _type [{}] and _id [{}]",
-                            newIndexname, documentType, documentId);
+                            new Object[]{newIndexname, documentType, documentId});
                     try {
                         bulk.add(client
                                 .prepareDelete(newIndexname, state.getTypeId().toString(), state.getId().toString()));
@@ -3706,8 +3722,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (r.isFailed()) {
                             ActionRequest ireq = bulk.request().requests().get(i);
                             LOGGER.warn("Errors on Bulk {} {} {} {} [{}]",
-                                    r.getIndex(), r.getType(), r.getId(), r.getFailureMessage(),
-                                    ireq);
+                                    new Object[] {r.getIndex(), r.getType(), r.getId(), r.getFailureMessage(), ireq});
                         }
                     }
                 }
