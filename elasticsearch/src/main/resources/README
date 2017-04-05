@@ -19,7 +19,7 @@ apt-get install oracle-java8-installer
 #elasticsearch.yml - set size to # of cores
 #for search operation
 thread_pool.search.size: 2
-thread_pool.search.queue_size: 200
+thread_pool.search.queue_size: 2000
 
 #for bulk operations
 thread_pool.bulk.size: 2
