@@ -10,6 +10,7 @@ import com.psddev.dari.db.AbstractGrouping;
 import com.psddev.dari.db.AtomicOperation;
 import com.psddev.dari.db.ComparisonPredicate;
 import com.psddev.dari.db.CompoundPredicate;
+import com.psddev.dari.db.Database;
 import com.psddev.dari.db.Grouping;
 import com.psddev.dari.db.Location;
 import com.psddev.dari.db.Modification;
@@ -161,12 +162,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     // elastic has _all but not enough control for ExcludeFromAny, etc. So not using that.
     public static final String ANY_FIELD = "_any";
     public static final String UPDATEDATE_FIELD = "updateDate";
+    public static final String JSONINDEX_SUB_NAME = "json";
     public static final int INITIAL_FETCH_SIZE = 1000;
     public static final int SUBQUERY_MAX_ROWS = 5000;   // dari/subQueryResolveLimit
     public static final int TIMEOUT = 30000;            // 30 seconds
     public static final int MAX_BINARY_FIELD_LENGTH = 1024;
     public static final int FACET_MAX_ROWS = 100;
-    public static final int CACHE_TIMEOUT_MIN = 30;
+    public static final int CACHE_TIMEOUT_MIN = 60;
     public static final int CACHE_MAX_INDEX_SIZE = 5000;
     private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
@@ -242,6 +244,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     * CREATE_INDEX_CACHE indicates if the index has been setup in Elastic
+     */
     private static final LoadingCache<IndexKey, String> CREATE_INDEX_CACHE =
             CacheBuilder.newBuilder()
                     .maximumSize(CACHE_MAX_INDEX_SIZE)
@@ -254,6 +259,37 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             defaultMap(client, index.getIndexId(), index.getShardsMax());
                             LOGGER.debug("Elasticsearch creating index [{}]", index.getIndexId());
                             return "setIndex";
+                        }
+                    });
+
+    /**
+     * INDEXTYPEID_CACHE indicates if the TypeId requires the index to be unique due to rules around RAW_DATAFIELD_TYPE
+     */
+    private static final LoadingCache<UUID, String> INDEXTYPEID_CACHE =
+            CacheBuilder.newBuilder()
+                    .maximumSize(CACHE_MAX_INDEX_SIZE)
+                    .expireAfterAccess(CACHE_TIMEOUT_MIN, TimeUnit.MINUTES)
+                    .build(new CacheLoader<UUID, String>() {
+
+                        @Override
+                        public String load(UUID index) throws Exception {
+                            String indexName = JSONINDEX_SUB_NAME;
+                            if (index != null) {
+                                ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+                                if (db != null) {
+                                    ObjectType type = db.getEnvironment().getTypeById(index);
+                                    if (type != null) {
+                                        if (db.isJsonGroup(type.getGroups())) {
+                                            indexName = JSONINDEX_SUB_NAME;
+                                        } else {
+                                            indexName = index.toString().replaceAll("-", "");
+                                        }
+                                    } else if (db.defaultDataFieldType.equals(RAW_DATAFIELD_TYPE)) {
+                                        indexName = index.toString().replaceAll("-", "");
+                                    }
+                                }
+                            }
+                            return indexName;
                         }
                     });
 
@@ -452,6 +488,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         this.dataTypesRaw = ObjectUtils.to(String.class, settings.get(DATA_TYPE_RAW_SETTING));
         if (this.dataTypesRaw != null) {
             this.dataTypesRawSparseSet = new SparseSet(this.dataTypesRaw);
+        }
+
+        if (this.defaultDataFieldType.equals(RAW_DATAFIELD_TYPE) && this.dataTypesRaw != null) {
+            this.dataTypesRaw = null;
+            LOGGER.warn("Setting Conflict - when " + DEFAULT_DATAFIELD_TYPE_SETTING + " is " + RAW_DATAFIELD_TYPE + " cannot set " + DATA_TYPE_RAW_SETTING);
+            LOGGER.warn("Turning off " + DATA_TYPE_RAW_SETTING);
         }
 
         String shardsMax = ObjectUtils.to(String.class, settings.get(SHARDS_MAX_SETTING));
@@ -748,7 +790,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         List<String> indexNames = new ArrayList<>();
         for (UUID u : typeIds) {
-            indexNames.add(getIndexName() + u.toString().replaceAll("-", ""));
+            indexNames.add(getIndexName() + getElasticIndexName(u));
         }
         String[] indexIdStrings = indexNames.toArray(new String[0]);
         checkIndexes(indexIdStrings);
@@ -898,7 +940,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         List<String> indexNames = new ArrayList<>();
         for (UUID u : typeIds) {
-            indexNames.add(getIndexName() + u.toString().replaceAll("-", ""));
+            indexNames.add(getIndexName() + getElasticIndexName(u));
         }
         String[] indexIdStrings = indexNames.toArray(new String[0]);
         checkIndexes(indexIdStrings);
@@ -960,6 +1002,26 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     * Get cached version of the indexName using the typeId
+     */
+    private String getElasticIndexName(UUID typeId) {
+
+        try {
+                return INDEXTYPEID_CACHE.get(typeId);
+        } catch (Exception error) {
+            LOGGER.warn(
+                    String.format("Elasticsearch getElasticIndexName Exception [%s: %s]",
+                            error.getClass().getName(),
+                            error.getMessage()),
+                    error);
+        }
+        return typeId.toString().replaceAll("-", "");
+    }
+
+    /**
+     * Setup the index and cache it - especially useful in RAW mode
+     */
     private void checkIndexes(String[] indexNames) {
 
         try {
@@ -981,20 +1043,35 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Indicates if the field in Elastic should be writting in Json (Stringized) or Raw (Object) in data field
+     * Is you have the Group, check for SparseSet match and return false if it matches
+     *
+     * @see #isJsonState
      */
-    private boolean isJson(State stateValue) {
+    private boolean isJsonGroup(Set<String> groups) {
+        if (this.dataTypesRaw == null || ObjectUtils.isBlank(this.dataTypesRaw)) {
+            return this.defaultDataFieldType.equals(JSON_DATAFIELD_TYPE);
+        }
+        for (String g : groups) {
+            if (dataTypesRawSparseSet != null && dataTypesRawSparseSet.contains(g)) {
+                return false;
+            }
+        }
+        return this.defaultDataFieldType.equals(JSON_DATAFIELD_TYPE);
+    }
+
+    /**
+     * Indicates if the field in Elastic should be writting in Json (Stringized) or Raw (Object) in data field
+     *
+     *  @see #isJsonGroup
+     */
+    private boolean isJsonState(State stateValue) {
         if (this.dataTypesRaw == null || ObjectUtils.isBlank(this.dataTypesRaw)) {
             return this.defaultDataFieldType.equals(JSON_DATAFIELD_TYPE);
         }
         if (stateValue != null) {
             if (stateValue.getType() != null) {
                 if (stateValue.getType().getGroups() != null) {
-                    for (String g : stateValue.getType().getGroups()) {
-                        if (dataTypesRawSparseSet.contains(g)) {
-                            return false;
-                        }
-                    }
+                    return isJsonGroup(stateValue.getType().getGroups());
                 }
             }
         }
@@ -1038,7 +1115,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         List<String> indexNames = new ArrayList<>();
         for (UUID u : typeIds) {
-            indexNames.add(getIndexName() + u.toString().replaceAll("-", ""));
+            indexNames.add(getIndexName() + getElasticIndexName(u));
         }
         String[] indexIdStrings = indexNames.toArray(new String[0]);
         checkIndexes(indexIdStrings);
@@ -1120,7 +1197,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             } else {
                 Map<String, Object> values;
-                if (isJson(objectState)) {
+                if (isJsonState(objectState)) {
                     String data = (String) source.get(DATA_FIELD);
                     //noinspection unchecked
                     values = (Map<String, Object>) ObjectUtils.fromJson(data);
@@ -3530,8 +3607,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (saves != null) {
                 for (State state : saves) {
-                    String documentType = state.getVisibilityAwareTypeId().toString();
-                    String newIndexname = indexName + documentType.replaceAll("-", "");
+                    UUID documentType = state.getVisibilityAwareTypeId();
+                    String newIndexname = indexName + getElasticIndexName(documentType);
                     indexSet.add(newIndexname);
                 }
             }
@@ -3539,8 +3616,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             // double check for deletes
             if (deletes != null) {
                 for (State state : deletes) {
-                    String documentType = state.getTypeId().toString();
-                    String newIndexname = indexName + documentType.replaceAll("-", "");
+                    String newIndexname = indexName + getElasticIndexName(state.getTypeId());
                     indexSet.add(newIndexname);
                 }
             }
@@ -3587,13 +3663,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         UUID documentTypeUUID = state.getVisibilityAwareTypeId();
                         String documentType = documentTypeUUID.toString();
 
-                        String newIndexname = indexName + documentType.replaceAll("-", "");
+                        String newIndexname = indexName + getElasticIndexName(documentTypeUUID);
                         List<AtomicOperation> atomicOperations = state.getAtomicOperations();
                         StringBuilder allBuilder = new StringBuilder();
 
                         if (isNew || atomicOperations.isEmpty()) {
                             Map<String, Object> t = new HashMap<>();
-                            if (isJson(state)) {
+                            if (isJsonState(state)) {
                                 t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
                             } else {
                                 t.put(DATA_FIELD, state.getSimpleValues());
@@ -3618,7 +3694,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
                             t.put(ANY_FIELD, allBuilder.toString().trim());
 
-                            LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                            LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 
@@ -3650,7 +3726,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 sendFullUpdate = true;
                             }
 
-                            if (isJson(state)) {
+                            if (isJsonState(state)) {
                                 sendFullUpdate = true;
                             }
 
@@ -3713,7 +3789,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                             boolean sendExtraUpdate = false;
                             Map<String, Object> t = new HashMap<>();
-                            if (isJson(state)) {
+                            if (isJsonState(state)) {
                                 t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
                             } else {
                                 t.put(DATA_FIELD, state.getSimpleValues());
@@ -3778,7 +3854,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 for (State state : deletes) {
                     String documentType = state.getTypeId().toString();
                     String documentId = state.getId().toString();
-                    String newIndexname = indexName + documentType.replaceAll("-", "");
+                    String newIndexname = indexName + getElasticIndexName(state.getTypeId());
 
                     LOGGER.debug("Elasticsearch doWrites deleting index [{}] and _type [{}] and _id [{}]",
                             new Object[]{newIndexname, documentType, documentId});

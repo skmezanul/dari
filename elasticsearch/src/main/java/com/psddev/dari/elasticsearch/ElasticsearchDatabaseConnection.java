@@ -76,7 +76,7 @@ class ElasticsearchDatabaseConnection {
     /**
      * getClient synchronized and calls PreBuiltTransportClient
      *
-     * @return {code null} is error
+     * @return {code null} if error
      */
     public static synchronized TransportClient getClient(Settings nodeSettings, List<ElasticsearchNode> nodes) {
         if (nodeSettings == null || nodes.size() == 0) {
