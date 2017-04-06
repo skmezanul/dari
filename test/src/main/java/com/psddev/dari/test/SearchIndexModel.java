@@ -32,6 +32,23 @@ public class SearchIndexModel extends Record {
         this.neverIndexed = neverIndexed;
     }
 
+    public String notAnnIndexed;
+    public String getNotAnnIndexed() {
+        return notAnnIndexed;
+    }
+    public void setNotAnnIndexed(String notAnnIndexed) {
+        this.notAnnIndexed = notAnnIndexed;
+    }
+
+    @Indexed
+    public String notAnyIndexed;
+    public String getNotAnyIndexed() {
+        return notAnyIndexed;
+    }
+    public void setNotAnyIndexed(String notAnyIndexed) {
+        this.notAnyIndexed = notAnyIndexed;
+    }
+
     @Indexed
     public String eid;
     public String getEid() {

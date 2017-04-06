@@ -1596,6 +1596,65 @@ public class SearchIndexTest extends AbstractTest {
         assertThat(fooResult, hasSize(1));
     }
 
+    @Test
+    public void testAnyField() {
+        SearchIndexModel search = new SearchIndexModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = "<p>tough</p> car";
+        search.save();
+
+        List<SearchIndexModel> fooAny = Query
+                .from(SearchIndexModel.class)
+                .where("_any matches ?", "tough")
+                .selectAll();
+        assertThat(fooAny, hasSize(1));
+
+        List<SearchIndexModel> fooAny2 = Query
+                .from(SearchIndexModel.class)
+                .where("_any matches ?", "BiLl")
+                .selectAll();
+        assertThat(fooAny2, hasSize(1));
+
+        SearchIndexModel search1 = new SearchIndexModel();
+        search1.eid = "939344";
+        search1.name = "Joe";
+        search1.message = "0000015b-3d08-dbe0-a5df-3fdc8d650000";
+        search1.notAnnIndexed = "Will show in Anyonly";
+        search1.save();
+
+        List<SearchIndexModel> fooResult = Query
+                .from(SearchIndexModel.class)
+                .where("_any startswith ?", "0000015b-3d08-dbe0-a5df-3fdc8d650000")
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        List<SearchIndexModel> fooResult1 = Query
+                .from(SearchIndexModel.class)
+                .where("_any matchesany ?", "0000015b-3d08-dbe0-a5df-3fdc8d650000")
+                .selectAll();
+        assertThat(fooResult1, hasSize(1));
+
+        List<SearchIndexModel> fooResult2 = Query
+                .from(SearchIndexModel.class)
+                .where("_any matchesall ?", "0000015b-3d08-dbe0-a5df-3fdc8d650000")
+                .selectAll();
+        assertThat(fooResult2, hasSize(1));
+
+        List<SearchIndexModel> fooResult3 = Query
+                .from(SearchIndexModel.class)
+                .where("_any matchesall ?", search1.loginTokens.getState().getTypeId())
+                .selectAll();
+        assertThat(fooResult3, hasSize(2));
+
+        // special feature _any field indexes all fields even if not indexed
+        List<SearchIndexModel> fooResult4 = Query
+                .from(SearchIndexModel.class)
+                .where("_any matchesall ?", "Anyonly")
+                .selectAll();
+        assertThat(fooResult4, hasSize(1));
+    }
+
     /**
      * This one tests 2 different Record Classes
      */

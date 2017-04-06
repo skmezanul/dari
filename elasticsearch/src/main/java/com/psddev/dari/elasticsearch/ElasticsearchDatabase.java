@@ -62,6 +62,7 @@ import org.elasticsearch.common.geo.ShapeRelation;
 import com.vividsolutions.jts.geom.Coordinate;
 import org.elasticsearch.common.geo.builders.ShapeBuilders;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.DistanceUnit;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
@@ -95,6 +96,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -137,6 +144,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String CLUSTER_REST_PORT_SUB_SETTING = "clusterRestPort";
     public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
+    public static final String SHARDS_MAX_SETTING = "shardsMax";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
     public static final String DEFAULT_DATAFIELD_TYPE_SETTING = "defaultDataFieldType";
@@ -149,7 +157,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String IDS_FIELD = "_ids";
     public static final String UID_FIELD = "_uid";      // special for aggregations/sort
     public static final String TYPE_ID_FIELD = "_type";
-    public static final String ALL_FIELD = "_all";      // switch to this in elastic
+    // note that _any has special features, it indexes even non indexed fields so it must be stored for reindexing
+    // elastic has _all but not enough control for ExcludeFromAny, etc. So not using that.
     public static final String ANY_FIELD = "_any";
     public static final String UPDATEDATE_FIELD = "updateDate";
     public static final int INITIAL_FETCH_SIZE = 1000;
@@ -158,7 +167,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final int MAX_BINARY_FIELD_LENGTH = 1024;
     public static final int FACET_MAX_ROWS = 100;
     public static final int CACHE_TIMEOUT_MIN = 30;
-    public static final int CACHE_MAX_INDEX_SIZE = 2500;
+    public static final int CACHE_MAX_INDEX_SIZE = 5000;
     private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
     public static final String SCORE_EXTRA = "elastic.score";
@@ -168,8 +177,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     public class IndexKey {
         private String indexId;
+        private int shardsMax;
         private List<ElasticsearchNode> clusterNodes;
         private org.elasticsearch.common.settings.Settings nodeSettings;
+
+        public int getShardsMax() {
+            return shardsMax;
+        }
+
+        public void setShardsMax(int shardsMax) {
+            this.shardsMax = shardsMax;
+        }
 
         public String getIndexId() {
             return indexId;
@@ -233,7 +251,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         @Override
                         public String load(IndexKey index) throws Exception {
                             TransportClient client = ElasticsearchDatabaseConnection.getClient(index.getNodeSettings(), index.getClusterNodes());
-                            defaultMap(client, index.getIndexId());
+                            defaultMap(client, index.getIndexId(), index.getShardsMax());
                             LOGGER.debug("Elasticsearch creating index [{}]", index.getIndexId());
                             return "setIndex";
                         }
@@ -263,6 +281,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private boolean hasGroup = false;
     private transient TransportClient client;
     private boolean painlessModule = false;
+    private int shardsMax = 1000;   // default provided by Elastic
 
     /**
      * get the Nodes for the Cluster
@@ -433,6 +452,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         this.dataTypesRaw = ObjectUtils.to(String.class, settings.get(DATA_TYPE_RAW_SETTING));
         if (this.dataTypesRaw != null) {
             this.dataTypesRawSparseSet = new SparseSet(this.dataTypesRaw);
+        }
+
+        String shardsMax = ObjectUtils.to(String.class, settings.get(SHARDS_MAX_SETTING));
+        if (shardsMax != null) {
+            this.shardsMax = Integer.parseInt(shardsMax);
         }
 
         boolean done = false;
@@ -944,6 +968,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 index.setNodeSettings(this.nodeSettings);
                 index.setClusterNodes(this.clusterNodes);
                 index.setIndexId(newIndexname);
+                index.setShardsMax(this.shardsMax);
                 CREATE_INDEX_CACHE.get(index);
             }
         } catch (Exception error) {
@@ -1128,7 +1153,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         Map<Query.MappedKey, String> m = new HashMap<>();
         m.put(Query.MappedKey.ID, IDS_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
-        m.put(Query.MappedKey.ANY, ALL_FIELD);
+        m.put(Query.MappedKey.ANY, ANY_FIELD);
         specialSortFields = m;
     }
 
@@ -1136,7 +1161,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         Map<Query.MappedKey, String> m = new HashMap<>();
         m.put(Query.MappedKey.ID, IDS_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
-        m.put(Query.MappedKey.ANY, ALL_FIELD);
+        m.put(Query.MappedKey.ANY, ANY_FIELD);
         specialRangeFields = m;
     }
 
@@ -1147,7 +1172,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         Map<Query.MappedKey, String> m = new HashMap<>();
         m.put(Query.MappedKey.ID, ID_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
-        m.put(Query.MappedKey.ANY, ALL_FIELD);
+        m.put(Query.MappedKey.ANY, ANY_FIELD);
         specialFields = m;
     }
 
@@ -1157,8 +1182,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static String convertKeyToQuery(String key) {
         if (key.equals(IDS_FIELD)) {
             return ID_FIELD;
-        } else if (key.equals(ALL_FIELD)) {
-            return ANY_FIELD;
         } else {
             return key;
         }
@@ -2051,10 +2074,25 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * For "_Any" and Matches, switch UUID for value to uuidWord
+     */
+    private Object matchesAnyUUID(String operator, String key, Object value) {
+        if (key.equals(ANY_FIELD)) {
+            if (operator.equals(PredicateParser.STARTS_WITH_OPERATOR) || operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
+                UUID valueUuid = ObjectUtils.to(UUID.class, value);
+                if (valueUuid != null) {
+                    return uuidToWord(valueUuid);
+                }
+            }
+        }
+        return value;
+    }
+
+    /**
      * For Matches, add ".match" to the query
      */
-    private static String matchesAnalyzer(String operator, String key) {
-        if (key.endsWith("." + RAW_FIELD) || key.equals(ALL_FIELD)) {
+    private String matchesAnalyzer(String operator, String key) {
+        if (key.endsWith("." + RAW_FIELD) || key.equals(ANY_FIELD)) {
             return key;
         }
         if (operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
@@ -2333,11 +2371,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
+                            : checkField != null ? QueryBuilders.prefixQuery(key, String.valueOf(matchesAnyUUID(operator, key, v)))
                             : QueryBuilders.prefixQuery(key + "." + STRING_FIELD, String.valueOf(v)));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
-                    if (!ANY_FIELD.equals(key) && !ALL_FIELD.equals(key)) {
+                    if (!ANY_FIELD.equals(key)) {
                         mappedKey = mapFullyDenormalizedKey(query, key);
                         checkField = specialFields.get(mappedKey);
                         if (checkField == null) {
@@ -2384,18 +2423,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                                 equalsAnyQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, v))).field(matchesAnalyzer(operator, key)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
-                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, v))).field(matchesAnalyzer(operator, key)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
 
-                    if (!ANY_FIELD.equals(key) && !ALL_FIELD.equals(key)) {
+                    if (!ANY_FIELD.equals(key)) {
                         mappedKey = mapFullyDenormalizedKey(query, key);
                         checkField = specialFields.get(mappedKey);
                         if (checkField == null) {
@@ -2439,13 +2478,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                         equalsAnyQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(matchesAnalyzer(operator, key)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.queryStringQuery(String.valueOf(v)).field(matchesAnalyzer(operator, key)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
@@ -2552,6 +2591,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } catch (Exception error) {
             LOGGER.info("Using default setting - switch to resource file");
             return "{\n"
+                    + "  \"index.query.default_field\": \"_any\",\n"
                     + "  \"index.mapping.total_fields.limit\": 20000,\n"
                     + "  \"index.mapping.ignore_malformed\": true,\n"
                     + "  \"index\": {\n"
@@ -2562,10 +2602,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "  \"analysis\": {\n"
                     + "    \"analyzer\": {\n"
                     + "      \"text_analyzer\": {\n"
-                    + "        \"char_filter\":  [ \"html_strip\" ],\n"
+                    + "        \"char_filter\": [ \"html_strip\" ],\n"
                     + "        \"tokenizer\": \"whitespace\",\n"
                     + "        \"filter\" : [\"text_delimiter\", \"lowercase\", \"text_stemmer\"]\n"
-                    + "      }\n"
+                    + "      },\n"
+                    + "      \"any_analyzer\": {\n"
+                    + "          \"char_filter\": [ \"html_strip\" ],\n"
+                    + "          \"tokenizer\": \"whitespace\",\n"
+                    + "          \"filter\" : [\"text_delimiter\", \"lowercase\", \"text_stemmer\", \"unique_words\"]\n"
+                    + "       }\n"
                     + "    },\n"
                     + "    \"filter\" : {\n"
                     + "      \"text_delimiter\" : {\n"
@@ -2580,6 +2625,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "      \"text_stemmer\" : {\n"
                     + "        \"type\" : \"stemmer\",\n"
                     + "        \"name\" : \"porter2\"\n"
+                    + "      },\n"
+                    + "      \"unique_words\" : {\n"
+                    + "        \"type\" : \"unique\"\n"
                     + "      }\n"
                     + "    }\n"
                     + "  }\n"
@@ -2597,9 +2645,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } catch (Exception error) {
             LOGGER.info("Using default mapping - switch to resource file");
             return "{\n"
+                    + "  \"_all\" : {\"enabled\" : false},\n"
                     + "  \"properties\" : {\n"
                     + "    \"_ids\": {\n"
                     + "      \"type\": \"keyword\"\n"
+                    + "    },\n"
+                    + "    \"_any\": {\n"
+                    + "      \"type\": \"text\",\n"
+                    + "      \"analyzer\": \"any_analyzer\"\n"
                     + "    }\n"
                     + "  },\n"
                     + "  \"dynamic_templates\": [\n"
@@ -2724,18 +2777,30 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Elastic mapping which will set the types used for Elastic on index creation
      *
      */
-    private static synchronized void defaultMap(TransportClient client, String indexName) {
+    private static synchronized void defaultMap(TransportClient client, String indexName, int shardsMax) {
 
         if (client != null) {
             boolean indexExists = client.admin().indices()
                     .prepareExists(indexName)
                     .execute().actionGet().isExists();
+
             if (!indexExists) {
                 CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", ELASTIC_MAPPING)
                         .setSettings(ELASTIC_SETTING);
                 CreateIndexResponse createIndexResponse = cirb.execute().actionGet();
                 if (!createIndexResponse.isAcknowledged()) {
                     LOGGER.warn("Could not create index {}", indexName);
+                }
+
+                int current = 1000;   // default is NULL
+                Settings currentVal = client.admin().cluster().prepareState().execute().actionGet().getState().metaData().persistentSettings();
+                if (currentVal.get("action.search.shard_count.limit") != null) {
+                    current = Integer.valueOf(currentVal.get("action.search.shard_count.limit"));
+                }
+
+                if (current != shardsMax) {
+                    client.admin().cluster().prepareUpdateSettings().setPersistentSettings(
+                            Settings.builder().put("action.search.shard_count.limit", String.valueOf(shardsMax)).build()).execute().actionGet();
                 }
 
                 ClusterHealthResponse yellow = client.admin().cluster().prepareHealth(indexName)
@@ -3131,6 +3196,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (valueId == null) {
                         if (includeInAny) {
                             allBuilder.append(valueTypeId).append(' ');
+                            allBuilder.append(uuidToWord(valueTypeId)).append(' ');
                         }
 
                         ObjectType valueType = getEnvironment().getTypeById(valueTypeId);
@@ -3200,26 +3266,25 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         String trimmed = value.toString().trim();
-        trimmed = Jsoup.parse(trimmed).text();
-        Matcher uuidMatcher = UUID_PATTERN.matcher(trimmed);
-        int uuidLast = 0;
-
-        while (uuidMatcher.find()) {
-            if (includeInAny) {
-                allBuilder.append(trimmed.substring(uuidLast, uuidMatcher.start()));
-            }
-
-            uuidLast = uuidMatcher.end();
-            String word = uuidToWord(ObjectUtils.to(UUID.class, uuidMatcher.group(0)));
-
-            if (includeInAny && word != null) {
-                allBuilder.append(word);
-            }
+        if (trimmed.contains("<") || trimmed.contains(">")) {
+            trimmed = Jsoup.parse(trimmed).text();
         }
-
         if (includeInAny) {
-            allBuilder.append(trimmed.substring(uuidLast));
-            allBuilder.append(' ');
+            Matcher uuidMatcher = UUID_PATTERN.matcher(trimmed);
+            int uuidLast = 0;
+
+            while (uuidMatcher.find()) {
+                allBuilder.append(trimmed.substring(uuidLast, uuidMatcher.start())).append(' ');
+
+                uuidLast = uuidMatcher.end();
+                String word = uuidToWord(ObjectUtils.to(UUID.class, uuidMatcher.group(0)));
+
+                if (word != null) {
+                    allBuilder.append(word).append(' ');
+                }
+            }
+
+            allBuilder.append(trimmed.substring(uuidLast)).append(' ');
         }
 
         if (value instanceof String) {
@@ -3301,6 +3366,22 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    @Documented
+    @Inherited
+    @ObjectField.AnnotationProcessorClass(ExcludeFromAnyProcessor.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.FIELD)
+    public @interface ExcludeFromAny {
+        boolean value() default true;
+    }
+
+    private static class ExcludeFromAnyProcessor implements ObjectField.AnnotationProcessor<ElasticsearchDatabase.ExcludeFromAny> {
+        @Override
+        public void process(ObjectType type, ObjectField field, ElasticsearchDatabase.ExcludeFromAny annotation) {
+            field.as(ElasticsearchDatabase.FieldData.class).setExcludeFromAny(annotation.value());
+        }
+    }
+
     /**
      * Set the value into extras
      */
@@ -3354,6 +3435,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 if (field == null) {
                     continue;
                 }
+                // Elastic is not fast at Reindexing, so index it by default, otherwise check to see if field id Indexed
 
                 String uniqueName = field.getUniqueName();
                 addDocumentValues(
@@ -3534,8 +3616,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.remove("_type");
                             t.put(UPDATEDATE_FIELD, this.now());
                             t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
+                            t.put(ANY_FIELD, allBuilder.toString().trim());
 
-                            LOGGER.debug("All field [{}]", allBuilder.toString());
                             LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
@@ -3660,6 +3742,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.remove("_type");
                             t.put(UPDATEDATE_FIELD,  this.now());
                             t.put(IDS_FIELD, documentId);
+                            t.put(ANY_FIELD, allBuilder.toString().trim());
 
                             // if you move TypeId you need to add the whole document and remove old
                             if (!oldTypeId.equals(documentTypeUUID) || !oldId.equals(documentUUID)) {

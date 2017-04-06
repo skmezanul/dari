@@ -10,6 +10,7 @@
     <Environment name="dari/database/elasticsearch/class" type="java.lang.String" value="com.psddev.dari.elasticsearch.ElasticsearchDatabase" />
     <Environment name="dari/database/elasticsearch/clusterName" type="java.lang.String" value="elasticsearch_a" />
     <Environment name="dari/database/elasticsearch/indexName" type="java.lang.String" value="index1" />
+    <Environment name="dari/database/elasticsearch/shardsMax" type="java.lang.String" value="5000" />
     <Environment name="dari/database/elasticsearch/defaultDataFieldType" type="java.lang.String" value="json" />
     <Environment name="dari/database/elasticsearch/dataTypesRaw" type="java.lang.String" value="-* +com.psddev.dari.test.WriteModel " />
     <Environment name="dari/database/elasticsearch/subQueryResolveLimit" type="java.lang.String" value="1000" />

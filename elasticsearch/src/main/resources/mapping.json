@@ -1,7 +1,12 @@
 {
+  "_all" : {"enabled" : false},
   "properties" : {
     "_ids": {
       "type": "keyword"
+    },
+    "_any": {
+      "type": "text",
+      "analyzer": "any_analyzer"
     }
   },
   "dynamic_templates": [

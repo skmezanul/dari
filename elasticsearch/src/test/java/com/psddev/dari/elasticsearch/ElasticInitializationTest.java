@@ -14,8 +14,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -180,44 +178,43 @@ public class ElasticInitializationTest {
         ElasticsearchDatabase e = Database.Static.getFirst(ElasticsearchDatabase.class);
         Query q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.EQUALS_ANY_OPERATOR + " ?", "3");
         QueryBuilder x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.NOT_EQUALS_ALL_OPERATOR + " ?", "3");
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.LESS_THAN_OPERATOR + " ?", 3d);
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR + " ?", 3d);
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.GREATER_THAN_OPERATOR + " ?", 3d);
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR + " ?", 3d);
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.STARTS_WITH_OPERATOR + " ?", "3");
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.CONTAINS_OPERATOR + " ?", "3");
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.MATCHES_ANY_OPERATOR + " ?", "3");
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.MATCHES_ALL_OPERATOR + " ?", "3");
         x = e.predicateToQueryBuilder(q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains("_all"));
-
+        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
     }
 
     @Test
@@ -253,5 +250,37 @@ public class ElasticInitializationTest {
         Float normalizedScore1 =  ObjectUtils.to(Float.class, fooResult.get(1).getExtra(ElasticsearchDatabase.NORMALIZED_SCORE_EXTRA));
         assertThat(normalizedScore1, Matchers.is (lessThan(1.0f)));
         assertThat(normalizedScore1, Matchers.is (lessThan(normalizedScore)));
+    }
+
+    @Test
+    public void testExclude() {
+        ElasticModel search = new ElasticModel();
+        search.name = "Mickey Mouse";
+        search.desc = "Indexed but not in Any";
+        search.save();
+
+        List<ElasticModel> fooResult = Query
+                .from(ElasticModel.class)
+                .where("name matches ?", "Mouse")
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        List<ElasticModel> fooResult1 = Query
+                .from(ElasticModel.class)
+                .where("_any matches ?", "Mouse")
+                .selectAll();
+        assertThat(fooResult1, hasSize(1));
+
+        List<ElasticModel> fooResult2 = Query
+                .from(ElasticModel.class)
+                .where("desc matches ?", "Indexed")
+                .selectAll();
+        assertThat(fooResult2, hasSize(1));
+
+        List<ElasticModel> fooResult3 = Query
+                .from(ElasticModel.class)
+                .where("_any matches ?", "Indexed")
+                .selectAll();
+        assertThat(fooResult3, hasSize(0));
     }
 }

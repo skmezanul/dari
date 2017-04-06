@@ -35,6 +35,7 @@ public class ElasticDatabaseConnectionTest {
         n.setHostname("localhost");
         nodes.add(n);
         TransportClient c = ElasticsearchDatabaseConnection.getClient(nodeSettings, nodes);
+        int hash = c.hashCode();
         TransportClient c1 = ElasticsearchDatabaseConnection.getClient(nodeSettings, nodes);
         TransportClient c2 = ElasticsearchDatabaseConnection.getClient(nodeSettings, nodes);
         assertThat(c.hashCode(), is(c1.hashCode()));
@@ -45,7 +46,7 @@ public class ElasticDatabaseConnectionTest {
                 .put("client.transport.sniff", true).build();
 
         TransportClient newConn = ElasticsearchDatabaseConnection.getClient(nodeSettings, nodes);
-        assertThat(c.hashCode(), is(not(newConn.hashCode())));
+        assertThat(hash, is(not(newConn.hashCode())));
         ElasticsearchDatabaseConnection.closeClients();
     }
 }

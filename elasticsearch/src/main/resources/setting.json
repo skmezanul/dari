@@ -1,18 +1,24 @@
 {
+  "index.query.default_field": "_any",
   "index.mapping.total_fields.limit": 20000,
   "index.mapping.ignore_malformed": true,
   "index": {
     "refresh_interval" : "2s",
-    "number_of_shards": "3",
+    "number_of_shards": "2",
     "number_of_replicas": "1"
   },
   "analysis": {
     "analyzer": {
       "text_analyzer": {
-        "char_filter":  [ "html_strip" ],
+        "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
         "filter" : ["text_delimiter", "lowercase", "text_stemmer"]
-      }
+      },
+      "any_analyzer": {
+          "char_filter": [ "html_strip" ],
+          "tokenizer": "whitespace",
+          "filter" : ["text_delimiter", "lowercase", "text_stemmer", "unique_words"]
+       }
     },
     "filter" : {
       "text_delimiter" : {
@@ -27,6 +33,9 @@
       "text_stemmer" : {
         "type" : "stemmer",
         "name" : "porter2"
+      },
+      "unique_words" : {
+        "type" : "unique"
       }
     }
   }

@@ -88,6 +88,7 @@ public class ElasticDBSuite {
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "class", ElasticsearchDatabase.class.getName());
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
+            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SHARDS_MAX_SETTING, "1000");
             //Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.DEFAULT_DATAFIELD_TYPE_SETTING, ElasticsearchDatabase.RAW_DATAFIELD_TYPE);
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.DEFAULT_DATAFIELD_TYPE_SETTING, ElasticsearchDatabase.JSON_DATAFIELD_TYPE);
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.DATA_TYPE_RAW_SETTING, "-* +com.psddev.dari.test.WriteModel ");
