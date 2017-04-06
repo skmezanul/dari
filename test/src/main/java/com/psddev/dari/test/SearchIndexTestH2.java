@@ -4,6 +4,18 @@ import org.junit.Test;
 
 public class SearchIndexTestH2 extends SearchIndexTest {
 
+    // _any is not operational in H2
+    @Override
+    @Test
+    public void testAnyField() {
+    }
+
+    // HTML needs to be blocked in H2
+    @Override
+    @Test
+    public void testHtml() {
+    }
+
     // java.lang.StackOverflowError: null
     // at org.h2.expression.ConditionAndOr.optimize(ConditionAndOr.java:130)
     @Override
