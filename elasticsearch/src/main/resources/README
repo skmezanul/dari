@@ -1,73 +1,54 @@
-Config for Elastic Search 5.2.2+ Setup Ubuntu
+Elasticsearch v5.2.2 README
 
-1. Install Elasticsearch v5.2.2 / Kibana
+1. Please setup conf/context.xml - Elastic can be the Database, or AggregateDatabase. As a Database it can replace MySQL. As an Aggregate it can replace Solr.
 
-wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.2.2.deb
-dpkg -i elasticsearch-5.2.2.deb
+Example as AggregateDatabase:
+    <!-- Database -->
+    <Environment  name="dari/defaultDatabase"                                             type="java.lang.String" value="project" />
+    <Environment  name="dari/database/project/class"                                      type="java.lang.String" value="com.psddev.dari.db.AggregateDatabase" />
+    <Environment  name="dari/database/project/defaultDelegate"                            type="java.lang.String" value="sql" />
 
-wget https://artifacts.elastic.co/downloads/elasticsearch/kibana-5.2.2.deb
-dpkg -i kibana-5.2.2.deb
+    <Environment  name="dari/database/project/delegate/sql/class"                         type="java.lang.String" value="com.psddev.dari.db.SqlDatabase" />
+    <Environment  name="dari/database/project/delegate/sql/jdbcUrl"                       type="java.lang.String" value="jdbc:msyql://localhost:3306/project" />
+    <Environment  name="dari/database/project/delegate/sql/enableReplicationCache"        type="java.lang.String" value="true" />
+    <Environment  name="dari/database/project/delegate/sql/enableFunnelCache"             type="java.lang.String" value="false" />
+    <Environment  name="dari/database/project/delegate/sql/indexSpatial"                  type="java.lang.String" value="false" />
+    <!-- Database Resource Links, see server.xml for connection settings. -->
+    <ResourceLink name="dari/database/project/delegate/sql/dataSource"                    type="javax.sql.DataSource" global="dari/database/project/delegate/sql/dataSource"  />
+    <ResourceLink name="dari/database/project/delegate/sql/readDataSource"                type="javax.sql.DataSource" global="dari/database/project/delegate/sql/readDataSource"  />
 
-2. Install Oracle Java JDK 1.8.0_73 or later (Vagrant boxes need to be upgraded). Lucene has an issue with Java JDK < 1.8.0_73
-apt-get update
-apt-get install python-software-properties
-add-apt-repository ppa:webupd8team/java
-apt-get update
-apt-get install oracle-java8-installer
+    <Environment name="dari/database/project/delegate/elasticsearch/class"                type="java.lang.String" value="com.psddev.dari.elasticsearch.ElasticsearchDatabase" />
+    <Environment name="dari/database/project/delegate/elasticsearch/clusterName"          type="java.lang.String" value="elasticsearch" />
+    <Environment name="dari/database/project/delegate/elasticsearch/indexName"            type="java.lang.String" value="index1" />
+    <Environment name="dari/database/project/delegate/elasticsearch/shardsMax"            type="java.lang.String" value="5000" />
+    <Environment name="dari/database/project/delegate/elasticsearch/defaultDataFieldType" type="java.lang.String" value="json" />
+    <Environment name="dari/database/project/delegate/elasticsearch/subQueryResolveLimit" type="java.lang.String" value="1000" />
+    <Environment name="dari/database/project/delegate/elasticsearch/1/clusterPort"        type="java.lang.String" value="9300" />
+    <Environment name="dari/database/project/delegate/elasticsearch/1/clusterRestPort"    type="java.lang.String" value="9200" />
+    <Environment name="dari/database/project/delegate/elasticsearch/1/clusterHostname"    type="java.lang.String" value="172.28.128.XXX" />
+    
+Some explanation:
 
-3. Setup elasticsearch.yml for performance /etc/elasticsearch/elasticsearch.yml. This is needed to boost performance.
-the *.size gives more power to Elastic since you give it number of cores. If you have an 8 core box you probably want to
-give most of it to Elastic for searching. If you are indexing, increase bulk higher.
+- defaultDataFieldType - Can use "json" or "raw". "json" indicates storing data Stringified into Elastic. "raw" indicates storing as real objects.
+- shardsMax - the default in Elastic is 1,000 shards max. This allows you to increase it.  When using defaultDataFieldType = "raw" each index is unique, due to conflicts.
+- indexName - this is the indexName in Elastic - it is the begins with name. When using defaultDataFieldType = "raw" this is appended the typeId withoiut "-".
+- clusterName - make sure this is correct for your cluster.
+- the 1/clusterPort, 1/clusterRestPort, and 1/clusterHostname indicates the first Node in the Cluster. If you want you can include 2, 3... Or just the Load Balancer.
+- When using defaultDataFieldType = "json" you can set some types to "raw" by setting SparseSet like below.
+<Environment name="dari/database/project/delegate/elasticsearch/dataTypesRaw"          type="java.lang.String" value="-* +com.psddev.dari.test.WriteModel " />
 
-#elasticsearch.yml - set size to # of cores
-#for search operation
-thread_pool.search.size: 2
-thread_pool.search.queue_size: 2000
+2. Here is a sample query specific to ElasticsearchDatabase.
 
-#for bulk operations
-thread_pool.bulk.size: 2
-thread_pool.bulk.queue_size: 1000
+import com.psddev.dari.elasticsearch.*;
+import java.util.*;
 
-#for indexing operations
-thread_pool.index.size: 2
-thread_pool.index.queue_size: 1000
+public class Code {
+    public static Object main() throws Throwable {
+        ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+        return Query.fromAll().using(db).where("_type = 00000000-0000-0000-0000-000000000000").count();
+    }
+}
 
-# Force all memory to be locked, forcing the JVM to never swap. This is recommended - no  swappiness on Elastic.
-bootstrap.memory_lock: true
+3. Dari Query syntax as per docs
 
-# Indices settings - The default of 10% is too low in general and this is recommended to cache more.
-indices.memory.index_buffer_size: 30%
-
-network.host: 172.28.128.XXX
-http.port: 9200
-
-4. Set - this sets the memory so that Elastic does not hang.
-sysctl -w vm.max_map_count=262144
-
-In /etc/sysctl.conf
-vm.max_map_count = 262144
-
-sysctl -p
-
-5. Set memory edit jvm.options file: set half of memory - "/etc/init.d/solr stop" to save mem since you are using elastic now.
--Xms2g
--Xmx2g
-
-6. Start /etc/security/limits.conf - Need to give root and elasticsearch user more open files, and nproc for threads.
-root - nofile 100000
-elasticsearch  -  nofile  65536
-elasticsearch	-	nproc	5000
-root	-	nproc	5000
-
- 7. Uncomment /etc/pam.d/su on Ubuntu - you need to do that on Unbuntu or it won't use limits.conf
- # session    required   pam_limits.so
-
- 8. Start Elastic -- also set to auto start
- /etc/init.d/elasticsearch start
-
- Check http://localhost:9200/_nodes/stats/process?filter_path=**.max_file_descriptor
- Check http://localhost:9200/_nodes?filter_path=**.mlockall
-
- 9. You should run Kibana since that is how most people interface with Elastic
- /etc/init.d/kibana start
 
