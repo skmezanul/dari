@@ -3694,7 +3694,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
                             t.put(ANY_FIELD, allBuilder.toString().trim());
 
-                            LOGGER.info("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                            LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 
