@@ -270,6 +270,22 @@ public class ElasticInitializationTest {
         assertThat(normalizedScore1, Matchers.is (lessThan(normalizedScore)));
     }
 
+    @Test(expected = com.psddev.dari.db.DatabaseException.class)
+    public void testTypeAheadErrorField() {
+        ElasticTypeModel search = new ElasticTypeModel();
+        search.name = "Mickey Mouse";
+        search.desc = "Leader of the pack";
+        search.fromTypeAhead = "Disney Club";
+        search.save();
+    }
+
+    @Test(expected = com.psddev.dari.db.DatabaseException.class)
+    public void testTypeAheadErrorField2() {
+        ElasticTypeModel search = new ElasticTypeModel();
+        search.fromTypeAhead = "Disney Club";
+        search.save();
+    }
+
     @Test
     public void testTypeAhead() {
         ElasticModel search = new ElasticModel();

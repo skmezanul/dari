@@ -3659,6 +3659,30 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Thrown when a field does not exist when indexing a type ahead field
+     */
+    @SuppressWarnings("serial")
+    public static class NoTypeAheadFieldException extends RuntimeException {
+
+        private final String group;
+        private final String key;
+
+        public NoTypeAheadFieldException(String group, String key) {
+            super(String.format("Can't index [%s] type ahead due to missing dependent field [%s]!", group, key));
+            this.group = group;
+            this.key = key;
+        }
+
+        public String getGroup() {
+            return group;
+        }
+
+        public String getKey() {
+            return key;
+        }
+    }
+
+    /**
      * Generate the typeAhead fields to the Index
      */
     public Map<String, Object> addTypeAhead(State state) {
@@ -3685,6 +3709,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (field != null) {
                         String uniqueName = field.getUniqueName() + "." + SUGGEST_FIELD;
                         m.put(uniqueName, buffer);
+                    } else {
+                        throw new NoTypeAheadFieldException(type.getDisplayName(), DEFAULT_SUGGEST_FIELD);
                     }
                 }
             }
@@ -3710,6 +3736,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     n.add(value);
                                 }
                                 m.put(uniqueName, n);
+                            } else {
+                                throw new NoTypeAheadFieldException(type.getDisplayName(), targetField);
                             }
                         }
                     }
