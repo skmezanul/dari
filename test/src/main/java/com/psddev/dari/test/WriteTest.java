@@ -3,8 +3,10 @@ package com.psddev.dari.test;
 import com.psddev.dari.db.AtomicOperation;
 import com.psddev.dari.db.Database;
 import com.psddev.dari.db.DatabaseException;
+import com.psddev.dari.db.DistributedLock;
 import com.psddev.dari.db.Query;
 import com.psddev.dari.db.State;
+import com.psddev.dari.util.ObjectUtils;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
@@ -23,6 +25,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.hasEntry;
 
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
@@ -236,5 +239,46 @@ public class WriteTest extends AbstractTest {
         }
 
         assertThat(Query.from(WriteModel.class).count(), is(0L));
+    }
+
+    @Test
+    public void noStateType() {
+        Database database = Database.Static.getDefault();
+        UUID id = UUID.randomUUID();
+
+        State key = new State();
+        key.setDatabase(database);
+        key.setId(id);
+        key.put("keyString", "teststring");
+        key.replaceAtomically("lockId", UUID.randomUUID().toString());
+        key.replaceAtomically("lastPing", database.now());
+        key.saveImmediately();
+
+        State state = State.getInstance(Query.from(Object.class)
+                .where("_id = ?", id)
+                .using(database)
+                .noCache()
+                .master()
+                .first());
+        long last = ObjectUtils.to(long.class, state.get("lastPing"));
+
+        assertThat(last, is(lessThan(database.now())));
+    }
+
+    @Test
+    public void lock() {
+        Database database = Database.Static.getDefault();
+
+        DistributedLock model = DistributedLock.Static.getInstance(database, "thelongkeylock");
+        model.tryLock();
+        String lockString = model.toString();
+        int loc = lockString.lastIndexOf("keyId=");
+        String keyId = lockString.substring(loc + 6, loc + 6 + 36);
+        UUID key = UUID.fromString(keyId);
+        List<Object> o = Query.fromAll().where("_id = ?", key).selectAll();
+        assertThat("should lock", o, hasSize(1));
+        model.unlock();
+        List<Object> o2 = Query.fromAll().where("_id = ?", key).selectAll();
+        assertThat("should lock", o2, hasSize(0));
     }
 }

@@ -2175,8 +2175,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private String matchesAnalyzer(String operator, String key, Set<UUID> typeIds) {
         if (key.endsWith("." + RAW_FIELD) || key.equals(ANY_FIELD)) {
             return key;
-        }
-        if (operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
+        } else if (operator.equals(PredicateParser.CONTAINS_OPERATOR)) {
+            return key + "." + RAW_FIELD;
+        } else if (operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
             if (typeIds != null) {
                 for (UUID typeId : typeIds) {
                     ObjectType type = ObjectType.getInstance(typeId);
