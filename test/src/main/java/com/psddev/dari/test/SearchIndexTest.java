@@ -1352,10 +1352,10 @@ public class SearchIndexTest extends AbstractTest {
         model2.save();
 
         List<SearchIndexModel> zeroAny = Query.from(SearchIndexModel.class).where("one matchesany ?", (Object) null).selectAll();
-        assertThat("check matchesany", zeroAny, hasSize(0));
+        assertThat("check matchesany null", zeroAny, hasSize(0));
 
-        List<SearchIndexModel> zeroAll = Query.from(SearchIndexModel.class).where("one matchesany ?", (Object) null).selectAll();
-        assertThat("check matchesany", zeroAll, hasSize(0));
+        List<SearchIndexModel> zeroAll = Query.from(SearchIndexModel.class).where("one matchesall ?", (Object) null).selectAll();
+        assertThat("check matchesall null", zeroAll, hasSize(0));
 
         List<SearchIndexModel> sem = Query.from(SearchIndexModel.class).where("one matchesany ?", "headline").selectAll();
         assertThat("check matchesany", sem, hasSize(1));
@@ -1364,7 +1364,7 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check matchesall", sem1, hasSize(1));
 
         List<SearchIndexModel> contains = Query.from(SearchIndexModel.class).where("one contains ?", "headline").selectAll();
-        assertThat("check matchesall", contains, hasSize(1));
+        assertThat("check contains", contains, hasSize(1));
 
         List<String> many = new ArrayList<>();
         many.add("test");

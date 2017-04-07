@@ -2176,7 +2176,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (key.endsWith("." + RAW_FIELD) || key.equals(ANY_FIELD)) {
             return key;
         } else if (operator.equals(PredicateParser.CONTAINS_OPERATOR)) {
-            return key + "." + RAW_FIELD;
+            return key + "." + MATCH_FIELD;
         } else if (operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
             if (typeIds != null) {
                 for (UUID typeId : typeIds) {
