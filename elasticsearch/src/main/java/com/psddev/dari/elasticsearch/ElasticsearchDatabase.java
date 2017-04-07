@@ -2170,7 +2170,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * For Matches, add ".match" to the query
+     * For Matches, add ".match" to the query, typeAhead add _suggest
      */
     private String matchesAnalyzer(String operator, String key, Set<UUID> typeIds) {
         if (key.endsWith("." + RAW_FIELD) || key.equals(ANY_FIELD)) {
@@ -2182,7 +2182,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     ObjectType type = ObjectType.getInstance(typeId);
                     if (type != null) {
                         if (type.getIndex(key) != null) {
-                            if (type.getIndex(key).getName().equals(DEFAULT_SUGGEST_FIELD)) {
+                            if (type.getIndex(key).getName().equals(DEFAULT_SUGGEST_FIELD) || type.getIndex(key).getField().equals(DEFAULT_SUGGEST_FIELD)) {
                                 return key + "." + SUGGEST_FIELD;
                             }
                         }
@@ -2190,7 +2190,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         if (map != null) {
                             for (Map.Entry<String, List<String>> entry : map.entrySet()) {
                                 List<String> value = entry.getValue();
-                                if (value.contains(key)) {
+                                if (value.contains(key) || value.contains(type.getIndex(key).getField())) {
                                     return key + "." + SUGGEST_FIELD;
                                 }
                             }
@@ -2527,13 +2527,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                                 equalsAnyQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)))));
+                                          //QueryBuilders.matchPhrasePrefixQuery(key, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
-                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)));
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
@@ -2582,13 +2583,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                         equalsAnyQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds))))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)))));
+                                       //QueryBuilders.matchPhrasePrefixQuery(key, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)));
                     }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :

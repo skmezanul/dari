@@ -20,13 +20,15 @@ public class ElasticModel extends Record {
     @Recordable.Indexed
     String fromTypeAhead;
 
-    // placeholders
+    // placeholders for TypeAheadFields Might want to set Visibility too must be List<String>
     @Recordable.Indexed
     List<String> suggestField;
 
+    // placeholders for TypeAheadFields Might want to set Visibility too
     @Recordable.Indexed
     List<String> typeAhead;
 
+    // placeholders for TypeAheadFields Might want to set Visibility too
     @Recordable.Indexed
     List<String> typeAhead2;
 }
