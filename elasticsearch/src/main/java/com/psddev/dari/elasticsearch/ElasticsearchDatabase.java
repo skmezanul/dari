@@ -283,10 +283,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         if (db.isJsonGroup(type.getGroups())) {
                                             indexName = JSONINDEX_SUB_NAME;
                                         } else {
-                                            indexName = index.toString().replaceAll("-", "");
+                                            indexName = Static.replaceDash(index.toString());
                                         }
                                     } else if (db.defaultDataFieldType.equals(RAW_DATAFIELD_TYPE)) {
-                                        indexName = index.toString().replaceAll("-", "");
+                                        indexName = Static.replaceDash(index.toString());
                                     }
                                 }
                             }
@@ -1018,7 +1018,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             error.getMessage()),
                     error);
         }
-        return typeId.toString().replaceAll("-", "");
+        return Static.replaceDash(typeId.toString());
     }
 
     /**
@@ -1147,11 +1147,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         srb.setTrackScores(true);
 
         try {
-            LOGGER.debug(
-                    String.format("Elasticsearch srb index [%s] typeIds [%s] - [%s]",
-                            (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings),
+            LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]",
+                    new Object[] {(indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings),
                             (typeIdStrings.length == 0 ? "" : typeIdStrings),
-                            srb.toString()));
+                            srb.toString()});
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
             Float maxScore = hits.getMaxScore();
@@ -1344,10 +1343,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (response != null && response.getMappings() != null) {
                 for (String typeId : typeIds) {
-                    LOGGER.debug("Checking mapping for {}, {}", indexName + typeId.replaceAll("-", ""), typeId);
-                    if (response.getMappings().get(indexName + typeId.replaceAll("-", "")) != null
-                            && response.getMappings().get(indexName + typeId.replaceAll("-", "")).get(typeId) != null) {
-                        Map<String, Object> source = response.getMappings().get(indexName + typeId.replaceAll("-", "")).get(typeId).sourceAsMap();
+                    LOGGER.debug("Checking mapping for {}, {}", indexName + Static.replaceDash(typeId), typeId);
+                    if (response.getMappings().get(indexName + Static.replaceDash(typeId)) != null
+                            && response.getMappings().get(indexName + Static.replaceDash(typeId)).get(typeId) != null) {
+                        Map<String, Object> source = response.getMappings().get(indexName + Static.replaceDash(typeId)).get(typeId).sourceAsMap();
                         if (source.get("properties") instanceof Map) {
                             @SuppressWarnings("unchecked")
                             Map<String, Object> properties = (Map<String, Object>) source.get("properties");
@@ -2027,14 +2026,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (v == null) {
             return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery());
-        } else if (v instanceof String || isUUID(v)) {
+        } else if (v instanceof String || Static.isUUID(v)) {
             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
             String checkField = specialFields.get(mappedKey);
             if (checkField == null) {
                 if (simpleKey != null) {
                     key = addRaw(key);
                 } else {
-                    if (isUUID(v) && isReference(dotKey, query)) {
+                    if (Static.isUUID(v) && isReference(dotKey, query)) {
                         return QueryBuilders.termQuery(addRaw(key), v);
                     } else {
                         String internalType = mappedKey.getInternalType();
@@ -2351,7 +2350,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intLtType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                                     v == null ? QueryBuilders.matchAllQuery()
-                                    : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).lt(v)
+                                    : (Static.isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).lt(v)
                                     : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
                                         .must(QueryBuilders.rangeQuery(key + ".y").lt(((Location) v).getY()))
                                     : QueryBuilders.rangeQuery(addQueryFieldType(intLtType, key, true)).lt(v))));
@@ -2381,7 +2380,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intLteType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).lte(v)
+                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).lte(v)
                             : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lte(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(key + ".y").lte(((Location) v).getY()))
@@ -2411,7 +2410,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intGtType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).gt(v)
+                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).gt(v)
                             : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
@@ -2442,7 +2441,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intGteType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).gte(v)
+                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).gte(v)
                             : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gte(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(key + ".y").gte(((Location) v).getY()))
@@ -2602,24 +2601,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         throw new UnsupportedPredicateException(this, predicate);
-    }
-
-    /**
-     * Check String for UUID
-     */
-    private boolean isUUID(Object obj) {
-        try {
-            if (obj instanceof UUID) {
-                return true;
-            } else if (obj instanceof String) {
-                //noinspection ResultOfMethodCallIgnored
-                UUID.fromString((String) obj);
-                return true;
-            }
-        } catch (IllegalArgumentException exception) {
-            return false;
-        }
-        return false;
     }
 
     /**
@@ -3134,7 +3115,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Main function to convert a Geometry to Elastic before writing. This is destructive.
+     * Main function to convert a Geometry to Elastic before writing. This is destructive to map
      *
      * @see #doWrites
      * @see #convertLocationToName(Map, String)
@@ -3168,7 +3149,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Main function to convert a Geometry to Elastic before writing. This is destructive.
+     * Main function to convert a Geometry to Elastic before writing. This is destructive to map
      *
      * @see #doWrites
      * @see #convertRegionToName(Map, String)
@@ -3562,6 +3543,32 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         /**
+         * Replace dashes in typeId when used in IndexName
+         */
+        public static String replaceDash(String orig) {
+            // faster than replaceAll
+            return orig.replace("-", "");
+        }
+
+        /**
+         * Check String for UUID
+         */
+        private static boolean isUUID(Object obj) {
+            try {
+                if (obj instanceof UUID) {
+                    return true;
+                } else if (obj instanceof String) {
+                    //noinspection ResultOfMethodCallIgnored
+                    UUID.fromString((String) obj);
+                    return true;
+                }
+            } catch (IllegalArgumentException exception) {
+                return false;
+            }
+            return false;
+        }
+
+        /**
          * Returns the Solr search result score associated with the given
          * {@code object}.
          *
@@ -3701,7 +3708,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String value = ObjectUtils.to(String.class, state.getByPath(typeAheadField));
                     // Hack for a client.
                     if (!ObjectUtils.isBlank(value)) {
-                        value = value.replaceAll("\\{", "").replaceAll("\\}", "");
+                        value = value.replace("{","").replace("}","");
                         buffer.add(value);
                     }
                 }
@@ -3724,7 +3731,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     if (!ObjectUtils.isBlank(targetFields) && !ObjectUtils.isBlank(value)) {
                         for (String targetField : targetFields) {
-                            value = value.replaceAll("\\{", "").replaceAll("\\}", "");
+                            value = value.replace("{","").replace("}","");
                             ObjectField field = state.getField(targetField);
                             if (field != null) {
                                 String uniqueName = field.getUniqueName() + "." + SUGGEST_FIELD;
@@ -3813,7 +3820,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Write saves, indexes, deletes as a bulk Elastic operation
      *
-     * @param indexes Not used
+     * @param indexes Converts to saves
      */
     @Override
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
@@ -4065,7 +4072,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             if (!oldTypeId.equals(documentTypeUUID) || !oldId.equals(documentUUID)) {
                                 String oldDocumentType = oldTypeId.toString();
                                 String oldDocumentId = oldId.toString();
-                                String oldIndexname = indexName + oldDocumentType.replaceAll("-", "");
+                                String oldIndexname = indexName + Static.replaceDash(oldDocumentType);
                                 bulk.add(client.prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
                                 LOGGER.debug("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
                                         new Object[] {newIndexname, documentType, documentId, t.toString()});
