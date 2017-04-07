@@ -1,6 +1,6 @@
 {
   "index.query.default_field": "_any",
-  "index.mapping.total_fields.limit": 20000,
+  "index.mapping.total_fields.limit": 100000,
   "index.mapping.ignore_malformed": true,
   "index": {
     "refresh_interval" : "2s",
@@ -18,9 +18,37 @@
           "char_filter": [ "html_strip" ],
           "tokenizer": "whitespace",
           "filter" : ["text_delimiter", "lowercase", "text_stemmer", "unique_words"]
-       }
+      },
+      "suggest_analyzer": {
+        "char_filter": [ "html_strip" ],
+        "tokenizer": "whitespace",
+        "filter" : ["suggest_delimiter", "lowercase", "ngram_filter"]
+      },
+      "search_suggest_analyzer": {
+        "char_filter": [ "html_strip" ],
+        "tokenizer": "whitespace",
+        "filter" : ["suggest_delimiter", "lowercase"]
+      }
     },
     "filter" : {
+      "ngram_filter": {
+        "type": "edge_ngram",
+        "min_gram": 1,
+        "max_gram": 12,
+        "token_chars": [
+          "letter",
+          "digit"
+        ]
+      },
+      "suggest_delimiter" : {
+        "type" : "word_delimiter",
+        "catenate_all": false,
+        "catenate_numbers": false,
+        "catenate_words": false,
+        "generate_number_parts": true,
+        "generate_word_parts": true,
+        "split_on_case_change": true
+      },
       "text_delimiter" : {
         "type" : "word_delimiter",
         "catenate_all": false,

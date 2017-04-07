@@ -63,6 +63,16 @@
       }
     },
     {
+      "suggest_type": {
+        "match": "_suggest",
+        "mapping": {
+          "type": "text",
+          "analyzer": "suggest_analyzer",
+          "search_analyzer": "search_suggest_analyzer"
+        }
+      }
+    },
+    {
       "shapegeo": {
         "match": "_polygon",
         "match_mapping_type": "object",

@@ -158,6 +158,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String IDS_FIELD = "_ids";
     public static final String UID_FIELD = "_uid";      // special for aggregations/sort
     public static final String TYPE_ID_FIELD = "_type";
+    public static final String DEFAULT_SUGGEST_FIELD = "suggestField";
     // note that _any has special features, it indexes even non indexed fields so it must be stored for reindexing
     // elastic has _all but not enough control for ExcludeFromAny, etc. So not using that.
     public static final String ANY_FIELD = "_any";
@@ -303,6 +304,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String REGION_FIELD = "_polygon";
     public static final String RAW_FIELD = STRING_FIELD + ".raw";   // UUID, String not text, and RECORD
     public static final String MATCH_FIELD = STRING_FIELD + ".match";
+    public static final String SUGGEST_FIELD = "_suggest";
 
     private final List<ElasticsearchNode> clusterNodes = new ArrayList<>();
     private org.elasticsearch.common.settings.Settings nodeSettings;
@@ -1371,6 +1373,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             key = key.substring(0, key.length() - ("." + LOCATION_FIELD).length());
         } else if (key.endsWith("." + MATCH_FIELD)) {
             key = key.substring(0, key.length() - ("." + MATCH_FIELD).length());
+        } else if (key.endsWith("." + SUGGEST_FIELD)) {
+            key = key.substring(0, key.length() - ("." + SUGGEST_FIELD).length());
         } else if (key.endsWith("." + REGION_FIELD)) {
             key = key.substring(0, key.length() - ("." + REGION_FIELD).length());
         } else if (key.endsWith("." + BOOLEAN_FIELD)) {
@@ -2168,11 +2172,32 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * For Matches, add ".match" to the query
      */
-    private String matchesAnalyzer(String operator, String key) {
+    private String matchesAnalyzer(String operator, String key, Set<UUID> typeIds) {
         if (key.endsWith("." + RAW_FIELD) || key.equals(ANY_FIELD)) {
             return key;
         }
         if (operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
+            if (typeIds != null) {
+                for (UUID typeId : typeIds) {
+                    ObjectType type = ObjectType.getInstance(typeId);
+                    if (type != null) {
+                        if (type.getIndex(key) != null) {
+                            if (type.getIndex(key).getName().equals(DEFAULT_SUGGEST_FIELD)) {
+                                return key + "." + SUGGEST_FIELD;
+                            }
+                        }
+                        Map<String, List<String>> map = type.as(TypeModification.class).getTypeAheadFieldsMap();
+                        if (map != null) {
+                            for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+                                List<String> value = entry.getValue();
+                                if (value.contains(key)) {
+                                    return key + "." + SUGGEST_FIELD;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             return key + "." + MATCH_FIELD;
         }
         return key;
@@ -2205,6 +2230,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
 
         } else if (predicate instanceof ComparisonPredicate) {
+            Set<UUID> typeIds = query.getConcreteTypeIds(this);
+
             ComparisonPredicate comparison = (ComparisonPredicate) predicate;
             String operator = comparison.getOperator();
 
@@ -2500,13 +2527,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                                 equalsAnyQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
-                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
@@ -2555,13 +2582,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                         equalsAnyQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key)).field(key + ".*")))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds))))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key)).field(key + ".*")); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds))); //QueryBuilders.matchPhrasePrefixQuery(finalKey1, v));
                     }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
@@ -2669,11 +2696,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             LOGGER.info("Using default setting - switch to resource file");
             return "{\n"
                     + "  \"index.query.default_field\": \"_any\",\n"
-                    + "  \"index.mapping.total_fields.limit\": 20000,\n"
+                    + "  \"index.mapping.total_fields.limit\": 100000,\n"
                     + "  \"index.mapping.ignore_malformed\": true,\n"
                     + "  \"index\": {\n"
                     + "    \"refresh_interval\" : \"2s\",\n"
-                    + "    \"number_of_shards\": \"3\",\n"
+                    + "    \"number_of_shards\": \"2\",\n"
                     + "    \"number_of_replicas\": \"1\"\n"
                     + "  },\n"
                     + "  \"analysis\": {\n"
@@ -2687,9 +2714,37 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "          \"char_filter\": [ \"html_strip\" ],\n"
                     + "          \"tokenizer\": \"whitespace\",\n"
                     + "          \"filter\" : [\"text_delimiter\", \"lowercase\", \"text_stemmer\", \"unique_words\"]\n"
-                    + "       }\n"
+                    + "      },\n"
+                    + "      \"suggest_analyzer\": {\n"
+                    + "        \"char_filter\": [ \"html_strip\" ],\n"
+                    + "        \"tokenizer\": \"whitespace\",\n"
+                    + "        \"filter\" : [\"suggest_delimiter\", \"lowercase\", \"ngram_filter\"]\n"
+                    + "      },\n"
+                    + "      \"search_suggest_analyzer\": {\n"
+                    + "        \"char_filter\": [ \"html_strip\" ],\n"
+                    + "        \"tokenizer\": \"whitespace\",\n"
+                    + "        \"filter\" : [\"suggest_delimiter\", \"lowercase\"]\n"
+                    + "      }\n"
                     + "    },\n"
                     + "    \"filter\" : {\n"
+                    + "      \"ngram_filter\": {\n"
+                    + "        \"type\": \"edge_ngram\",\n"
+                    + "        \"min_gram\": 1,\n"
+                    + "        \"max_gram\": 12,\n"
+                    + "        \"token_chars\": [\n"
+                    + "          \"letter\",\n"
+                    + "          \"digit\"\n"
+                    + "        ]\n"
+                    + "      },\n"
+                    + "      \"suggest_delimiter\" : {\n"
+                    + "        \"type\" : \"word_delimiter\",\n"
+                    + "        \"catenate_all\": false,\n"
+                    + "        \"catenate_numbers\": false,\n"
+                    + "        \"catenate_words\": false,\n"
+                    + "        \"generate_number_parts\": true,\n"
+                    + "        \"generate_word_parts\": true,\n"
+                    + "        \"split_on_case_change\": true\n"
+                    + "      },\n"
                     + "      \"text_delimiter\" : {\n"
                     + "        \"type\" : \"word_delimiter\",\n"
                     + "        \"catenate_all\": false,\n"
@@ -2782,6 +2837,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "              \"analyzer\": \"text_analyzer\"\n"
                     + "            }\n"
                     + "          }\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    },\n"
+                    + "    {\n"
+                    + "      \"suggest_type\": {\n"
+                    + "        \"match\": \"_suggest\",\n"
+                    + "        \"mapping\": {\n"
+                    + "          \"type\": \"text\",\n"
+                    + "          \"analyzer\": \"suggest_analyzer\",\n"
+                    + "          \"search_analyzer\": \"search_suggest_analyzer\"\n"
                     + "        }\n"
                     + "      }\n"
                     + "    },\n"
@@ -3153,6 +3218,85 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         updateNotifiers.remove(notifier);
     }
 
+    // --- TypeAheadFieldsProcessor ---
+    @Documented
+    @Inherited
+    @ObjectType.AnnotationProcessorClass(TypeAheadFieldsProcessor.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.TYPE)
+    public @interface TypeAheadFields {
+        String[] value() default { };
+        TypeAheadFieldsMapping[] mappings() default { };
+    }
+
+    public @interface TypeAheadFieldsMapping {
+        String field();
+        String[] fields();
+    }
+
+    private static class TypeAheadFieldsProcessor implements ObjectType.AnnotationProcessor<TypeAheadFields> {
+        @Override
+        public void process(ObjectType type, TypeAheadFields annotation) {
+            Map<String, List<String>> typeAheadFieldsMap = new HashMap<String, List<String>>();
+
+            for (TypeAheadFieldsMapping mapping : annotation.mappings()) {
+                List<String> fields = Arrays.asList(mapping.fields());
+                typeAheadFieldsMap.put(mapping.field(), fields);
+            }
+
+            Collections.addAll(type.as(TypeModification.class).getTypeAheadFields(), annotation.value());
+            type.as(TypeModification.class).setTypeAheadFieldsMap(typeAheadFieldsMap);
+
+        }
+    }
+
+    @TypeModification.FieldInternalNamePrefix("elastic.")
+    public static class TypeModification extends Modification<ObjectType> {
+
+        private Set<String> typeAheadFields;
+        private Map<String, List<String>> typeAheadFieldsMap;
+
+        public Set<String> getTypeAheadFields() {
+            if (typeAheadFields == null) {
+                typeAheadFields = new HashSet<>();
+            }
+            return typeAheadFields;
+        }
+
+        public void setTypeAheadFields(Set<String> typeAheadFields) {
+            this.typeAheadFields = typeAheadFields;
+        }
+
+        public Map<String, List<String>> getTypeAheadFieldsMap() {
+            if (null == typeAheadFieldsMap) {
+                typeAheadFieldsMap = new HashMap<String, List<String>>();
+            }
+            return typeAheadFieldsMap;
+        }
+
+        public void setTypeAheadFieldsMap(Map<String, List<String>> typeAheadFieldsMap) {
+            this.typeAheadFieldsMap = typeAheadFieldsMap;
+        }
+    }
+    // --- TypeAheadFieldsProcessor ---
+
+    // --- ExcludeFromAnyProcessor  ---
+    @Documented
+    @Inherited
+    @ObjectField.AnnotationProcessorClass(ExcludeFromAnyProcessor.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.FIELD)
+    public @interface ExcludeFromAny {
+        boolean value() default true;
+    }
+
+    private static class ExcludeFromAnyProcessor implements ObjectField.AnnotationProcessor<ElasticsearchDatabase.ExcludeFromAny> {
+        @Override
+        public void process(ObjectType type, ObjectField field, ElasticsearchDatabase.ExcludeFromAny annotation) {
+            field.as(ElasticsearchDatabase.FieldData.class).setExcludeFromAny(annotation.value());
+        }
+    }
+
     @Modification.FieldInternalNamePrefix("elastic.")
     public static class FieldData extends Modification<ObjectField> {
 
@@ -3166,6 +3310,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             this.excludeFromAny = excludeFromAny;
         }
     }
+    // --- ExcludeFromAnyProcessor  ---
 
     private static final char[] UUID_WORD_CHARS = new char[] {
             'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
@@ -3443,22 +3588,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
-    @Documented
-    @Inherited
-    @ObjectField.AnnotationProcessorClass(ExcludeFromAnyProcessor.class)
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.FIELD)
-    public @interface ExcludeFromAny {
-        boolean value() default true;
-    }
-
-    private static class ExcludeFromAnyProcessor implements ObjectField.AnnotationProcessor<ElasticsearchDatabase.ExcludeFromAny> {
-        @Override
-        public void process(ObjectType type, ObjectField field, ElasticsearchDatabase.ExcludeFromAny annotation) {
-            field.as(ElasticsearchDatabase.FieldData.class).setExcludeFromAny(annotation.value());
-        }
-    }
-
     /**
      * Set the value into extras
      */
@@ -3524,6 +3653,68 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         entry.getValue());
             }
         }
+        return m;
+    }
+
+    /**
+     * Generate the typeAhead fields to the Index
+     */
+    public Map<String, Object> addTypeAhead(State state) {
+        Map<String, Object> m = new HashMap<>();
+
+        ObjectType type = state.getType();
+
+        if (type != null) {
+            Set<String> typeAheadFields = type.as(TypeModification.class).getTypeAheadFields();
+            Map<String, List<String>> typeAheadFieldsMap = type.as(TypeModification.class).getTypeAheadFieldsMap();
+
+            if (!typeAheadFields.isEmpty()) {
+                List<String> buffer = new ArrayList<>();
+                for (String typeAheadField : typeAheadFields) {
+                    String value = ObjectUtils.to(String.class, state.getByPath(typeAheadField));
+                    // Hack for a client.
+                    if (!ObjectUtils.isBlank(value)) {
+                        value = value.replaceAll("\\{", "").replaceAll("\\}", "");
+                        buffer.add(value);
+                    }
+                }
+                if (buffer.size() > 0) {
+                    ObjectField field = state.getField(DEFAULT_SUGGEST_FIELD);
+                    if (field != null) {
+                        String uniqueName = field.getUniqueName() + "." + SUGGEST_FIELD;
+                        m.put(uniqueName, buffer);
+                    }
+                }
+            }
+
+            if (!typeAheadFieldsMap.isEmpty()) {
+                for (Map.Entry<String, List<String>> entry : typeAheadFieldsMap.entrySet()) {
+                    String typeAheadField = entry.getKey();
+                    List<String> targetFields = entry.getValue();
+                    String value = ObjectUtils.to(String.class, state.getByPath(typeAheadField));
+
+                    if (!ObjectUtils.isBlank(targetFields) && !ObjectUtils.isBlank(value)) {
+                        for (String targetField : targetFields) {
+                            value = value.replaceAll("\\{", "").replaceAll("\\}", "");
+                            ObjectField field = state.getField(targetField);
+                            if (field != null) {
+                                String uniqueName = field.getUniqueName() + "." + SUGGEST_FIELD;
+                                List<String> n;
+                                if (m.get(uniqueName) != null && m.get(uniqueName) instanceof List) {
+                                    n = (List) m.get(uniqueName);
+                                    n.add(value);
+                                } else {
+                                    n = new ArrayList<>();
+                                    n.add(value);
+                                }
+                                m.put(uniqueName, n);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return m;
     }
 
@@ -3602,6 +3793,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 return;
             }
 
+            // a reindex is a save in Elastic
+            if (indexes != null && !indexes.isEmpty()) {
+                if (saves == null) {
+                    saves = indexes;
+                } else {
+                    saves.addAll(indexes);
+                }
+            }
+
             /* verify all indexes exist */
             Set<String> indexSet = new HashSet<>();
 
@@ -3677,6 +3877,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                             Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
                             Map<String, Object> extraLabel = addLabel(state);
+                            Map<String, Object> extraTypeAhead = addTypeAhead(state);
                             Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
 
                             if (extraFields.size() > 0) {
@@ -3684,6 +3885,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             }
                             if (extraLabel.size() > 0) {
                                 extraLabel.forEach((s, obj) -> t.put(s, obj));
+                            }
+                            if (extraTypeAhead.size() > 0) {
+                                extraTypeAhead.forEach((s, obj) -> t.put(s, obj));
                             }
                             if (extraIndex.size() > 0) {
                                 extraIndex.forEach((s, obj) -> t.put(s, obj));
@@ -3797,6 +4001,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             Map<String, Object> extra = new HashMap<>();
                             Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
                             Map<String, Object> extraLabel = addLabel(state);
+                            Map<String, Object> extraTypeAhead = addTypeAhead(state);
                             Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
 
                             if (extraFields.size() > 0) {
@@ -3808,6 +4013,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 sendExtraUpdate = true;
                                 extraLabel.forEach((s, obj) -> t.put(s, obj));
                                 extraLabel.forEach((s, obj) -> extra.put(s, obj));
+                            }
+                            if (extraTypeAhead.size() > 0) {
+                                sendExtraUpdate = true;
+                                extraTypeAhead.forEach((s, obj) -> t.put(s, obj));
+                                extraTypeAhead.forEach((s, obj) -> extra.put(s, obj));
                             }
                             if (extraIndex.size() > 0) {
                                 sendExtraUpdate = true;

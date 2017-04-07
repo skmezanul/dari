@@ -15,6 +15,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ import java.util.Map;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertThat;
@@ -40,6 +42,7 @@ public class ElasticInitializationTest {
     @After
     public void deleteModels() {
         Query.from(SearchIndexModel.class).deleteAllImmediately();
+        Query.from(ElasticModel.class).deleteAllImmediately();
     }
 
     private void put(String path, Object value) {
@@ -109,6 +112,21 @@ public class ElasticInitializationTest {
     public void testPainless() {
         ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
         assertThat(db.isModuleInstalled("lang-painless", "org.elasticsearch.painless.PainlessPlugin"), Matchers.is(true));
+    }
+
+    @Test
+    public void testReIndex() {
+        SearchIndexModel search = new SearchIndexModel();
+        search.eid = "939393";
+        search.name = "Bill";
+        search.message = "tough";
+        search.save();
+
+        Date firstUpdate = Query.from(SearchIndexModel.class).where("eid = 939393").lastUpdate();
+        search.getState().index();
+        Date newUpdate = Query.from(SearchIndexModel.class).where("eid = 939393").lastUpdate();
+
+        assertThat(newUpdate.getTime(), is(greaterThan(firstUpdate.getTime())));
     }
 
     @Test
@@ -250,6 +268,45 @@ public class ElasticInitializationTest {
         Float normalizedScore1 =  ObjectUtils.to(Float.class, fooResult.get(1).getExtra(ElasticsearchDatabase.NORMALIZED_SCORE_EXTRA));
         assertThat(normalizedScore1, Matchers.is (lessThan(1.0f)));
         assertThat(normalizedScore1, Matchers.is (lessThan(normalizedScore)));
+    }
+
+    @Test
+    public void testTypeAhead() {
+        ElasticModel search = new ElasticModel();
+        search.name = "Mickey Mouse";
+        search.desc = "Leader of the pack";
+        search.fromTypeAhead = "Disney Club";
+        search.save();
+
+        ElasticModel search1 = new ElasticModel();
+        search1.name = "Donald Duck";
+        search1.desc = "Happy lead";
+        search1.fromTypeAhead = "Disney Movies";
+        search1.save();
+
+        List<ElasticModel> fooResult = Query
+                .from(ElasticModel.class)
+                .where("suggestField matches ?", "donald du")
+                .selectAll();
+        assertThat(fooResult, hasSize(1));
+
+        List<ElasticModel> fooResult1 = Query
+                .from(ElasticModel.class)
+                .where("suggestField matches ?", "du donald")
+                .selectAll();
+        assertThat(fooResult1, hasSize(1));
+
+        List<ElasticModel> fooResult2 = Query
+                .from(ElasticModel.class)
+                .where("suggestField matches ?", "lea")
+                .selectAll();
+        assertThat(fooResult2, hasSize(2));
+
+        List<ElasticModel> fooResult3 = Query
+                .from(ElasticModel.class)
+                .where("typeAhead matches ?", "Dis")
+                .selectAll();
+        assertThat(fooResult3, hasSize(2));
     }
 
     @Test
