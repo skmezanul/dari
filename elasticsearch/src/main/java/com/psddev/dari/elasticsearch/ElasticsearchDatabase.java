@@ -2532,7 +2532,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
-
     /**
      * addIndexedFields to Elastic
      */
@@ -2606,7 +2605,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String value = ObjectUtils.to(String.class, state.getByPath(typeAheadField));
                     // Hack for a client.
                     if (!ObjectUtils.isBlank(value)) {
-                        value = value.replace("{","").replace("}","");
+                        value = value.replace("{", "").replace("}", "");
                         buffer.add(value);
                     }
                 }
@@ -2629,7 +2628,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
                     if (!ObjectUtils.isBlank(targetFields) && !ObjectUtils.isBlank(value)) {
                         for (String targetField : targetFields) {
-                            value = value.replace("{","").replace("}","");
+                            value = value.replace("{", "").replace("}", "");
                             ObjectField field = state.getField(targetField);
                             if (field != null) {
                                 String uniqueName = field.getUniqueName() + "." + SUGGEST_FIELD;
