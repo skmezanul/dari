@@ -31,6 +31,7 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.slf4j.Logger;
@@ -1381,6 +1382,94 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check matchesany", sem4, hasSize(2));
         List<SearchIndexModel> sem5 = Query.from(SearchIndexModel.class).where("one matchesall ?", many).selectAll();
         assertThat("check matchesall", sem5, hasSize(1));
+    }
+
+    // Same in SOLR and Elastic since they are to be escaped in Lucene
+    private static final Pattern ESCAPE_PATTERN = Pattern.compile("([-+&|!(){}\\[\\]^\"~*?:\\\\\\s/])");
+
+    /**
+     * Escapes the given {@code value} so that it's safe to use
+     * in a Elastic query.
+     *
+     * @param value If {@code null}, returns {@code null}.
+     */
+    public static String escapeValue(Object value) {
+        return value != null ? ESCAPE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
+    }
+
+    // Note - allow user to send anything. Escape is not done, so the client needs to do it
+    // for example, escapeValue(special) unless client wants to send * to expand search.
+    @Test
+    public void testMatchesSpecialChars() {
+        List<String> specialChars = new ArrayList<>();
+        specialChars.add("+");
+        specialChars.add("-");
+        specialChars.add("&&");
+        specialChars.add("||");
+        specialChars.add("!");
+        specialChars.add("(");
+        specialChars.add(")");
+        specialChars.add("{");
+        specialChars.add("}");
+        specialChars.add("[");
+        specialChars.add("]");
+        specialChars.add("^");
+        specialChars.add("\\");
+        specialChars.add("\"");
+        specialChars.add("~");
+        specialChars.add("*");
+        specialChars.add("?");
+        specialChars.add(":");
+        specialChars.add("/");
+
+        for (String special : specialChars) {
+            SearchIndexModel model1 = new SearchIndexModel();
+            model1.one = "Te" + special + "St " + special + "Beginning" + " StOrY" + special;
+            model1.save();
+
+            SearchIndexModel model2 = new SearchIndexModel();
+            model2.one = "Beginning AnOtHeR StOrY" + special;
+            model2.save();
+        }
+
+        int count = specialChars.size() * 2;
+        List<SearchIndexModel> total = Query.from(SearchIndexModel.class).where("one matchesany ?", "beginning").selectAll();
+        assertThat("total", total, hasSize(count));
+
+        List<SearchIndexModel> total1 = Query.from(SearchIndexModel.class).where("one matchesany ?", "story").selectAll();
+        assertThat("total1", total1, hasSize(count));
+
+        for (String special: specialChars) {
+            String specialEscaped = escapeValue(special);
+            List<SearchIndexModel> total2a = Query.from(SearchIndexModel.class).where("one matchesany ?", specialEscaped + "beginning").selectAll();
+            assertThat("total2a", total2a, hasSize(count));
+            List<SearchIndexModel> total2b = Query.from(SearchIndexModel.class).where("one matchesany ?", "te" + specialEscaped + "st").selectAll();
+            // This one has to do with St from Story
+            assertThat("total2b", total2b, hasSize(count));
+            List<SearchIndexModel> total2c = Query.from(SearchIndexModel.class).where("one matchesany ?", "story" + specialEscaped).selectAll();
+            assertThat("total2c", total2c, hasSize(count));
+
+            List<SearchIndexModel> total2d = Query.from(SearchIndexModel.class).where("one startswith ?", "story" + special).selectAll();
+            assertThat("total2d", total2d, hasSize(2));
+
+            List<SearchIndexModel> total2e = Query.from(SearchIndexModel.class).where("one contains ?", "story" + specialEscaped).selectAll();
+            assertThat("total2e", total2e, hasSize(2));
+        }
+
+        for (String special: specialChars) {
+            List<SearchIndexModel> first = Query.from(SearchIndexModel.class).where("one = ?", "te" + special + "st").selectAll();
+            assertThat("first", first, hasSize(0));
+            List<SearchIndexModel> second = Query.from(SearchIndexModel.class).where("one = ?", special + "beginning").selectAll();
+            assertThat("first", second, hasSize(0));
+            List<SearchIndexModel> third = Query.from(SearchIndexModel.class).where("one = ?", "story" + special).selectAll();
+            assertThat("first", third, hasSize(0));
+        }
+
+        // raw does not need to be escaped
+        for (String special: specialChars) {
+            List<SearchIndexModel> first = Query.from(SearchIndexModel.class).where("one = ?", "Te" + special + "St " + special + "Beginning" + " StOrY" + special).selectAll();
+            assertThat("first", first, hasSize(1));
+        }
     }
 
     // sortAscending on floats not working in H2

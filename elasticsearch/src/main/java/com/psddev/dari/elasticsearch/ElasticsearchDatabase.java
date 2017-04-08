@@ -3248,8 +3248,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
          * For "_Any" and Matches, switch UUID for value to uuidWord
          */
         private static Object matchesAnyUUID(String operator, String key, Object value) {
-            if (key.equals(ANY_FIELD)) {
-                if (operator.equals(PredicateParser.STARTS_WITH_OPERATOR) || operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
+            if (operator.equals(PredicateParser.STARTS_WITH_OPERATOR) || operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
+                if (key.equals(ANY_FIELD)) {
                     UUID valueUuid = ObjectUtils.to(UUID.class, value);
                     if (valueUuid != null) {
                         return Static.uuidToWord(valueUuid);

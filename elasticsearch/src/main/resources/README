@@ -51,4 +51,15 @@ public class Code {
 
 3. Dari Query syntax as per docs
 
+4, Static.escapeValue(special) only needed on matchesany, contains, and matchesall. startswith and =,<,>,<=,>=,!= generally Elastic already handles these.
+   But remember you can decide just not send these specialty characters to Elastic on matchesany, matchesall since they would be tokenized out in most cases.
 
+    Also, you might want to send where("name matches bill*") so we don't escape for you.
+
+    For example escaping on contains for "story\\" will query which is correct.
+    query_string" : {
+            "query" : "*story\\|\\|*",
+            "fields" : [
+              "com.psddev.dari.test.SearchIndexModel/one._string^1.0"
+            ]
+    }
