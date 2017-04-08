@@ -2,7 +2,8 @@
   "_all" : {"enabled" : false},
   "properties" : {
     "_ids": {
-      "type": "keyword"
+      "type": "keyword",
+      "norms": false
     },
     "_any": {
       "type": "text",
@@ -24,7 +25,8 @@
       "boolean_type": {
         "match": "_boolean",
         "mapping": {
-          "type": "boolean"
+          "type": "boolean",
+          "norms": false
         }
       }
     },
@@ -32,7 +34,8 @@
       "date_type": {
         "match": "_date",
         "mapping": {
-          "type": "long"
+          "type": "long",
+          "norms": false
         }
       }
     },
@@ -40,7 +43,8 @@
       "number_type": {
         "match": "_number",
         "mapping": {
-          "type": "double"
+          "type": "double",
+          "norms": false
         }
       }
     },
@@ -72,7 +76,8 @@
         "mapping": {
           "type": "text",
           "analyzer": "suggest_analyzer",
-          "search_analyzer": "search_suggest_analyzer"
+          "search_analyzer": "search_suggest_analyzer",
+          "norms": false
         }
       }
     },
