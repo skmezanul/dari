@@ -9,25 +9,45 @@
   },
   "analysis": {
     "analyzer": {
-      "text_analyzer": {
+      "contains_analyzer": {
         "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
-        "filter" : ["text_delimiter", "lowercase", "text_stemmer"]
+        "filter" : [ "lowercase", "asciifolding" ]
+      },
+      "search_contains_analyzer": {
+        "char_filter": [ "html_strip" ],
+        "tokenizer": "whitespace",
+        "filter" : [ "lowercase", "asciifolding" ]
+      },
+      "match_analyzer": {
+        "char_filter": [ "html_strip" ],
+        "tokenizer": "whitespace",
+        "filter" : [ "text_delimiter", "lowercase", "asciifolding", "text_stemmer" ]
+      },
+      "search_match_analyzer": {
+        "char_filter": [ "html_strip" ],
+        "tokenizer": "whitespace",
+        "filter" : [ "search_delimiter", "lowercase", "asciifolding", "text_stemmer" ]
       },
       "any_analyzer": {
           "char_filter": [ "html_strip" ],
           "tokenizer": "whitespace",
-          "filter" : ["text_delimiter", "lowercase", "text_stemmer", "unique_words"]
+          "filter" : [ "text_delimiter", "lowercase", "asciifolding", "text_stemmer", "unique_words" ]
+      },
+      "search_any_analyzer": {
+        "char_filter": [ "html_strip" ],
+        "tokenizer": "whitespace",
+        "filter" : [ "search_delimiter", "lowercase", "asciifolding", "text_stemmer" ]
       },
       "suggest_analyzer": {
         "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
-        "filter" : ["suggest_delimiter", "lowercase", "ngram_filter"]
+        "filter" : [ "suggest_delimiter", "lowercase", "asciifolding", "ngram_filter" ]
       },
       "search_suggest_analyzer": {
         "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
-        "filter" : ["suggest_delimiter", "lowercase"]
+        "filter" : [ "suggest_delimiter", "lowercase", "asciifolding" ]
       }
     },
     "filter" : {
@@ -40,11 +60,20 @@
           "digit"
         ]
       },
+      "search_delimiter" : {
+        "type" : "word_delimiter",
+        "catenate_all": false,
+        "catenate_numbers": false,
+        "catenate_words": true,
+        "generate_number_parts": true,
+        "generate_word_parts": true,
+        "split_on_case_change": true
+      },
       "suggest_delimiter" : {
         "type" : "word_delimiter",
         "catenate_all": false,
         "catenate_numbers": false,
-        "catenate_words": false,
+        "catenate_words": true,
         "generate_number_parts": true,
         "generate_word_parts": true,
         "split_on_case_change": true

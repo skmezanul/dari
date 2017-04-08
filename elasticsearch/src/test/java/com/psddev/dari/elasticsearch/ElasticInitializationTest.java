@@ -52,9 +52,9 @@ public class ElasticInitializationTest {
     @Test
     public void embeddedElastic() {
         String nodeHost = "http://localhost:9200/";
-        assertThat(ElasticsearchDatabase.checkAlive(nodeHost), is(true));
+        assertThat(ElasticsearchDatabase.Static.checkAlive(nodeHost), is(true));
 
-        String elasticCluster = ElasticsearchDatabase.getClusterName(nodeHost);
+        String elasticCluster = ElasticsearchDatabase.Static.getClusterName(nodeHost);
         assertThat(elasticCluster, is(notNullValue()));
         if (ElasticDBSuite.ElasticTests.getIsEmbedded()) {
             Node node = EmbeddedElasticsearchServer.getNode();

@@ -2,8 +2,6 @@ package com.psddev.dari.elasticsearch;
 
 import org.elasticsearch.client.transport.TransportClient;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +18,7 @@ public class ElasticDatabaseConnectionTest {
     @Test
     public void testMultipleConnections() {
         String nodeHost = "http://localhost:" + ELASTICRESTPORT + "/";
-        String elasticCluster = ElasticsearchDatabase.getClusterName(nodeHost);
+        String elasticCluster = ElasticsearchDatabase.Static.getClusterName(nodeHost);
 
         org.elasticsearch.common.settings.Settings nodeSettings;
         List<ElasticsearchNode> nodes = new ArrayList<>();

@@ -97,8 +97,8 @@ public class ElasticDBSuite {
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, "1000");
 
-            String nodeHost = ElasticsearchDatabase.getNodeHost("localhost", "9200");
-            if (!ElasticsearchDatabase.checkAlive(nodeHost)) {
+            String nodeHost = ElasticsearchDatabase.Static.getNodeHost("localhost", "9200");
+            if (!ElasticsearchDatabase.Static.checkAlive(nodeHost)) {
                 LOGGER.info("Starting Embedded");
                 // ok create embedded since it is not already running for test
                 isEmbedded = true;
@@ -107,7 +107,7 @@ public class ElasticDBSuite {
             } else {
                 LOGGER.info("Already running");
             }
-            String verifyClusterName = ElasticsearchDatabase.getClusterName(nodeHost);
+            String verifyClusterName = ElasticsearchDatabase.Static.getClusterName(nodeHost);
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, verifyClusterName);
             deleteIndex(Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING) + "*", nodeHost);
         }

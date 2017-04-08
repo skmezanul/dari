@@ -21,7 +21,6 @@ import com.psddev.dari.db.ObjectType;
 import com.psddev.dari.db.Predicate;
 import com.psddev.dari.db.PredicateParser;
 import com.psddev.dari.db.Query;
-import com.psddev.dari.db.Record;
 import com.psddev.dari.db.Recordable;
 import com.psddev.dari.db.Region;
 import com.psddev.dari.db.Sorter;
@@ -48,7 +47,6 @@ import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
@@ -96,7 +94,6 @@ import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
@@ -175,8 +172,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
     public static final String SCORE_EXTRA = "elastic.score";
     public static final String NORMALIZED_SCORE_EXTRA = "elastic.normalizedScore";
-    private static final String ELASTIC_MAPPING = getMapping("");
-    private static final String ELASTIC_SETTING = getSetting("");
+    private static final String ELASTIC_MAPPING = Static.getMapping("");
+    private static final String ELASTIC_SETTING = Static.getSetting("");
 
     public class IndexKey {
         private String indexId;
@@ -566,119 +563,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Get The running version of Elastic
-     *
-     * @return the version running can return null on exception
-     */
-    public static String getVersion(String nodeHost) {
-        try {
-            CloseableHttpClient httpClient = HttpClients.createDefault();
-
-            HttpGet getRequest = new HttpGet(nodeHost);
-            getRequest.addHeader("accept", "application/json");
-            CloseableHttpResponse response = httpClient.execute(getRequest);
-            try {
-                HttpEntity entity = response.getEntity();
-                String json = EntityUtils.toString(entity);
-                EntityUtils.consume(entity);
-                JSONObject j = new JSONObject(json);
-                if (j != null) {
-                    if (j.get("version") != null) {
-                        if (j.getJSONObject("version") != null) {
-                            JSONObject jo = j.getJSONObject("version");
-                            String version = jo.getString("number");
-                            if (!ELASTIC_VERSION.equals(version)) {
-                                LOGGER.warn("Warning: Elasticsearch {} version is not {}", version, ELASTIC_VERSION);
-                            }
-                            return version;
-                        }
-                    }
-                }
-            } finally {
-                response.close();
-            }
-        } catch (Exception error) {
-            LOGGER.warn(
-                    String.format("Warning: Elasticsearch cannot get version [%s: %s]",
-                            error.getClass().getName(),
-                            error.getMessage()),
-                    error);
-        }
-        return null;
-    }
-
-    /**
-     * Get the clusterName from the running version
-     *
-     * @return the clusterName
-     */
-    public static String getClusterName(String nodeHost) {
-        try {
-            CloseableHttpClient httpClient = HttpClients.createDefault();
-            HttpGet getRequest = new HttpGet(nodeHost);
-            getRequest.addHeader("accept", "application/json");
-            CloseableHttpResponse response = httpClient.execute(getRequest);
-            try {
-                HttpEntity entity = response.getEntity();
-                String json = EntityUtils.toString(entity);
-                EntityUtils.consume(entity);
-                JSONObject j = new JSONObject(json);
-                if (j != null) {
-                    if (j.get("cluster_name") != null) {
-                        return j.getString("cluster_name");
-                    }
-                }
-            } finally {
-                response.close();
-            }
-        } catch (Exception error) {
-            LOGGER.warn(
-                    String.format("Warning: Elasticsearch cannot get cluster_name [%s: %s]",
-                            error.getClass().getName(),
-                            error.getMessage()),
-                    error);
-        }
-        return null;
-    }
-
-    /**
-     * Check to see if the running version is alive.
-     *
-     * @return true indicates node is alive
-     */
-    public static boolean checkAlive(String nodeHost) {
-        try {
-            CloseableHttpClient httpClient = HttpClients.createDefault();
-            HttpGet getRequest = new HttpGet(nodeHost);
-            getRequest.addHeader("accept", "application/json");
-            CloseableHttpResponse response = httpClient.execute(getRequest);
-            try {
-                HttpEntity entity = response.getEntity();
-                String json = EntityUtils.toString(entity);
-                EntityUtils.consume(entity);
-                JSONObject j = new JSONObject(json);
-                if (j != null) {
-                    if (j.get("cluster_name") != null) {
-                        return true;
-                    }
-                }
-            } finally {
-                response.close();
-            }
-        } catch (Exception e) {
-            LOGGER.warn("Warning: Elasticsearch is not already running");
-        }
-        return false;
-    }
-
-    /**
-     * Get one node and return it for REST call
-     */
-    public static String getNodeHost(String host, String restPort) {
-        return "http://" + host + ":" + restPort + "/";
-    }
-
-    /**
      * Get one node and return it for REST call
      */
     public String getNodeHost() {
@@ -808,7 +692,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (mappedKey != null) {
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
-                    field = addQueryFieldType(internalType, mappedKey.getIndexKey(null), true);
+                    field = Static.addQueryFieldType(internalType, mappedKey.getIndexKey(null), true);
                 }
             }
             if (field == null) {
@@ -879,7 +763,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 if (mappedKey != null) {
                     String internalType = mappedKey.getInternalType();
                     if (internalType != null) {
-                        elasticField = addQueryFieldType(internalType, mappedKey.getIndexKey(null), true);
+                        elasticField = Static.addQueryFieldType(internalType, mappedKey.getIndexKey(null), true);
                     }
                 }
                 if (elasticField == null) {
@@ -1007,7 +891,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Get cached version of the indexName using the typeId
      */
-    private String getElasticIndexName(UUID typeId) {
+    private static String getElasticIndexName(UUID typeId) {
 
         try {
                 return INDEXTYPEID_CACHE.get(typeId);
@@ -1084,7 +968,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Read partial results from Elastic - convert Query to SearchRequestBuilder
      *
      * @see #getSubQueryResolveLimit()
-     * @see #predicateToSortBuilder(List, QueryBuilder, Query, SearchRequestBuilder, String[])
+     * @see #predicateToSortBuilder
      */
     @Override
     @SuppressWarnings("unchecked")
@@ -1140,7 +1024,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         srb.setQuery(qb)
                 .setFrom((int) offset)
                 .setSize(limit);
-        for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb, typeIdStrings)) {
+        for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb)) {
             srb.addSort(sb);
         }
 
@@ -1255,17 +1139,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Convert key to Query
-     */
-    private static String convertKeyToQuery(String key) {
-        if (key.equals(IDS_FIELD)) {
-            return ID_FIELD;
-        } else {
-            return key;
-        }
-    }
-
-    /**
      * Denormalize the key or return Query.NoFieldException
      *
      * @return Query.MappedKey {@code null} can be returned
@@ -1273,268 +1146,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private Query.MappedKey mapFullyDenormalizedKey(Query<?> query, String key) {
 
-        Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), convertKeyToQuery(key));
+        Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), Static.convertKeyToQuery(key));
         if (mappedKey == null) {
             return null;
         }
         if (isReference(key, query)) {
             return mappedKey;
         } else if (mappedKey.hasSubQuery()) {
-            throw new Query.NoFieldException(query.getGroup(), convertKeyToQuery(key));
+            throw new Query.NoFieldException(query.getGroup(), Static.convertKeyToQuery(key));
         }
         return mappedKey;
-    }
-
-    /**
-     * Look for field name recursively in Elastic
-     * Return true if found it, else false
-     *
-     * @see #checkElasticMappingField
-     */
-    private boolean findElasticMap(Map<String, Object> properties, List<String> key, int length) {
-        if (properties != null) {
-            if (length < key.size()) {
-                /* check fields separate */
-                if (properties.get("fields") != null) {
-                    if (properties.get("fields") instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> fields = (Map<String, Object>) properties.get("fields");
-                        if (fields.get(key.get(length)) != null) {
-                            if (length == key.size() - 1) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-                if (properties.get("properties") != null) {
-                    if (properties.get("properties") instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> p = (Map<String, Object>) properties.get("properties");
-                        return findElasticMap(p, key, length);
-                    }
-                } else if (properties.get(key.get(length)) != null) {
-                    if (length == key.size() - 1) {
-                        return true;
-                    }
-                    if (properties.get(key.get(length)) instanceof Map) {
-                        //noinspection unchecked
-                        return findElasticMap((Map<String, Object>) properties.get(key.get(length)), key, length + 1);
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Check types for field in Elastic mapping. Note that the field must be inserted not null to show up.
-     *
-     * @return true if the field exists
-     * @throws IOException the Elastic could fail on getting _mapping on the type
-     * @see #findElasticMap
-     */
-    private boolean checkElasticMappingField(String[] typeIds, String field) throws IOException {
-
-        if (typeIds != null && typeIds.length > 0) {
-            GetMappingsResponse response = client.admin().indices()
-                    .prepareGetMappings(indexName + "*")
-                    .setTypes(typeIds)
-                    .execute().actionGet();
-
-            if (response != null && response.getMappings() != null) {
-                for (String typeId : typeIds) {
-                    LOGGER.debug("Checking mapping for {}, {}", indexName + Static.replaceDash(typeId), typeId);
-                    if (response.getMappings().get(indexName + Static.replaceDash(typeId)) != null
-                            && response.getMappings().get(indexName + Static.replaceDash(typeId)).get(typeId) != null) {
-                        Map<String, Object> source = response.getMappings().get(indexName + Static.replaceDash(typeId)).get(typeId).sourceAsMap();
-                        if (source.get("properties") instanceof Map) {
-                            @SuppressWarnings("unchecked")
-                            Map<String, Object> properties = (Map<String, Object>) source.get("properties");
-                            List<String> items = Arrays.asList(field.split("\\."));
-                            if (!findElasticMap(properties, items, 0)) {
-                                return false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Interrogate the field and convert to Normal field
-     */
-    private String getField(String key) {
-        if (key.endsWith("." + RAW_FIELD)) {
-            key = key.substring(0, key.length() - ("." + RAW_FIELD).length());
-        } else if (key.endsWith("." + LOCATION_FIELD)) {
-            key = key.substring(0, key.length() - ("." + LOCATION_FIELD).length());
-        } else if (key.endsWith("." + MATCH_FIELD)) {
-            key = key.substring(0, key.length() - ("." + MATCH_FIELD).length());
-        } else if (key.endsWith("." + SUGGEST_FIELD)) {
-            key = key.substring(0, key.length() - ("." + SUGGEST_FIELD).length());
-        } else if (key.endsWith("." + REGION_FIELD)) {
-            key = key.substring(0, key.length() - ("." + REGION_FIELD).length());
-        } else if (key.endsWith("." + BOOLEAN_FIELD)) {
-            key = key.substring(0, key.length() - ("." + BOOLEAN_FIELD).length());
-        } else if (key.endsWith("." + DATE_FIELD)) {
-            key = key.substring(0, key.length() - ("." + DATE_FIELD).length());
-        } else if (key.endsWith("." + NUMBER_FIELD)) {
-            key = key.substring(0, key.length() - ("." + NUMBER_FIELD).length());
-        } else if (key.endsWith("." + STRING_FIELD)) {
-            key = key.substring(0, key.length() - ("." + STRING_FIELD).length());
-        }
-        return key;
-    }
-
-    /**
-     * When querying from Elastic this appends type to the string for Elastic
-     */
-    private String addQueryFieldType(String internalType, String key, boolean isExact) {
-        if (IDS_FIELD.equals(key) || ID_FIELD.equals(key) || TYPE_ID_FIELD.equals(key) || (internalType == null)) {
-            return key;
-        } else {
-            if (isExact && (ObjectField.UUID_TYPE.equals(internalType) || ObjectField.TEXT_TYPE.equals(internalType))) {
-                if (key.endsWith("." + RAW_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + RAW_FIELD;
-                }
-            } else if (ObjectField.RECORD_TYPE.equals(internalType)) {
-                if (key.endsWith("." + RAW_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + RAW_FIELD;
-                }
-            } else if (ObjectField.LOCATION_TYPE.equals(internalType)) {
-                if (key.endsWith("." + LOCATION_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + LOCATION_FIELD;
-                }
-            } else if (ObjectField.REGION_TYPE.equals(internalType)) {
-                if (key.endsWith("." + REGION_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + REGION_FIELD;
-                }
-            } else if (ObjectField.BOOLEAN_TYPE.equals(internalType)) {
-                if (key.endsWith("." + BOOLEAN_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + BOOLEAN_FIELD;
-                }
-            } else if (ObjectField.DATE_TYPE.equals(internalType)) {
-                if (key.endsWith("." + DATE_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + DATE_FIELD;
-                }
-            } else if (ObjectField.NUMBER_TYPE.equals(internalType)) {
-                if (key.endsWith("." + NUMBER_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + NUMBER_FIELD;
-                }
-            } else {
-                return key + "." + STRING_FIELD;
-            }
-        }
-    }
-
-    /**
-     * When indexing to Elastic this appends type to the string for Elastic
-     * file, uri, url are Strings
-     */
-    private String addIndexFieldType(String internalType, String key, Object value) {
-        //LOGGER.info("key: [{}]", key);
-        if (IDS_FIELD.equals(key) || ID_FIELD.equals(key) || TYPE_ID_FIELD.equals(key) || (internalType == null)) {
-            return key;
-        } else {
-            //LOGGER.info("key: [{}], internalType [{}]", key, internalType);
-            // might want to use string for ANY_TYPE for value
-            if (ObjectField.ANY_TYPE.equals(internalType)) {
-                if (value instanceof Boolean) {
-                    if (key.endsWith("." + BOOLEAN_FIELD)) {
-                        return key;
-                    } else {
-                        return key + "." + BOOLEAN_FIELD;
-                    }
-                } else if (value instanceof Date) {
-                    if (key.endsWith("." + DATE_FIELD)) {
-                        return key;
-                    } else {
-                        return key + "." + DATE_FIELD;
-                    }
-                } else if (value instanceof Number) {
-                    if (key.endsWith("." + NUMBER_FIELD)) {
-                        return key;
-                    } else {
-                        return key + "." + NUMBER_FIELD;
-                    }
-                } else {
-                    if (key.endsWith("." + STRING_FIELD)) {
-                        return key;
-                    } else {
-                        return key + "." + STRING_FIELD;
-                    }
-                }
-            } else if (ObjectField.UUID_TYPE.equals(internalType) || ObjectField.TEXT_TYPE.equals(internalType)) {
-                if (key.endsWith("." + "raw")) {
-                    return key.substring(0, key.length() - ("." + "raw").length());
-                } else {
-                    if (key.endsWith("." + STRING_FIELD)) {
-                        return key;
-                    } else {
-                        return key + "." + STRING_FIELD;
-                    }
-                }
-            } else if (ObjectField.RECORD_TYPE.equals(internalType)) {
-                // back to STRING_FIELD
-                if (key.endsWith("." + "raw")) {
-                    return key.substring(0, key.length() - ("." + "raw").length());
-                } else {
-                    return key + "." + STRING_FIELD;
-                }
-            } else if (ObjectField.LOCATION_TYPE.equals(internalType)) {
-                if (key.endsWith("." + LOCATION_FIELD) || key.endsWith(".x") || key.endsWith(".y")) {
-                    return key;
-                } else {
-                    return key + "." + LOCATION_FIELD;
-                }
-            } else if (ObjectField.REGION_TYPE.equals(internalType)) {
-                if (key.endsWith("." + REGION_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + REGION_FIELD;
-                }
-            } else if (ObjectField.BOOLEAN_TYPE.equals(internalType)) {
-                if (key.endsWith("." + BOOLEAN_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + BOOLEAN_FIELD;
-                }
-            } else if (ObjectField.DATE_TYPE.equals(internalType)) {
-                if (key.endsWith("." + DATE_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + DATE_FIELD;
-                }
-            } else if (ObjectField.NUMBER_TYPE.equals(internalType)) {
-                if (key.endsWith("." + NUMBER_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + NUMBER_FIELD;
-                }
-            } else {
-                if (key.endsWith("." + STRING_FIELD)) {
-                    return key;
-                } else {
-                    return key + "." + STRING_FIELD;
-                }
-            }
-        }
     }
 
     /**
@@ -1544,7 +1165,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (key.equals(UID_FIELD) || key.equals(ID_FIELD) || key.equals(TYPE_ID_FIELD)) {
             return "keyword";
         }
-        key = getField(key);
+        key = Static.getField(key);
 
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
         String elasticField = specialSortFields.get(mappedKey);
@@ -1585,7 +1206,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             list.add(Terms.Order.count(false));
         } else {
 
-            aggKey = getField(aggKey);
+            aggKey = Static.getField(aggKey);
             for (Sorter sorter : sorters) {
                 String operator = sorter.getOperator();
                 if (Sorter.ASCENDING_OPERATOR.equals(operator) || Sorter.DESCENDING_OPERATOR.equals(operator)) {
@@ -1625,7 +1246,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Build a list of SortBuilder sorters based on Elastic
      */
-    private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb, String[] typeIds) {
+    private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb) {
         List<SortBuilder> list = new ArrayList<>();
         if (sorters == null || sorters.size() == 0) {
             list.add(new ScoreSortBuilder());
@@ -1639,7 +1260,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boolean isAscending = Sorter.ASCENDING_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(0);
 
-                    String elasticField = convertAscendingElasticField(queryKey, query, typeIds);
+                    String elasticField = convertAscendingElasticField(queryKey, query);
 
                     if (elasticField == null) {
                         throw new UnsupportedIndexException(this, queryKey);
@@ -1664,7 +1285,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         String internalType = mappedKey.getInternalType();
                         if (internalType != null) {
                             if (ObjectField.DATE_TYPE.equals(internalType)) {
-                                elasticField = addQueryFieldType(internalType, queryKey, true);
+                                elasticField = Static.addQueryFieldType(internalType, queryKey, true);
                             } else {
                                 throw new IllegalArgumentException();
                             }
@@ -1703,7 +1324,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boolean isClosest = Sorter.CLOSEST_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(0);
 
-                    String elasticField = convertFarthestElasticField(queryKey, query, typeIds);
+                    String elasticField = convertFarthestElasticField(queryKey, query);
 
                     if (!(sorter.getOptions().get(1) instanceof Location)) {
                         throw new IllegalArgumentException(operator + " requires Location");
@@ -1755,7 +1376,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private boolean isReference(String queryKey, Query<?> query) {
         try {
-            Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), convertKeyToQuery(queryKey));
+            Query.MappedKey mappedKey = query.mapDenormalizedKey(getEnvironment(), Static.convertKeyToQuery(queryKey));
             if (mappedKey != null) {
                 if (mappedKey.hasSubQuery()) {
                     return true;
@@ -1794,7 +1415,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * @throws IllegalArgumentException  the argument is illegal
      * @throws UnsupportedIndexException the mapping not setup properly
      */
-    private <T> String convertAscendingElasticField(String queryKey, Query<T> query, String[] typeIds) {
+    private <T> String convertAscendingElasticField(String queryKey, Query<T> query) {
         String elasticField;
 
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
@@ -1810,7 +1431,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             String internalType = mappedKey.getInternalType();
             if (internalType != null) {
                 if (ObjectField.TEXT_TYPE.equals(internalType) || ObjectField.UUID_TYPE.equals(internalType)) {
-                    elasticField = addRaw(queryKey);
+                    elasticField = Static.addRaw(queryKey);
                 } else if (ObjectField.LOCATION_TYPE.equals(internalType)) {
                     elasticField = queryKey + "." + LOCATION_FIELD;
                     // not sure what to do with lat,long and sort?
@@ -1819,7 +1440,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     elasticField = queryKey + "." + REGION_FIELD;
                     throw new IllegalArgumentException(elasticField + " cannot sort GeoJSON in Elastic Search");
                 } else {
-                    elasticField = addQueryFieldType(internalType, queryKey, true);
+                    elasticField = Static.addQueryFieldType(internalType, queryKey, true);
                 }
             }
             if (elasticField == null) {
@@ -1832,7 +1453,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * For Farthest / Nearest sort get the elasticField
      */
-    private <T> String convertFarthestElasticField(String queryKey, Query<T> query, String[] typeIds) {
+    private <T> String convertFarthestElasticField(String queryKey, Query<T> query) {
         String elasticField;
 
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
@@ -1875,66 +1496,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * A reference is difficult to join in Elastic. This returns a list of Ids so you can join on next level of reference
-     * In reality it is a join when you have a subQuery.
-     *
-     * @throws IllegalArgumentException the argument is illegal
-     */
-    private <T> List<String> referenceSwitcher(String key, Query<T> query) {
-        String[] keyArr = key.split("/");
-        List<String> allids = new ArrayList<>();
-        List<?> list = new ArrayList<T>();
-        // Go until last - since the user might want something besides != missing...
-        if (keyArr.length > 0) {
-            for (int i = 0; i < keyArr.length - 1; i++) {
-                if (isReference(keyArr[i], query)) {
-                    PaginatedResult<?> result;
-                    if (allids.size() == 0) {
-                        result = Query.from(query.getObjectClass()).where(keyArr[i] + " != missing").select(0, SUBQUERY_MAX_ROWS);
-                    } else {
-                        result = Query.from(query.getObjectClass()).where(keyArr[i] + " != missing").and("_id contains ?", allids).select(0, SUBQUERY_MAX_ROWS);
-                    }
-
-                    int count = (int) result.getCount();
-                    list = result.getItems();
-                    if (list.size() > (SUBQUERY_MAX_ROWS - 1)) {
-                        LOGGER.warn("reference join in Elasticsearch is > {} which will limit results", (SUBQUERY_MAX_ROWS - 1));
-                        throw new IllegalArgumentException(key + " / joins > " + (SUBQUERY_MAX_ROWS - 1) + " not allowed");
-                    }
-                    allids = new ArrayList<>();
-                    for (int j = 0; j < list.size(); j++) {
-                        if (list.get(j) instanceof Record) {
-                            Map<String, Object> itemMap = ((Record) list.get(j)).getState().getSimpleValues(false);
-                            if (itemMap.get(keyArr[i]) instanceof Map && itemMap.get(keyArr[i]) != null) {
-                                @SuppressWarnings("unchecked")
-                                Map<String, Object> o = (Map<String, Object>) itemMap.get(keyArr[i]);
-                                if (o.get(StateSerializer.REFERENCE_KEY) != null) {
-                                    allids.add((String) o.get(StateSerializer.REFERENCE_KEY));
-                                }
-                            } else if (itemMap.get(keyArr[i]) instanceof List && itemMap.get(keyArr[i]) != null) {
-                                @SuppressWarnings("unchecked")
-                                List<Object> subList = (List<Object>) itemMap.get(keyArr[i]);
-                                for (Object sub : subList) {
-                                    @SuppressWarnings("unchecked")
-                                    Map<String, Object> s = (Map<String, Object>) sub;
-                                    if (s.get(StateSerializer.REFERENCE_KEY) != null) {
-                                        allids.add((String) s.get(StateSerializer.REFERENCE_KEY));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (list.size() > 0) {
-            return allids;
-        } else {
-            return null;
-        }
-    }
-
-    /**
      * For count we don't need to return any rows
      */
     @Override
@@ -1971,55 +1532,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Take circles and polygons and build a new GeoJson that works with Elastic
-     */
-    public String getGeoJson(List<Region.Circle> circles, Region.MultiPolygon polygons) {
-        List<Map<String, Object>> features = new ArrayList<>();
-
-        Map<String, Object> featureCollection = new HashMap<>();
-        featureCollection.put("type", "geometrycollection");
-        featureCollection.put("geometries", features);
-
-        if (circles != null && circles.size() > 0) {
-
-            for (Region.Circle circle : circles) {
-                Map<String, Object> geometry = new HashMap<>();
-                geometry.put("type", "circle");
-                geometry.put("coordinates", circle.getGeoJsonArray().get(0)); // required for Elasticsearch
-                geometry.put("radius", Math.ceil(circle.getRadius()) + "m");
-
-                features.add(geometry);
-            }
-        }
-
-        if (polygons != null && polygons.size() > 0) {
-            Map<String, Object> geometry = new HashMap<>();
-            geometry.put("type", "multipolygon");
-            geometry.put("coordinates", polygons);
-
-            features.add(geometry);
-        }
-
-        return ObjectUtils.toJson(featureCollection);
-    }
-
-    /**
-     * add Raw for fields that are not _ids, _id, _type
-     */
-    private static String addRaw(String query) {
-        if (IDS_FIELD.equals(query) || ID_FIELD.equals(query) || TYPE_ID_FIELD.equals(query)) {
-            return query;
-        } else {
-            if (query.endsWith("." + RAW_FIELD)) {
-                return query;
-            } else {
-                return query + "." + RAW_FIELD;
-            }
-        }
-
-    }
-
-    /**
      * Get the QueryBuilder equalsany for each v. Splits out "Location" and "Region"
      */
     private QueryBuilder equalsAnyQuery(String simpleKey, String dotKey, String key, Query<?> query, Object v, ShapeRelation sr) {
@@ -2031,14 +1543,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             String checkField = specialFields.get(mappedKey);
             if (checkField == null) {
                 if (simpleKey != null) {
-                    key = addRaw(key);
+                    key = Static.addRaw(key);
                 } else {
                     if (Static.isUUID(v) && isReference(dotKey, query)) {
-                        return QueryBuilders.termQuery(addRaw(key), v);
+                        return QueryBuilders.termQuery(Static.addRaw(key), v);
                     } else {
                         String internalType = mappedKey.getInternalType();
                         if (!ObjectField.NUMBER_TYPE.equals(internalType)) {
-                            key = addRaw(key);
+                            key = Static.addRaw(key);
                         }
                     }
                 }
@@ -2054,16 +1566,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     } else if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
                         throw new IllegalArgumentException(key + " boolean cannot be region");
                     } else {
-                        key = addQueryFieldType(internalType, key, true);
+                        key = Static.addQueryFieldType(internalType, key, true);
                     }
                 } else if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
                     if (v instanceof Location) {
-                        return QueryBuilders.boolQuery().must(geoShape(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()));
+                        return QueryBuilders.boolQuery().must(Static.geoShape(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()));
 
                     } else if (v instanceof Region) {
                         // required to fix array issue on Circles and capitals
                         Region region = (Region) v;
-                        String geoJson = getGeoJson(region.getCircles(), region.getPolygons());
+                        String geoJson = Static.getGeoJson(region.getCircles(), region.getPolygons());
 
                         String shapeJson = "{" + "\"shape\":" + geoJson + ", \"relation\": \"" + sr + "\"}";
                         String nameJson = "{" + "\"" + key + "." + REGION_FIELD + "\":" + shapeJson + "}";
@@ -2079,93 +1591,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 .distance(Region.degreesToKilometers(((Region) v).getRadius()), DistanceUnit.KILOMETERS);
                     }
                 } else {
-                    key = addQueryFieldType(internalType, key, true);
+                    key = Static.addQueryFieldType(internalType, key, true);
                 }
             }
         }
 
         return QueryBuilders.termQuery(key, v);
-    }
-
-    /**
-     * Get QueryBuilder for geoShape for intersects
-     *
-     * @see #predicateToQueryBuilder
-     */
-    private GeoShapeQueryBuilder geoShapeIntersects(String key, double x, double y) {
-        try {
-            return QueryBuilders
-                    .geoShapeQuery(key, ShapeBuilders.newPoint(new Coordinate(x, y))).relation(ShapeRelation.INTERSECTS);
-        } catch (Exception error) {
-            LOGGER.warn(
-                    String.format("geoShapeIntersects threw Exception [%s: %s]",
-                            error.getClass().getName(),
-                            error.getMessage()),
-                    error);
-        }
-        return null;
-    }
-
-    /**
-     * Get QueryBuilder for geoShape for contains
-     *
-     * @see #predicateToQueryBuilder
-     */
-    private GeoShapeQueryBuilder geoShape(String key, double x, double y) {
-        try {
-            return QueryBuilders
-                    .geoShapeQuery(key, ShapeBuilders.newPoint(new Coordinate(x, y))).relation(ShapeRelation.CONTAINS);
-        } catch (Exception error) {
-            LOGGER.warn(
-                    String.format("geoShape threw Exception [%s: %s]",
-                            error.getClass().getName(),
-                            error.getMessage()),
-                    error);
-        }
-        return null;
-    }
-
-    /**
-     * Get QueryBuilder for Circle for contains
-     * Currently use geoShape higher level
-     */
-    private GeoShapeQueryBuilder geoCircle(String key, double x, double y, double r) {
-        try {
-            return QueryBuilders
-                    .geoShapeQuery(key, ShapeBuilders.newCircleBuilder().center(x, y).radius(r, DistanceUnit.KILOMETERS)).relation(ShapeRelation.CONTAINS);
-        } catch (Exception error) {
-            LOGGER.warn(
-                    String.format("geoCircle threw Exception [%s: %s]",
-                            error.getClass().getName(),
-                            error.getMessage()),
-                    error);
-        }
-        return null;
-    }
-
-    /**
-     * For contains, add * for within strings
-     */
-    private static Object containsWildcard(String operator, Object value) {
-        if (operator.equals(PredicateParser.CONTAINS_OPERATOR) && (value instanceof String)) {
-            return "*" + value + "*";
-        }
-        return value;
-    }
-
-    /**
-     * For "_Any" and Matches, switch UUID for value to uuidWord
-     */
-    private Object matchesAnyUUID(String operator, String key, Object value) {
-        if (key.equals(ANY_FIELD)) {
-            if (operator.equals(PredicateParser.STARTS_WITH_OPERATOR) || operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
-                UUID valueUuid = ObjectUtils.to(UUID.class, value);
-                if (valueUuid != null) {
-                    return uuidToWord(valueUuid);
-                }
-            }
-        }
-        return value;
     }
 
     /**
@@ -2175,7 +1606,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (key.endsWith("." + RAW_FIELD) || key.equals(ANY_FIELD)) {
             return key;
         } else if (operator.equals(PredicateParser.CONTAINS_OPERATOR)) {
-            return key + "." + MATCH_FIELD;
+            return key + "." + STRING_FIELD;
         } else if (operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
             if (typeIds != null) {
                 for (UUID typeId : typeIds) {
@@ -2251,7 +1682,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 String internalType = mappedKey.getInternalType();
                 if (internalType != null) {
                     elasticField = mappedKey.getIndexKey(null); // whole string
-                    elasticPostFieldExact = addQueryFieldType(internalType, elasticField, true);
+                    elasticPostFieldExact = Static.addQueryFieldType(internalType, elasticField, true);
                 }
             }
 
@@ -2268,8 +1699,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             List<Object> values = comparison.getValues();
 
             String simpleKey = null;
-
-            String pKey = queryKey;
 
             if (mappedKey != null) {
                 // Elasticsearch like Solr does not support joins in 5.2. Might be memory issue and slow!
@@ -2292,8 +1721,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
 
                 if (ids != null && ids.size() > 0) {
-                    Query part1 = Query.from(query.getObjectClass()).where(convertKeyToQuery(elasticField) + " != missing");
-                    Query part2 = Query.fromAll().where(convertKeyToQuery(elasticField) + " = ?", ids);
+                    Query part1 = Query.from(query.getObjectClass()).where(Static.convertKeyToQuery(elasticField) + " != missing");
+                    Query part2 = Query.fromAll().where(Static.convertKeyToQuery(elasticField) + " = ?", ids);
                     Query combinedParts = Query.fromAll().where(part1.getPredicate()).and(part2.getPredicate());
                     LOGGER.debug("returning subQuery ids [{}] [{}]", ids.size(), combinedParts.getPredicate());
                     return predicateToQueryBuilder(combinedParts.getPredicate(), query);
@@ -2350,10 +1779,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intLtType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                                     v == null ? QueryBuilders.matchAllQuery()
-                                    : (Static.isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).lt(v)
+                                    : (Static.isUUID(v) ? QueryBuilders.rangeQuery(Static.addRaw(key)).lt(v)
                                     : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
                                         .must(QueryBuilders.rangeQuery(key + ".y").lt(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(addQueryFieldType(intLtType, key, true)).lt(v))));
+                                    : QueryBuilders.rangeQuery(Static.addQueryFieldType(intLtType, key, true)).lt(v))));
 
                 case PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
@@ -2380,11 +1809,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intLteType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).lte(v)
+                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(Static.addRaw(key)).lte(v)
                             : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lte(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(key + ".y").lte(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(addQueryFieldType(intLteType, key, true)).lte(v))));
+                                    : QueryBuilders.rangeQuery(Static.addQueryFieldType(intLteType, key, true)).lte(v))));
 
                 case PredicateParser.GREATER_THAN_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
@@ -2410,11 +1839,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intGtType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).gt(v)
+                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(Static.addRaw(key)).gt(v)
                             : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(addQueryFieldType(intGtType, key, true)).gt(v))));
+                                    : QueryBuilders.rangeQuery(Static.addQueryFieldType(intGtType, key, true)).gt(v))));
 
                 case PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR :
 
@@ -2441,11 +1870,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intGteType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(addRaw(key)).gte(v)
+                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(Static.addRaw(key)).gte(v)
                             : (v instanceof Location
                                     ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gte(((Location) v).getX()))
                                     .must(QueryBuilders.rangeQuery(key + ".y").gte(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(addQueryFieldType(intGteType, key, true)).gte(v))));
+                                    : QueryBuilders.rangeQuery(Static.addQueryFieldType(intGteType, key, true)).gte(v))));
 
                 case PredicateParser.STARTS_WITH_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
@@ -2475,7 +1904,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : checkField != null ? QueryBuilders.prefixQuery(key, String.valueOf(matchesAnyUUID(operator, key, v)))
+                            : checkField != null ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v)))
                             : QueryBuilders.prefixQuery(key + "." + STRING_FIELD, String.valueOf(v)));
 
                 case PredicateParser.CONTAINS_OPERATOR :
@@ -2523,18 +1952,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
                                 : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
+                                    ? QueryBuilders.boolQuery().must(Static.geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                                 equalsAnyQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)))));
                                           //QueryBuilders.matchPhrasePrefixQuery(key, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
-                                : QueryBuilders.queryStringQuery(String.valueOf(containsWildcard(operator, matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)));
+                                : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)));
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
@@ -2579,18 +2008,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
                                         : (v instanceof Location
-                                        ? QueryBuilders.boolQuery().must(geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
+                                        ? QueryBuilders.boolQuery().must(Static.geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                         equalsAnyQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)))));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)))));
                                        //QueryBuilders.matchPhrasePrefixQuery(key, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.queryStringQuery(String.valueOf(matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)));
+                                        : QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)));
                     }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
@@ -2670,236 +2099,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * The settings for indexes analysis
-     */
-    public static String getSetting(String path) {
-        try {
-            LOGGER.debug("trying resource mapping.json mapping");
-            return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "setting.json").toURI())));
-        } catch (Exception error) {
-            LOGGER.info("Using default setting - switch to resource file");
-            return "{\n"
-                    + "  \"index.query.default_field\": \"_any\",\n"
-                    + "  \"index.mapping.total_fields.limit\": 100000,\n"
-                    + "  \"index.mapping.ignore_malformed\": true,\n"
-                    + "  \"index\": {\n"
-                    + "    \"refresh_interval\" : \"2s\",\n"
-                    + "    \"number_of_shards\": \"2\",\n"
-                    + "    \"number_of_replicas\": \"1\"\n"
-                    + "  },\n"
-                    + "  \"analysis\": {\n"
-                    + "    \"analyzer\": {\n"
-                    + "      \"text_analyzer\": {\n"
-                    + "        \"char_filter\": [ \"html_strip\" ],\n"
-                    + "        \"tokenizer\": \"whitespace\",\n"
-                    + "        \"filter\" : [\"text_delimiter\", \"lowercase\", \"text_stemmer\"]\n"
-                    + "      },\n"
-                    + "      \"any_analyzer\": {\n"
-                    + "          \"char_filter\": [ \"html_strip\" ],\n"
-                    + "          \"tokenizer\": \"whitespace\",\n"
-                    + "          \"filter\" : [\"text_delimiter\", \"lowercase\", \"text_stemmer\", \"unique_words\"]\n"
-                    + "      },\n"
-                    + "      \"suggest_analyzer\": {\n"
-                    + "        \"char_filter\": [ \"html_strip\" ],\n"
-                    + "        \"tokenizer\": \"whitespace\",\n"
-                    + "        \"filter\" : [\"suggest_delimiter\", \"lowercase\", \"ngram_filter\"]\n"
-                    + "      },\n"
-                    + "      \"search_suggest_analyzer\": {\n"
-                    + "        \"char_filter\": [ \"html_strip\" ],\n"
-                    + "        \"tokenizer\": \"whitespace\",\n"
-                    + "        \"filter\" : [\"suggest_delimiter\", \"lowercase\"]\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    \"filter\" : {\n"
-                    + "      \"ngram_filter\": {\n"
-                    + "        \"type\": \"edge_ngram\",\n"
-                    + "        \"min_gram\": 1,\n"
-                    + "        \"max_gram\": 12,\n"
-                    + "        \"token_chars\": [\n"
-                    + "          \"letter\",\n"
-                    + "          \"digit\"\n"
-                    + "        ]\n"
-                    + "      },\n"
-                    + "      \"suggest_delimiter\" : {\n"
-                    + "        \"type\" : \"word_delimiter\",\n"
-                    + "        \"catenate_all\": false,\n"
-                    + "        \"catenate_numbers\": false,\n"
-                    + "        \"catenate_words\": false,\n"
-                    + "        \"generate_number_parts\": true,\n"
-                    + "        \"generate_word_parts\": true,\n"
-                    + "        \"split_on_case_change\": true\n"
-                    + "      },\n"
-                    + "      \"text_delimiter\" : {\n"
-                    + "        \"type\" : \"word_delimiter\",\n"
-                    + "        \"catenate_all\": false,\n"
-                    + "        \"catenate_numbers\": true,\n"
-                    + "        \"catenate_words\": true,\n"
-                    + "        \"generate_number_parts\": true,\n"
-                    + "        \"generate_word_parts\": true,\n"
-                    + "        \"split_on_case_change\": true\n"
-                    + "      },\n"
-                    + "      \"text_stemmer\" : {\n"
-                    + "        \"type\" : \"stemmer\",\n"
-                    + "        \"name\" : \"porter2\"\n"
-                    + "      },\n"
-                    + "      \"unique_words\" : {\n"
-                    + "        \"type\" : \"unique\"\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "  }\n"
-                    + "}";
-        }
-    }
-
-    /**
-     * The actual map for Elasticsearch
-     */
-    private static String getMapping(String path) {
-        try {
-            LOGGER.debug("trying resource mapping.json mapping");
-            return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "mapping.json").toURI())));
-        } catch (Exception error) {
-            LOGGER.info("Using default mapping - switch to resource file");
-            return "{\n"
-                    + "  \"_all\" : {\"enabled\" : false},\n"
-                    + "  \"properties\" : {\n"
-                    + "    \"_ids\": {\n"
-                    + "      \"type\": \"keyword\"\n"
-                    + "    },\n"
-                    + "    \"_any\": {\n"
-                    + "      \"type\": \"text\",\n"
-                    + "      \"analyzer\": \"any_analyzer\"\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  \"dynamic_templates\": [\n"
-                    + "    {\n"
-                    + "      \"locationgeo\": {\n"
-                    + "        \"match\": \"_location\",\n"
-                    + "        \"match_mapping_type\": \"string\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"geo_point\"\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"boolean_type\": {\n"
-                    + "        \"match\": \"_boolean\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"boolean\"\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"date_type\": {\n"
-                    + "        \"match\": \"_date\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"long\"\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"number_type\": {\n"
-                    + "        \"match\": \"_number\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"double\"\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"string_type\": {\n"
-                    + "        \"match\": \"_string\",\n"
-                    + "        \"match_mapping_type\": \"string\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"text\",\n"
-                    + "          \"fields\": {\n"
-                    + "            \"raw\": {\n"
-                    + "              \"type\": \"keyword\",\n"
-                    + "              \"ignore_above\": 512\n"
-                    + "            },\n"
-                    + "            \"match\": {\n"
-                    + "              \"type\": \"text\",\n"
-                    + "              \"analyzer\": \"text_analyzer\"\n"
-                    + "            }\n"
-                    + "          }\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"suggest_type\": {\n"
-                    + "        \"match\": \"_suggest\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"text\",\n"
-                    + "          \"analyzer\": \"suggest_analyzer\",\n"
-                    + "          \"search_analyzer\": \"search_suggest_analyzer\"\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"shapegeo\": {\n"
-                    + "        \"match\": \"_polygon\",\n"
-                    + "        \"match_mapping_type\": \"object\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"geo_shape\"\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"data_template_top\": {\n"
-                    + "        \"match\": \"data\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"{dynamic_type}\",\n"
-                    + "          \"include_in_all\": false,\n"
-                    + "          \"index\": false,\n"
-                    + "          \"ignore_malformed\": true\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"data_template\": {\n"
-                    + "        \"path_match\": \"data.*\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"{dynamic_type}\",\n"
-                    + "          \"include_in_all\": false,\n"
-                    + "          \"index\": false,\n"
-                    + "          \"ignore_malformed\": true\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"int_template\": {\n"
-                    + "        \"match\": \"_*\",\n"
-                    + "        \"match_mapping_type\": \"string\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"keyword\",\n"
-                    + "          \"ignore_above\": 1024\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    },\n"
-                    + "    {\n"
-                    + "      \"notanalyzed\": {\n"
-                    + "        \"match\": \"*\",\n"
-                    + "        \"match_mapping_type\": \"string\",\n"
-                    + "        \"mapping\": {\n"
-                    + "          \"type\": \"text\",\n"
-                    + "          \"fields\": {\n"
-                    + "            \"raw\": {\n"
-                    + "              \"type\": \"keyword\",\n"
-                    + "              \"ignore_above\": 512\n"
-                    + "            },\n"
-                    + "            \"match\": {\n"
-                    + "              \"type\": \"text\",\n"
-                    + "              \"analyzer\": \"text_analyzer\"\n"
-                    + "            }\n"
-                    + "          }\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "  ]\n"
-                    + "}\n";
-        }
-    }
-
-    /**
      * Elastic mapping which will set the types used for Elastic on index creation
      *
      */
@@ -2966,7 +2165,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * getElasticGeometryMap Create new Map that can be consumed for geoShape
      */
-    private static Map<String, Object> getElasticGeometryMap(Map<String, Object> valueMap, String name) {
+    private static Map<String, Object> getElasticGeometryMap(Map<String, Object> valueMap) {
         Map<String, Object> newValueMap = new HashMap<>();
 
         if (valueMap.size() > 2) {
@@ -3032,166 +2231,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return newValueMap;
     }
 
-    /**
-     * Take the polygons and circles used for Region, and convert to Elastic format
-     * This removes valueMap items and converts to new geoJson
-     *
-     */
-    private static void convertToGeometryCollection(Map<String, Object> valueMap, String name) {
-
-        if (valueMap.size() > 2) {
-            if (valueMap.containsKey("polygons") && valueMap.containsKey("circles") && valueMap.containsKey("radius")) {
-
-                List<Map<String, Object>> newGeometries = new ArrayList<>();
-                if (valueMap.get("polygons") != null && valueMap.get("polygons") instanceof List) {
-                    List polygons = (List) valueMap.get("polygons");
-                    if (polygons.size() > 0) {
-                        Map<String, Object> newObject = new HashMap<>();
-                        newObject.put("type", "multipolygon");
-                        List<List<List<List<Double>>>> newPolygons = new ArrayList<>();
-                        for (Object p : polygons) {
-                            List<List<List<Double>>> newPolygon = new ArrayList<>();
-                            if (p instanceof List) {
-                                for (Object ring : (List) p) {
-                                    List<List<Double>> newRing = new ArrayList<>();
-                                    for (Object latlon : (List) ring) {
-                                        List<Double> newLatLon = new ArrayList<>();
-
-                                        Double lat = (Double) ((List) latlon).get(0);
-                                        Double lon = (Double) ((List) latlon).get(1);
-                                        newLatLon.add(lat);
-                                        newLatLon.add(lon);
-                                        newRing.add(newLatLon);
-                                    }
-                                    newPolygon.add(newRing);
-                                }
-                                newPolygons.add(newPolygon);
-                            }
-                        }
-                        newObject.put("coordinates", newPolygons);
-                        newGeometries.add(newObject);
-                    }
-                }
-
-                if (valueMap.get("circles") != null && valueMap.get("circles") instanceof List) {
-                    List circles = (List) valueMap.get("circles");
-                    if (circles.size() > 0) {
-                        for (Object c : circles) {
-                            if (c instanceof List) {
-                                Map<String, Object> newGeometry = new HashMap<>();
-                                List<Double> newCircle = new ArrayList<>();
-
-                                newGeometry.put("type", "circle");
-                                Double lat = (Double) ((List) c).get(0);
-                                Double lon = (Double) ((List) c).get(1);
-                                Double r = (Double) ((List) c).get(2);
-
-                                newCircle.add(lat);
-                                newCircle.add(lon);
-                                newGeometry.put("coordinates", newCircle);
-                                newGeometry.put("radius", Math.ceil(Region.degreesToMeters(r)) + "m");
-                                newGeometries.add(newGeometry);
-                            }
-                        }
-                    }
-                }
-                if (valueMap.containsKey("x")) {
-                    valueMap.remove("x");
-                }
-                if (valueMap.containsKey("y")) {
-                    valueMap.remove("y");
-                }
-                if (valueMap.containsKey("radius")) {
-                    valueMap.remove("radius");
-                }
-                if (valueMap.containsKey("circles")) {
-                    valueMap.remove("circles");
-                }
-                if (valueMap.containsKey("polygons")) {
-                    valueMap.remove("polygons");
-                }
-            }
-        }
-    }
-
-    /**
-     * Main function to convert a Geometry to Elastic before writing. This is destructive to map
-     *
-     * @see #doWrites
-     * @see #convertLocationToName(Map, String)
-     *
-     */
-    @SuppressWarnings("unchecked")
-    private static void convertRegionToName(Map<String, Object> map, String name) {
-
-        Iterator<Map.Entry<String, Object>> it = map.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, Object> pair = it.next();
-            String key = pair.getKey();
-            Object value = pair.getValue();
-
-            if (value instanceof Map) {
-                Map<String, Object> valueMap = (Map<String, Object>) value;
-
-                convertToGeometryCollection(valueMap, name);
-                convertRegionToName((Map<String, Object>) value, name);
-            } else if (value instanceof List) {
-                for (Object item : (List<?>) value) {
-                    if (item instanceof Map) {
-                        Map<String, Object> valueMap = (Map<String, Object>) item;
-
-                        convertToGeometryCollection(valueMap, name);
-                        convertRegionToName((Map<String, Object>) item, name);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Main function to convert a Geometry to Elastic before writing. This is destructive to map
-     *
-     * @see #doWrites
-     * @see #convertRegionToName(Map, String)
-     *
-     */
-    private static void convertLocationToName(Map<String, Object> map, String name) {
-
-        Iterator<Map.Entry<String, Object>> it = map.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, Object> pair = it.next();
-            String key = pair.getKey();
-            Object value = pair.getValue();
-
-            if (value instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> valueMap = (Map<String, Object>) value;
-                if (valueMap.size() == 2) {
-                    if (valueMap.get("x") != null && valueMap.get("y") != null) {
-                        valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y"));
-                    }
-                }
-                //noinspection unchecked
-                convertLocationToName((Map<String, Object>) value, name);
-
-            } else if (value instanceof List) {
-                for (Object item : (List<?>) value) {
-                    if (item instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> valueMap = (Map<String, Object>) item;
-                        if (valueMap.size() == 2) {
-                            if (valueMap.get("x") != null && valueMap.get("y") != null) {
-                                valueMap.put(name, valueMap.get("x") + "," + valueMap.get("y"));
-                            }
-                        }
-                        //noinspection unchecked
-                        convertLocationToName((Map<String, Object>) item, name);
-                    }
-                }
-            }
-        }
-    }
-
     @Override
     public void addUpdateNotifier(UpdateNotifier<?> notifier) {
         updateNotifiers.add(notifier);
@@ -3221,7 +2260,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static class TypeAheadFieldsProcessor implements ObjectType.AnnotationProcessor<TypeAheadFields> {
         @Override
         public void process(ObjectType type, TypeAheadFields annotation) {
-            Map<String, List<String>> typeAheadFieldsMap = new HashMap<String, List<String>>();
+            Map<String, List<String>> typeAheadFieldsMap = new HashMap<>();
 
             for (TypeAheadFieldsMapping mapping : annotation.mappings()) {
                 List<String> fields = Arrays.asList(mapping.fields());
@@ -3253,7 +2292,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         public Map<String, List<String>> getTypeAheadFieldsMap() {
             if (null == typeAheadFieldsMap) {
-                typeAheadFieldsMap = new HashMap<String, List<String>>();
+                typeAheadFieldsMap = new HashMap<>();
             }
             return typeAheadFieldsMap;
         }
@@ -3296,39 +2335,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
     // --- ExcludeFromAnyProcessor  ---
 
-    private static final char[] UUID_WORD_CHARS = new char[] {
-            'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
-            'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
-            'y', 'z' };
-
-    /**
-     * Split up UUID
-     */
-    private static String uuidToWord(UUID uuid) {
-        if (uuid == null) {
-            return null;
-        }
-
-        byte[] bytes = UuidUtils.toBytes(uuid);
-        int bytesLength = bytes.length;
-        int wordLast = bytesLength * 2;
-        byte currentByte;
-        char[] word = new char[wordLast + 1];
-
-        for (int byteIndex = 0, hexIndex = 0;
-             byteIndex < bytesLength;
-             ++ byteIndex, ++ hexIndex) {
-
-            currentByte = bytes[byteIndex];
-            word[hexIndex] = UUID_WORD_CHARS[(currentByte & 0xf0) >> 4];
-            ++ hexIndex;
-            word[hexIndex] = UUID_WORD_CHARS[(currentByte & 0x0f)];
-        }
-
-        word[wordLast] = 'z';
-        return new String(word);
-    }
-
     /**
      * Add Indexed Values and Indexed Methods to Elastic
      */
@@ -3369,7 +2375,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             } else if (field.getInternalItemType().equals(ObjectField.REGION_TYPE)) {
 
-                @SuppressWarnings("unchecked") Map<String, Object> m = getElasticGeometryMap((Map<String, Object>) valueMap, name);
+                @SuppressWarnings("unchecked") Map<String, Object> m = getElasticGeometryMap((Map<String, Object>) valueMap);
                 if (m.size() > 0) {
                     name = name + "." + REGION_FIELD;
                     value = m;
@@ -3402,7 +2408,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     if (valueId == null) {
                         if (includeInAny) {
                             allBuilder.append(valueTypeId).append(' ');
-                            allBuilder.append(uuidToWord(valueTypeId)).append(' ');
+                            allBuilder.append(Static.uuidToWord(valueTypeId)).append(' ');
                         }
 
                         ObjectType valueType = getEnvironment().getTypeById(valueTypeId);
@@ -3483,7 +2489,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 allBuilder.append(trimmed.substring(uuidLast, uuidMatcher.start())).append(' ');
 
                 uuidLast = uuidMatcher.end();
-                String word = uuidToWord(ObjectUtils.to(UUID.class, uuidMatcher.group(0)));
+                String word = Static.uuidToWord(ObjectUtils.to(UUID.class, uuidMatcher.group(0)));
 
                 if (word != null) {
                     allBuilder.append(word).append(' ');
@@ -3503,7 +2509,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         Object truncatedValue = value;
 
-        String fname = addIndexFieldType(field.getInternalItemType(), name, truncatedValue);
+        String fname = Static.addIndexFieldType(field.getInternalItemType(), name, truncatedValue);
         if (fname.endsWith("." + STRING_FIELD) && !(truncatedValue instanceof String)) {
             truncatedValue = String.valueOf(truncatedValue);
         }
@@ -3520,120 +2526,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         if (extras.get(fname) == null) {
-            setValue(extras, fname, truncatedValue);
+            Static.setValue(extras, fname, truncatedValue);
         } else {
-            addValue(extras, fname, truncatedValue);
+            Static.addValue(extras, fname, truncatedValue);
         }
     }
 
-    /** {@link ElasticsearchDatabase} utility methods. */
-    public static final class Static {
-
-        // Same in SOLR and Elastic since they are to be escaped in Lucene
-        private static final Pattern ESCAPE_PATTERN = Pattern.compile("([-+&|!(){}\\[\\]^\"~*?:\\\\\\s/])");
-
-        /**
-         * Escapes the given {@code value} so that it's safe to use
-         * in a Elastic query.
-         *
-         * @param value If {@code null}, returns {@code null}.
-         */
-        public static String escapeValue(Object value) {
-            return value != null ? ESCAPE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
-        }
-
-        /**
-         * Replace dashes in typeId when used in IndexName
-         */
-        public static String replaceDash(String orig) {
-            // faster than replaceAll
-            return orig.replace("-", "");
-        }
-
-        /**
-         * Check String for UUID
-         */
-        private static boolean isUUID(Object obj) {
-            try {
-                if (obj instanceof UUID) {
-                    return true;
-                } else if (obj instanceof String) {
-                    //noinspection ResultOfMethodCallIgnored
-                    UUID.fromString((String) obj);
-                    return true;
-                }
-            } catch (IllegalArgumentException exception) {
-                return false;
-            }
-            return false;
-        }
-
-        /**
-         * Returns the Solr search result score associated with the given
-         * {@code object}.
-         *
-         * @return May be {@code null} if the score isn't available.
-         */
-        public static Float getScore(Object object) {
-            return (Float) State.getInstance(object).getExtra(SCORE_EXTRA);
-        }
-
-        /**
-         * Returns the normalized Solr search result score, in a scale of
-         * {@code 0.0} to {@code 1.0}, associated with the given
-         * {@code object}.
-         *
-         * @return May be {@code null} if the score isn't available.
-         */
-        public static Float getNormalizedScore(Object object) {
-            return (Float) State.getInstance(object).getExtra(NORMALIZED_SCORE_EXTRA);
-        }
-
-        /**
-         * Execute an ObjectMethod on the given State and return the result as a value or reference.
-         */
-        private static Object getStateMethodValue(State state, ObjectMethod method) {
-            Object methodResult = state.getByPath(method.getInternalName());
-            return State.toSimpleValue(methodResult, method.isEmbedded(), false);
-        }
-    }
-
-    /**
-     * Set the value into extras
-     */
-    private static void setValue(Map<String, Object> extras, String name, Object value) {
-        extras.put(name, value);
-    }
-
-    /**
-     * Add value into extras
-     */
-    private static void addValue(Map<String, Object> extras, String name, Object value) {
-        if (extras.get(name) instanceof List) {
-            if (value instanceof List) {
-                List vList = (List) extras.get(name);
-                //noinspection unchecked
-                vList.addAll((List) value);
-                extras.put(name, vList);
-            } else {
-                List vList = (List) extras.get(name);
-                if (!vList.contains(value)) {
-                    //noinspection unchecked
-                    vList.add(value);
-                    extras.put(name, vList);
-                }
-            }
-        } else {
-            List vList = new ArrayList<>();
-            //noinspection unchecked
-            vList.add(extras.get(name));
-            if (!vList.contains(value)) {
-                //noinspection unchecked
-                vList.add(value);
-                extras.put(name, vList);
-            }
-        }
-    }
 
     /**
      * addIndexedFields to Elastic
@@ -4151,4 +3049,842 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             throw error;
         }
     }
+
+    /** {@link ElasticsearchDatabase} utility methods. */
+    public static final class Static {
+
+        // Same in SOLR and Elastic since they are to be escaped in Lucene
+        private static final Pattern ESCAPE_PATTERN = Pattern.compile("([-+&|!(){}\\[\\]^\"~*?:\\\\\\s/])");
+
+        /**
+         * Escapes the given {@code value} so that it's safe to use
+         * in a Elastic query.
+         *
+         * @param value If {@code null}, returns {@code null}.
+         */
+        public static String escapeValue(Object value) {
+            return value != null ? ESCAPE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
+        }
+
+        /**
+         * Replace dashes in typeId when used in IndexName
+         */
+        public static String replaceDash(String orig) {
+            // faster than replaceAll
+            return orig.replace("-", "");
+        }
+
+        /**
+         * Check String for UUID
+         */
+        public static boolean isUUID(Object obj) {
+            try {
+                if (obj instanceof UUID) {
+                    return true;
+                } else if (obj instanceof String) {
+                    //noinspection ResultOfMethodCallIgnored
+                    UUID.fromString((String) obj);
+                    return true;
+                }
+            } catch (IllegalArgumentException exception) {
+                return false;
+            }
+            return false;
+        }
+
+        /**
+         * Convert key to Query
+         */
+        private static String convertKeyToQuery(String key) {
+            if (key.equals(IDS_FIELD)) {
+                return ID_FIELD;
+            } else {
+                return key;
+            }
+        }
+
+        /**
+         * Returns the Solr search result score associated with the given
+         * {@code object}.
+         *
+         * @return May be {@code null} if the score isn't available.
+         */
+        public static Float getScore(Object object) {
+            return (Float) State.getInstance(object).getExtra(SCORE_EXTRA);
+        }
+
+        /**
+         * Returns the normalized Solr search result score, in a scale of
+         * {@code 0.0} to {@code 1.0}, associated with the given
+         * {@code object}.
+         *
+         * @return May be {@code null} if the score isn't available.
+         */
+        public static Float getNormalizedScore(Object object) {
+            return (Float) State.getInstance(object).getExtra(NORMALIZED_SCORE_EXTRA);
+        }
+
+        /**
+         * Execute an ObjectMethod on the given State and return the result as a value or reference.
+         */
+        private static Object getStateMethodValue(State state, ObjectMethod method) {
+            Object methodResult = state.getByPath(method.getInternalName());
+            return State.toSimpleValue(methodResult, method.isEmbedded(), false);
+        }
+
+        /**
+         * Get The running version of Elastic
+         *
+         * @return the version running can return null on exception
+         */
+        public static String getVersion(String nodeHost) {
+            try {
+                CloseableHttpClient httpClient = HttpClients.createDefault();
+
+                HttpGet getRequest = new HttpGet(nodeHost);
+                getRequest.addHeader("accept", "application/json");
+                CloseableHttpResponse response = httpClient.execute(getRequest);
+                try {
+                    HttpEntity entity = response.getEntity();
+                    String json = EntityUtils.toString(entity);
+                    EntityUtils.consume(entity);
+                    JSONObject j = new JSONObject(json);
+                    if (j != null) {
+                        if (j.get("version") != null) {
+                            if (j.getJSONObject("version") != null) {
+                                JSONObject jo = j.getJSONObject("version");
+                                String version = jo.getString("number");
+                                if (!ELASTIC_VERSION.equals(version)) {
+                                    LOGGER.warn("Warning: Elasticsearch {} version is not {}", version, ELASTIC_VERSION);
+                                }
+                                return version;
+                            }
+                        }
+                    }
+                } finally {
+                    response.close();
+                }
+            } catch (Exception error) {
+                LOGGER.warn(
+                        String.format("Warning: Elasticsearch cannot get version [%s: %s]",
+                                error.getClass().getName(),
+                                error.getMessage()),
+                        error);
+            }
+            return null;
+        }
+
+        /**
+         * Get the clusterName from the running version
+         *
+         * @return the clusterName
+         */
+        public static String getClusterName(String nodeHost) {
+            try {
+                CloseableHttpClient httpClient = HttpClients.createDefault();
+                HttpGet getRequest = new HttpGet(nodeHost);
+                getRequest.addHeader("accept", "application/json");
+                CloseableHttpResponse response = httpClient.execute(getRequest);
+                try {
+                    HttpEntity entity = response.getEntity();
+                    String json = EntityUtils.toString(entity);
+                    EntityUtils.consume(entity);
+                    JSONObject j = new JSONObject(json);
+                    if (j != null) {
+                        if (j.get("cluster_name") != null) {
+                            return j.getString("cluster_name");
+                        }
+                    }
+                } finally {
+                    response.close();
+                }
+            } catch (Exception error) {
+                LOGGER.warn(
+                        String.format("Warning: Elasticsearch cannot get cluster_name [%s: %s]",
+                                error.getClass().getName(),
+                                error.getMessage()),
+                        error);
+            }
+            return null;
+        }
+
+        /**
+         * Check to see if the running version is alive.
+         *
+         * @return true indicates node is alive
+         */
+        public static boolean checkAlive(String nodeHost) {
+            try {
+                CloseableHttpClient httpClient = HttpClients.createDefault();
+                HttpGet getRequest = new HttpGet(nodeHost);
+                getRequest.addHeader("accept", "application/json");
+                CloseableHttpResponse response = httpClient.execute(getRequest);
+                try {
+                    HttpEntity entity = response.getEntity();
+                    String json = EntityUtils.toString(entity);
+                    EntityUtils.consume(entity);
+                    JSONObject j = new JSONObject(json);
+                    if (j != null) {
+                        if (j.get("cluster_name") != null) {
+                            return true;
+                        }
+                    }
+                } finally {
+                    response.close();
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Warning: Elasticsearch is not already running");
+            }
+            return false;
+        }
+
+        /**
+         * Get one node and return it for REST call
+         */
+        public static String getNodeHost(String host, String restPort) {
+            return "http://" + host + ":" + restPort + "/";
+        }
+
+        /**
+         * For "_Any" and Matches, switch UUID for value to uuidWord
+         */
+        private static Object matchesAnyUUID(String operator, String key, Object value) {
+            if (key.equals(ANY_FIELD)) {
+                if (operator.equals(PredicateParser.STARTS_WITH_OPERATOR) || operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
+                    UUID valueUuid = ObjectUtils.to(UUID.class, value);
+                    if (valueUuid != null) {
+                        return Static.uuidToWord(valueUuid);
+                    }
+                }
+            }
+            return value;
+        }
+
+        /**
+         * The settings for indexes analysis
+         */
+        public static String getSetting(String path) {
+            try {
+                LOGGER.debug("trying resource mapping.json mapping");
+                return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "setting.json").toURI())));
+            } catch (Exception error) {
+                LOGGER.info("Using default setting - switch to resource file");
+                return "{\n"
+                        + "  \"index.query.default_field\": \"_any\",\n"
+                        + "  \"index.mapping.total_fields.limit\": 100000,\n"
+                        + "  \"index.mapping.ignore_malformed\": true,\n"
+                        + "  \"index\": {\n"
+                        + "    \"refresh_interval\" : \"2s\",\n"
+                        + "    \"number_of_shards\": \"2\",\n"
+                        + "    \"number_of_replicas\": \"1\"\n"
+                        + "  },\n"
+                        + "  \"analysis\": {\n"
+                        + "    \"analyzer\": {\n"
+                        + "      \"contains_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\" ]\n"
+                        + "      },\n"
+                        + "      \"search_contains_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\" ]\n"
+                        + "      },\n"
+                        + "      \"match_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"text_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
+                        + "      },\n"
+                        + "      \"search_match_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"search_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
+                        + "      },\n"
+                        + "      \"any_analyzer\": {\n"
+                        + "          \"char_filter\": [ \"html_strip\" ],\n"
+                        + "          \"tokenizer\": \"whitespace\",\n"
+                        + "          \"filter\" : [ \"text_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\", \"unique_words\" ]\n"
+                        + "      },\n"
+                        + "      \"search_any_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"search_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
+                        + "      },\n"
+                        + "      \"suggest_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"suggest_delimiter\", \"lowercase\", \"asciifolding\", \"ngram_filter\" ]\n"
+                        + "      },\n"
+                        + "      \"search_suggest_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"suggest_delimiter\", \"lowercase\", \"asciifolding\" ]\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    \"filter\" : {\n"
+                        + "      \"ngram_filter\": {\n"
+                        + "        \"type\": \"edge_ngram\",\n"
+                        + "        \"min_gram\": 1,\n"
+                        + "        \"max_gram\": 12,\n"
+                        + "        \"token_chars\": [\n"
+                        + "          \"letter\",\n"
+                        + "          \"digit\"\n"
+                        + "        ]\n"
+                        + "      },\n"
+                        + "      \"search_delimiter\" : {\n"
+                        + "        \"type\" : \"word_delimiter\",\n"
+                        + "        \"catenate_all\": false,\n"
+                        + "        \"catenate_numbers\": false,\n"
+                        + "        \"catenate_words\": true,\n"
+                        + "        \"generate_number_parts\": true,\n"
+                        + "        \"generate_word_parts\": true,\n"
+                        + "        \"split_on_case_change\": true\n"
+                        + "      },\n"
+                        + "      \"suggest_delimiter\" : {\n"
+                        + "        \"type\" : \"word_delimiter\",\n"
+                        + "        \"catenate_all\": false,\n"
+                        + "        \"catenate_numbers\": false,\n"
+                        + "        \"catenate_words\": true,\n"
+                        + "        \"generate_number_parts\": true,\n"
+                        + "        \"generate_word_parts\": true,\n"
+                        + "        \"split_on_case_change\": true\n"
+                        + "      },\n"
+                        + "      \"text_delimiter\" : {\n"
+                        + "        \"type\" : \"word_delimiter\",\n"
+                        + "        \"catenate_all\": false,\n"
+                        + "        \"catenate_numbers\": true,\n"
+                        + "        \"catenate_words\": true,\n"
+                        + "        \"generate_number_parts\": true,\n"
+                        + "        \"generate_word_parts\": true,\n"
+                        + "        \"split_on_case_change\": true\n"
+                        + "      },\n"
+                        + "      \"text_stemmer\" : {\n"
+                        + "        \"type\" : \"stemmer\",\n"
+                        + "        \"name\" : \"porter2\"\n"
+                        + "      },\n"
+                        + "      \"unique_words\" : {\n"
+                        + "        \"type\" : \"unique\"\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}";
+            }
+        }
+
+        /**
+         * The actual map for Elasticsearch
+         */
+        private static String getMapping(String path) {
+            try {
+                LOGGER.debug("trying resource mapping.json mapping");
+                return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "mapping.json").toURI())));
+            } catch (Exception error) {
+                LOGGER.info("Using default mapping - switch to resource file");
+                return "{\n"
+                        + "  \"_all\" : {\"enabled\" : false},\n"
+                        + "  \"properties\" : {\n"
+                        + "    \"_ids\": {\n"
+                        + "      \"type\": \"keyword\"\n"
+                        + "    },\n"
+                        + "    \"_any\": {\n"
+                        + "      \"type\": \"text\",\n"
+                        + "      \"analyzer\": \"any_analyzer\",\n"
+                        + "      \"search_analyzer\": \"search_any_analyzer\"\n"
+                        + "    }\n"
+                        + "  },\n"
+                        + "  \"dynamic_templates\": [\n"
+                        + "    {\n"
+                        + "      \"locationgeo\": {\n"
+                        + "        \"match\": \"_location\",\n"
+                        + "        \"match_mapping_type\": \"string\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"geo_point\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"boolean_type\": {\n"
+                        + "        \"match\": \"_boolean\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"boolean\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"date_type\": {\n"
+                        + "        \"match\": \"_date\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"long\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"number_type\": {\n"
+                        + "        \"match\": \"_number\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"double\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"string_type\": {\n"
+                        + "        \"match\": \"_string\",\n"
+                        + "        \"match_mapping_type\": \"string\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"text\",\n"
+                        + "          \"analyzer\": \"contains_analyzer\",\n"
+                        + "          \"search_analyzer\": \"search_contains_analyzer\",\n"
+                        + "          \"fields\": {\n"
+                        + "            \"raw\": {\n"
+                        + "              \"type\": \"keyword\",\n"
+                        + "              \"ignore_above\": 512\n"
+                        + "            },\n"
+                        + "            \"match\": {\n"
+                        + "              \"type\": \"text\",\n"
+                        + "              \"analyzer\": \"match_analyzer\",\n"
+                        + "              \"search_analyzer\": \"search_match_analyzer\"\n"
+                        + "            }\n"
+                        + "          }\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"suggest_type\": {\n"
+                        + "        \"match\": \"_suggest\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"text\",\n"
+                        + "          \"analyzer\": \"suggest_analyzer\",\n"
+                        + "          \"search_analyzer\": \"search_suggest_analyzer\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"shapegeo\": {\n"
+                        + "        \"match\": \"_polygon\",\n"
+                        + "        \"match_mapping_type\": \"object\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"geo_shape\"\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"data_template_top\": {\n"
+                        + "        \"match\": \"data\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"{dynamic_type}\",\n"
+                        + "          \"include_in_all\": false,\n"
+                        + "          \"index\": false,\n"
+                        + "          \"ignore_malformed\": true\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"data_template\": {\n"
+                        + "        \"path_match\": \"data.*\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"{dynamic_type}\",\n"
+                        + "          \"include_in_all\": false,\n"
+                        + "          \"index\": false,\n"
+                        + "          \"ignore_malformed\": true\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"int_template\": {\n"
+                        + "        \"match\": \"_*\",\n"
+                        + "        \"match_mapping_type\": \"string\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"keyword\",\n"
+                        + "          \"ignore_above\": 1024\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    },\n"
+                        + "    {\n"
+                        + "      \"notanalyzed\": {\n"
+                        + "        \"match\": \"*\",\n"
+                        + "        \"match_mapping_type\": \"string\",\n"
+                        + "        \"mapping\": {\n"
+                        + "          \"type\": \"text\",\n"
+                        + "          \"analyzer\": \"contains_analyzer\",\n"
+                        + "          \"search_analyzer\": \"search_contains_analyzer\",\n"
+                        + "          \"fields\": {\n"
+                        + "            \"raw\": {\n"
+                        + "              \"type\": \"keyword\",\n"
+                        + "              \"ignore_above\": 512\n"
+                        + "            },\n"
+                        + "            \"match\": {\n"
+                        + "              \"type\": \"text\",\n"
+                        + "              \"analyzer\": \"match_analyzer\",\n"
+                        + "              \"search_analyzer\": \"search_match_analyzer\"\n"
+                        + "            }\n"
+                        + "          }\n"
+                        + "        }\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}\n";
+            }
+        }
+
+        private static final char[] UUID_WORD_CHARS = new char[] {
+                'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+                'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
+                'y', 'z' };
+
+        /**
+         * Split up UUID
+         */
+        private static String uuidToWord(UUID uuid) {
+            if (uuid == null) {
+                return null;
+            }
+
+            byte[] bytes = UuidUtils.toBytes(uuid);
+            int bytesLength = bytes.length;
+            int wordLast = bytesLength * 2;
+            byte currentByte;
+            char[] word = new char[wordLast + 1];
+
+            for (int byteIndex = 0, hexIndex = 0;
+                 byteIndex < bytesLength;
+                 ++ byteIndex, ++ hexIndex) {
+
+                currentByte = bytes[byteIndex];
+                word[hexIndex] = UUID_WORD_CHARS[(currentByte & 0xf0) >> 4];
+                ++ hexIndex;
+                word[hexIndex] = UUID_WORD_CHARS[(currentByte & 0x0f)];
+            }
+
+            word[wordLast] = 'z';
+            return new String(word);
+        }
+
+        /**
+         * Get QueryBuilder for geoShape for intersects
+         *
+         * @see #predicateToQueryBuilder
+         */
+        private static GeoShapeQueryBuilder geoShapeIntersects(String key, double x, double y) {
+            try {
+                return QueryBuilders
+                        .geoShapeQuery(key, ShapeBuilders.newPoint(new Coordinate(x, y))).relation(ShapeRelation.INTERSECTS);
+            } catch (Exception error) {
+                LOGGER.warn(
+                        String.format("geoShapeIntersects threw Exception [%s: %s]",
+                                error.getClass().getName(),
+                                error.getMessage()),
+                        error);
+            }
+            return null;
+        }
+
+        /**
+         * Get QueryBuilder for geoShape for contains
+         *
+         * @see #predicateToQueryBuilder
+         */
+        private static GeoShapeQueryBuilder geoShape(String key, double x, double y) {
+            try {
+                return QueryBuilders
+                        .geoShapeQuery(key, ShapeBuilders.newPoint(new Coordinate(x, y))).relation(ShapeRelation.CONTAINS);
+            } catch (Exception error) {
+                LOGGER.warn(
+                        String.format("geoShape threw Exception [%s: %s]",
+                                error.getClass().getName(),
+                                error.getMessage()),
+                        error);
+            }
+            return null;
+        }
+
+        /**
+         * Get QueryBuilder for Circle for contains
+         * Currently use geoShape higher level
+         */
+        private static GeoShapeQueryBuilder geoCircle(String key, double x, double y, double r) {
+            try {
+                return QueryBuilders
+                        .geoShapeQuery(key, ShapeBuilders.newCircleBuilder().center(x, y).radius(r, DistanceUnit.KILOMETERS)).relation(ShapeRelation.CONTAINS);
+            } catch (Exception error) {
+                LOGGER.warn(
+                        String.format("geoCircle threw Exception [%s: %s]",
+                                error.getClass().getName(),
+                                error.getMessage()),
+                        error);
+            }
+            return null;
+        }
+
+        /**
+         * For contains, add * for within strings
+         */
+        private static Object containsWildcard(String operator, Object value) {
+            if (operator.equals(PredicateParser.CONTAINS_OPERATOR) && (value instanceof String)) {
+                return "*" + value + "*";
+            }
+            return value;
+        }
+
+        /**
+         * Take circles and polygons and build a new GeoJson that works with Elastic
+         */
+        public static String getGeoJson(List<Region.Circle> circles, Region.MultiPolygon polygons) {
+            List<Map<String, Object>> features = new ArrayList<>();
+
+            Map<String, Object> featureCollection = new HashMap<>();
+            featureCollection.put("type", "geometrycollection");
+            featureCollection.put("geometries", features);
+
+            if (circles != null && circles.size() > 0) {
+
+                for (Region.Circle circle : circles) {
+                    Map<String, Object> geometry = new HashMap<>();
+                    geometry.put("type", "circle");
+                    geometry.put("coordinates", circle.getGeoJsonArray().get(0)); // required for Elasticsearch
+                    geometry.put("radius", Math.ceil(circle.getRadius()) + "m");
+
+                    features.add(geometry);
+                }
+            }
+
+            if (polygons != null && polygons.size() > 0) {
+                Map<String, Object> geometry = new HashMap<>();
+                geometry.put("type", "multipolygon");
+                geometry.put("coordinates", polygons);
+
+                features.add(geometry);
+            }
+
+            return ObjectUtils.toJson(featureCollection);
+        }
+
+        /**
+         * add Raw for fields that are not _ids, _id, _type
+         */
+        private static String addRaw(String query) {
+            if (IDS_FIELD.equals(query) || ID_FIELD.equals(query) || TYPE_ID_FIELD.equals(query)) {
+                return query;
+            } else {
+                if (query.endsWith("." + RAW_FIELD)) {
+                    return query;
+                } else {
+                    return query + "." + RAW_FIELD;
+                }
+            }
+
+        }
+
+        /**
+         * Interrogate the field and convert to Normal field
+         */
+        private static String getField(String key) {
+            if (key.endsWith("." + RAW_FIELD)) {
+                key = key.substring(0, key.length() - ("." + RAW_FIELD).length());
+            } else if (key.endsWith("." + LOCATION_FIELD)) {
+                key = key.substring(0, key.length() - ("." + LOCATION_FIELD).length());
+            } else if (key.endsWith("." + MATCH_FIELD)) {
+                key = key.substring(0, key.length() - ("." + MATCH_FIELD).length());
+            } else if (key.endsWith("." + SUGGEST_FIELD)) {
+                key = key.substring(0, key.length() - ("." + SUGGEST_FIELD).length());
+            } else if (key.endsWith("." + REGION_FIELD)) {
+                key = key.substring(0, key.length() - ("." + REGION_FIELD).length());
+            } else if (key.endsWith("." + BOOLEAN_FIELD)) {
+                key = key.substring(0, key.length() - ("." + BOOLEAN_FIELD).length());
+            } else if (key.endsWith("." + DATE_FIELD)) {
+                key = key.substring(0, key.length() - ("." + DATE_FIELD).length());
+            } else if (key.endsWith("." + NUMBER_FIELD)) {
+                key = key.substring(0, key.length() - ("." + NUMBER_FIELD).length());
+            } else if (key.endsWith("." + STRING_FIELD)) {
+                key = key.substring(0, key.length() - ("." + STRING_FIELD).length());
+            }
+            return key;
+        }
+
+        /**
+         * When querying from Elastic this appends type to the string for Elastic
+         */
+        private static String addQueryFieldType(String internalType, String key, boolean isExact) {
+            if (IDS_FIELD.equals(key) || ID_FIELD.equals(key) || TYPE_ID_FIELD.equals(key) || (internalType == null)) {
+                return key;
+            } else {
+                if (isExact && (ObjectField.UUID_TYPE.equals(internalType) || ObjectField.TEXT_TYPE.equals(internalType))) {
+                    if (key.endsWith("." + RAW_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + RAW_FIELD;
+                    }
+                } else if (ObjectField.RECORD_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + RAW_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + RAW_FIELD;
+                    }
+                } else if (ObjectField.LOCATION_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + LOCATION_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + LOCATION_FIELD;
+                    }
+                } else if (ObjectField.REGION_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + REGION_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + REGION_FIELD;
+                    }
+                } else if (ObjectField.BOOLEAN_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + BOOLEAN_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + BOOLEAN_FIELD;
+                    }
+                } else if (ObjectField.DATE_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + DATE_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + DATE_FIELD;
+                    }
+                } else if (ObjectField.NUMBER_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + NUMBER_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + NUMBER_FIELD;
+                    }
+                } else {
+                    return key + "." + STRING_FIELD;
+                }
+            }
+        }
+
+        /**
+         * When indexing to Elastic this appends type to the string for Elastic
+         * file, uri, url are Strings
+         */
+        private static String addIndexFieldType(String internalType, String key, Object value) {
+            //LOGGER.info("key: [{}]", key);
+            if (IDS_FIELD.equals(key) || ID_FIELD.equals(key) || TYPE_ID_FIELD.equals(key) || (internalType == null)) {
+                return key;
+            } else {
+                //LOGGER.info("key: [{}], internalType [{}]", key, internalType);
+                // might want to use string for ANY_TYPE for value
+                if (ObjectField.ANY_TYPE.equals(internalType)) {
+                    if (value instanceof Boolean) {
+                        if (key.endsWith("." + BOOLEAN_FIELD)) {
+                            return key;
+                        } else {
+                            return key + "." + BOOLEAN_FIELD;
+                        }
+                    } else if (value instanceof Date) {
+                        if (key.endsWith("." + DATE_FIELD)) {
+                            return key;
+                        } else {
+                            return key + "." + DATE_FIELD;
+                        }
+                    } else if (value instanceof Number) {
+                        if (key.endsWith("." + NUMBER_FIELD)) {
+                            return key;
+                        } else {
+                            return key + "." + NUMBER_FIELD;
+                        }
+                    } else {
+                        if (key.endsWith("." + STRING_FIELD)) {
+                            return key;
+                        } else {
+                            return key + "." + STRING_FIELD;
+                        }
+                    }
+                } else if (ObjectField.UUID_TYPE.equals(internalType) || ObjectField.TEXT_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + "raw")) {
+                        return key.substring(0, key.length() - ("." + "raw").length());
+                    } else {
+                        if (key.endsWith("." + STRING_FIELD)) {
+                            return key;
+                        } else {
+                            return key + "." + STRING_FIELD;
+                        }
+                    }
+                } else if (ObjectField.RECORD_TYPE.equals(internalType)) {
+                    // back to STRING_FIELD
+                    if (key.endsWith("." + "raw")) {
+                        return key.substring(0, key.length() - ("." + "raw").length());
+                    } else {
+                        return key + "." + STRING_FIELD;
+                    }
+                } else if (ObjectField.LOCATION_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + LOCATION_FIELD) || key.endsWith(".x") || key.endsWith(".y")) {
+                        return key;
+                    } else {
+                        return key + "." + LOCATION_FIELD;
+                    }
+                } else if (ObjectField.REGION_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + REGION_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + REGION_FIELD;
+                    }
+                } else if (ObjectField.BOOLEAN_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + BOOLEAN_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + BOOLEAN_FIELD;
+                    }
+                } else if (ObjectField.DATE_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + DATE_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + DATE_FIELD;
+                    }
+                } else if (ObjectField.NUMBER_TYPE.equals(internalType)) {
+                    if (key.endsWith("." + NUMBER_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + NUMBER_FIELD;
+                    }
+                } else {
+                    if (key.endsWith("." + STRING_FIELD)) {
+                        return key;
+                    } else {
+                        return key + "." + STRING_FIELD;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Set the value into extras
+         */
+        private static void setValue(Map<String, Object> extras, String name, Object value) {
+            extras.put(name, value);
+        }
+
+        /**
+         * Add value into extras
+         */
+        private static void addValue(Map<String, Object> extras, String name, Object value) {
+            if (extras.get(name) instanceof List) {
+                if (value instanceof List) {
+                    List vList = (List) extras.get(name);
+                    //noinspection unchecked
+                    vList.addAll((List) value);
+                    extras.put(name, vList);
+                } else {
+                    List vList = (List) extras.get(name);
+                    if (!vList.contains(value)) {
+                        //noinspection unchecked
+                        vList.add(value);
+                        extras.put(name, vList);
+                    }
+                }
+            } else {
+                List vList = new ArrayList<>();
+                //noinspection unchecked
+                vList.add(extras.get(name));
+                if (!vList.contains(value)) {
+                    //noinspection unchecked
+                    vList.add(value);
+                    extras.put(name, vList);
+                }
+            }
+        }
+    }
+
 }
