@@ -140,6 +140,7 @@ public class ElasticInitializationTest {
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
                 .where("eid matches ?", "939393")
+                .sortRelevant(1.0, "eid matches ?", "939393")
                 .selectAll();
 
         assertThat(fooResult, hasSize(1));
@@ -252,6 +253,7 @@ public class ElasticInitializationTest {
         List<SearchIndexModel> fooResult = Query
                 .from(SearchIndexModel.class)
                 .where("name matches ?", "Bill")
+                .sortRelevant(10.0, "one matches ?", "Bill")
                 .selectAll();
 
         assertThat(fooResult, hasSize(2));

@@ -1007,7 +1007,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         checkIndexes(indexIdStrings);
 
         SearchResponse response;
+
+        // if no sort, then we can use Filtered
         QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
+        if (query.getSorters() == null || query.getSorters().size() == 0) {
+            qb = QueryBuilders.boolQuery().filter(qb);
+        } else {
+            qb = QueryBuilders.boolQuery().must(qb);
+        }
         SearchRequestBuilder srb;
 
         if (typeIds.size() > 0) {
