@@ -1439,7 +1439,7 @@ public class SearchIndexTest extends AbstractTest {
         List<SearchIndexModel> total1 = Query.from(SearchIndexModel.class).where("one matchesany ?", "story").selectAll();
         assertThat("total1", total1, hasSize(count));
 
-        for (String special: specialChars) {
+        for (String special : specialChars) {
             String specialEscaped = escapeValue(special);
             List<SearchIndexModel> total2a = Query.from(SearchIndexModel.class).where("one matchesany ?", specialEscaped + "beginning").selectAll();
             assertThat("total2a", total2a, hasSize(count));
@@ -1456,7 +1456,7 @@ public class SearchIndexTest extends AbstractTest {
             assertThat("total2e", total2e, hasSize(2));
         }
 
-        for (String special: specialChars) {
+        for (String special : specialChars) {
             List<SearchIndexModel> first = Query.from(SearchIndexModel.class).where("one = ?", "te" + special + "st").selectAll();
             assertThat("first", first, hasSize(0));
             List<SearchIndexModel> second = Query.from(SearchIndexModel.class).where("one = ?", special + "beginning").selectAll();
@@ -1466,7 +1466,7 @@ public class SearchIndexTest extends AbstractTest {
         }
 
         // raw does not need to be escaped
-        for (String special: specialChars) {
+        for (String special : specialChars) {
             List<SearchIndexModel> first = Query.from(SearchIndexModel.class).where("one = ?", "Te" + special + "St " + special + "Beginning" + " StOrY" + special).selectAll();
             assertThat("first", first, hasSize(1));
         }
