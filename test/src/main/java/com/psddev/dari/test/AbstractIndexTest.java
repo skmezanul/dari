@@ -357,6 +357,34 @@ public abstract class AbstractIndexTest<M extends AbstractIndexModel<M, T>, T> e
     }
 
     @Test
+    public void eqListUUID() {
+        createCompareTestModels();
+        List<M> model = query().selectAll();
+
+        List<UUID> uuids = new ArrayList<>();
+        for (M m : model) {
+            uuids.add(m.getId());
+        }
+
+        assertCount(uuids.size(), "_id = ?", uuids);
+    }
+
+    @Test
+    public void eqListOne() {
+        createCompareTestModels();
+        List<M> model = query().selectAll();
+
+        List<T> listValues = new ArrayList<>();
+        for (M m : model) {
+            listValues.add(m.getOne());
+        }
+
+        assertCount(listValues.size(), "one = ?", listValues);
+        assertCount(listValues.size(), "set = ?", listValues);
+        assertCount(listValues.size(), "list = ?", listValues);
+    }
+
+    @Test
     public void eqOneEmpty() {
         createCompareTestModels();
         assertCount(0L, "one = ?", Collections.emptyList());
