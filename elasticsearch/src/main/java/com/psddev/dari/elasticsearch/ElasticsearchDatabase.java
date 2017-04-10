@@ -77,6 +77,8 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.filter.Filter;
+import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.range.Range;
 import org.elasticsearch.search.aggregations.bucket.range.RangeAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
@@ -648,6 +650,121 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return false;
     }
 
+    public class ElasticFacet {
+        Filter filter = null;
+        List<Terms> terms = new ArrayList<>();
+        List<String> fieldNames = new ArrayList<>();
+        List<String> aggsTermsNames = new ArrayList<>();
+        List<Range> ranges = new ArrayList<>();
+        List<String> rangeNames = new ArrayList<>();
+        List<String> aggsRangeNames = new ArrayList<>();
+    }
+
+    public void getFacets(Query<?> query, SearchResponse response,
+                          ElasticFacet facet) {
+        Aggregations aggregations = response.getAggregations();
+
+        if (aggregations != null) {
+            if (query.getFacetQuery() != null) {
+                facet.filter = aggregations.get("query_agg");
+            }
+
+            List<String> aggTermsNames = facet.aggsTermsNames;
+            if (!aggTermsNames.isEmpty()) {
+                for (String agg : aggTermsNames) {
+                    Terms term = aggregations.get(agg);
+                    facet.terms.add(term);
+                }
+            }
+
+            List<String> aggRangeNames = facet.aggsRangeNames;
+            if (!aggRangeNames.isEmpty()) {
+                for (String agg : aggRangeNames) {
+                    Range range = aggregations.get(agg);
+                    facet.ranges.add(range);
+                }
+            }
+        }
+    }
+
+    /**
+     * Add facets to srb
+     */
+    public void addFacets(Query<?> query, SearchRequestBuilder srb, ElasticFacet facet) {
+
+        int index = 0;
+        Query<?> facetedQuery = query.getFacetQuery();
+        if (facetedQuery != null) {
+            QueryBuilder qb = QueryBuilders.boolQuery().must(predicateToQueryBuilder(facetedQuery.getPredicate(), facetedQuery));
+            FilterAggregationBuilder ab = AggregationBuilders.filter("query_agg", qb);
+            srb.addAggregation(ab);
+        }
+
+        Map<String, Object> facetedFields = query.getFacetedFields();
+        if (!facetedFields.isEmpty()) {
+            Query newFilter = Query.fromAll();
+            int filterCount = 0;
+            for (Map.Entry<String, Object> entry : facetedFields.entrySet()) {
+                String field = entry.getKey();
+                Object value = entry.getValue();
+                if (value != null) {
+                    Predicate p = new ComparisonPredicate(PredicateParser.EQUALS_ANY_OPERATOR, false, field, ObjectUtils.to(Iterable.class, value));
+                    if (filterCount == 0) {
+                        newFilter = Query.fromAll().where(query.getPredicate()).and(p);
+                    } else {
+                        newFilter = Query.fromAll().where(newFilter.getPredicate()).and(p);
+                    }
+                    filterCount++;
+                } else {
+                    Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, field);
+                    String elasticField = Static.addIndexFieldType(mappedKey.getInternalType(), mappedKey.getIndexKey(null), value);
+                    if (elasticField.endsWith("." + STRING_FIELD)) {
+                        elasticField = elasticField + ".raw";
+                    }
+                    String aggField = "field_agg_" + index++;
+                    facet.aggsTermsNames.add(aggField);
+                    facet.fieldNames.add(field);
+                    TermsAggregationBuilder ab = AggregationBuilders.terms(aggField).field(elasticField)
+                            .size(200);
+                    ab.minDocCount(1);
+                    srb.addAggregation(ab);
+                }
+            }
+            if (filterCount > 0) {
+                QueryBuilder qb = predicateToQueryBuilder(newFilter.getPredicate(), query);
+                srb.setQuery(qb);
+            }
+        }
+
+        Map<String, Object> facetedRanges = query.getFacetedRanges();
+        if (!facetedRanges.isEmpty()) {
+            for (Map.Entry<String, Object> entry : facetedRanges.entrySet()) {
+                String field = entry.getKey();
+                if (entry.getValue() instanceof Map) {
+                    Map<String, Object> facetedRangeMap = (Map) entry.getValue();
+                    Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, field);
+                    String internalType = mappedKey.getInternalType();
+                    if (ObjectField.NUMBER_TYPE.equals(internalType)) {
+                        String fname = Static.addIndexFieldType(mappedKey.getInternalType(), mappedKey.getIndexKey(null), 0.0d);
+                        double gap = (double) facetedRangeMap.get(Query.RANGE_GAP);
+                        double start = (double) facetedRangeMap.get(Query.RANGE_START);
+                        double end = (double) facetedRangeMap.get(Query.RANGE_END);
+                        String aggField = "range_agg_" + index++;
+                        facet.aggsRangeNames.add(aggField);
+                        facet.rangeNames.add(field);
+                        RangeAggregationBuilder ab = AggregationBuilders.range(aggField).field(fname);
+                        for (double i = start; i < end; i = i + gap) {
+                            ab.addRange(i, i + gap);
+                        }
+                        srb.addAggregation(ab);
+                    } else {
+                        LOGGER.warn("Field " + field + " for Facet Range must be Number");
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * Return results for Grouping in Elastic
      */
@@ -791,7 +908,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (aggregations != null) {
                 Terms agg = aggregations.get("agg");
-
                 for (Terms.Bucket entry : agg.getBuckets()) {
                     String key = entry.getKeyAsString();    // Term
                     long docCount = entry.getDocCount();    // Doc count
@@ -1037,6 +1153,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         srb.setTrackScores(true);
 
+        ElasticFacet facet = new ElasticFacet();
+
+        addFacets(query, srb, facet);
+
         try {
             LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]",
                     new Object[] {(indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings),
@@ -1053,9 +1173,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 items.add(createSavedObjectWithHit(hit, query, maxScore));
             }
 
+            getFacets(query, response, facet);
+
             LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
 
-            return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
+            return new ElasticPaginatedResult<>(
+                    offset, limit, hits.getTotalHits(), items,
+                    facet.terms, facet.fieldNames, facet.ranges, facet.rangeNames, facet.filter,
+                    query.getClass(),
+                    com.psddev.dari.util.Settings.isDebug() ? srb : null);
+
+            //return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
 
         } catch (Exception error) {
             LOGGER.warn(

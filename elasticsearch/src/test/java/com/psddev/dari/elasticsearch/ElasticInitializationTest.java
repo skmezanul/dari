@@ -19,6 +19,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -358,4 +359,246 @@ public class ElasticInitializationTest {
                 .selectAll();
         assertThat(fooResult3, hasSize(0));
     }
+
+    @Test
+    public void testFacetFieldElastic() throws Exception {
+        ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+
+        SearchIndexModel search = new SearchIndexModel();
+        search.name = "Bill";
+        search.num = 1;
+        search.save();
+
+        SearchIndexModel search1 = new SearchIndexModel();
+        search1.name = "Joe";
+        search1.num = 2;
+        search1.save();
+
+        SearchIndexModel search2 = new SearchIndexModel();
+        search2.name = "Tom";
+        search2.num = 5;
+        search2.save();
+
+        SearchIndexModel search3 = new SearchIndexModel();
+        search3.name = "Bill";
+        search3.num = 10;
+        search3.save();
+
+        Query<SearchIndexModel> q = Query
+                .from(SearchIndexModel.class)
+                .facetedField("name", null);
+        List<SearchIndexModel> fooResult = q.selectAll();
+        assertThat(fooResult, hasSize(4));
+
+        Query q1 = Query
+                .from(SearchIndexModel.class)
+                .facetedField("name", null);
+        Object e = db.readPartial(q1, 0L, 100);
+        if (e instanceof ElasticPaginatedResult) {
+            ElasticPaginatedResult<SearchIndexModel> e1 = (ElasticPaginatedResult) e;
+            assertThat(e1.getFacetedFields(), hasSize(1));
+            List<ElasticPaginatedResult.DariFacetField> dariFacetField = e1.getFacetedFields();
+            assertThat(dariFacetField.get(0).getName(), is("name"));
+            assertThat(dariFacetField.get(0).getCount(), is(3L));
+            Map<String, Long> terms = dariFacetField.get(0).getTermValue();
+            assertThat(terms.get("Bill"), is(2L));
+            assertThat(terms.get("Tom"), is(1L));
+            assertThat(terms.get("Joe"), is(1L));
+        }
+
+    }
+
+    @Test
+    public void testFacetUUIDElastic() throws Exception {
+        ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+        UUID u = UUID.randomUUID();
+
+        SearchIndexModel search = new SearchIndexModel();
+        search.name = "Bill";
+        search.num = 1;
+        search.idBox = u;
+        search.save();
+
+        SearchIndexModel search1 = new SearchIndexModel();
+        search1.name = "Joe";
+        search1.num = 2;
+        search1.idBox = u;
+        search1.save();
+
+        SearchIndexModel search2 = new SearchIndexModel();
+        search2.name = "Tom";
+        search2.num = 5;
+        search2.idBox = UUID.randomUUID();
+        search2.save();
+
+        SearchIndexModel search3 = new SearchIndexModel();
+        search3.name = "Bill";
+        search3.num = 10;
+        search3.idBox = UUID.randomUUID();
+        search3.save();
+
+        Query q1 = Query
+                .from(SearchIndexModel.class)
+                .facetedField("idBox", null);
+        Object e = db.readPartial(q1, 0L, 100);
+        if (e instanceof ElasticPaginatedResult) {
+            ElasticPaginatedResult<SearchIndexModel> e1 = (ElasticPaginatedResult) e;
+            assertThat(e1.getFacetedFields(), hasSize(1));
+            List<ElasticPaginatedResult.DariFacetField> dariFacetField = e1.getFacetedFields();
+            assertThat(dariFacetField.get(0).getName(), is("idBox"));
+            assertThat(dariFacetField.get(0).getCount(), is(3L));
+            List<SearchIndexModel> extraObjects = dariFacetField.get(0).getObjects();
+            for (SearchIndexModel s : extraObjects) {
+                if (s.getId().equals(search.getId())) {
+                    assertThat(s.getState().getExtra("count"), is(2L));
+                }
+                if (s.getId().equals(search1.getId())) {
+                    assertThat(s.getState().getExtra("count"), is(2L));
+                }
+                if (s.getId().equals(search2.getId())) {
+                    assertThat(s.getState().getExtra("count"), is(1L));
+                }
+                if (s.getId().equals(search3.getId())) {
+                    assertThat(s.getState().getExtra("count"), is(1L));
+                }
+            }
+        }
+
+    }
+
+    @Test
+    public void testFacetFieldElasticFilter() throws Exception {
+        ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+
+        SearchIndexModel search = new SearchIndexModel();
+        search.name = "Bill";
+        search.num = 1;
+        search.save();
+
+        SearchIndexModel search1 = new SearchIndexModel();
+        search1.name = "Joe";
+        search1.num = 2;
+        search1.save();
+
+        SearchIndexModel search2 = new SearchIndexModel();
+        search2.name = "Tom";
+        search2.num = 5;
+        search2.save();
+
+        SearchIndexModel search3 = new SearchIndexModel();
+        search3.name = "Bill";
+        search3.num = 10;
+        search3.save();
+
+        // this is like a fq in SOLR for facets
+        Query<SearchIndexModel> q = Query
+                .from(SearchIndexModel.class)
+                .facetedField("name", "Bill");
+        List<SearchIndexModel> fooResult = q.selectAll();
+        assertThat(fooResult, hasSize(2));
+
+        Query<SearchIndexModel> q1 = Query
+                .from(SearchIndexModel.class)
+                .facetedField("name", null);
+        List<SearchIndexModel> fooResult2 = q1.selectAll();
+        assertThat(fooResult2, hasSize(4));
+
+        Object e = db.readPartial(q1, 0L, 100);
+        if (e instanceof ElasticPaginatedResult) {
+            ElasticPaginatedResult<SearchIndexModel> e1 = (ElasticPaginatedResult) e;
+            assertThat(e1.getFacetedFields(), hasSize(1));
+            List<ElasticPaginatedResult.DariFacetField> dariFacetField = e1.getFacetedFields();
+            assertThat(dariFacetField.get(0).getName(), is("name"));
+            assertThat(dariFacetField.get(0).getCount(), is(3L));
+            Map<String, Long> terms = dariFacetField.get(0).getTermValue();
+            assertThat(terms.get("Bill"), is(2L));
+        }
+    }
+
+    @Test
+    public void testFacetRangeElastic() throws Exception {
+        ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+
+        SearchIndexModel search = new SearchIndexModel();
+        search.name = "Bill";
+        search.num = 1;
+        search.save();
+
+        SearchIndexModel search1 = new SearchIndexModel();
+        search1.name = "Joe";
+        search1.num = 2;
+        search1.save();
+
+        SearchIndexModel search2 = new SearchIndexModel();
+        search2.name = "Tom";
+        search2.num = 5;
+        search2.save();
+
+        SearchIndexModel search3 = new SearchIndexModel();
+        search3.name = "Bill";
+        search3.num = 10;
+        search3.save();
+
+        Query<SearchIndexModel> q1 = Query
+                .from(SearchIndexModel.class)
+                .facetedRange("num", 0d, 3d, 1d);
+
+        List<SearchIndexModel> fooResult2 = q1.selectAll();
+        assertThat(fooResult2, hasSize(4));
+
+        Object e = db.readPartial(q1, 0L, 100);
+        if (e instanceof ElasticPaginatedResult) {
+            ElasticPaginatedResult<SearchIndexModel> e1 = (ElasticPaginatedResult) e;
+            assertThat(e1.getRangeFacets(), hasSize(1));
+            List<ElasticPaginatedResult.DariRangeFacet> dariRangeFacet = e1.getRangeFacets();
+            assertThat(dariRangeFacet.get(0).getName(), is("num"));
+            assertThat(dariRangeFacet.get(0).getRangeFacet(), notNullValue());
+            Map<String, Long> range = dariRangeFacet.get(0).getRangeValues();
+            assertThat(range.get("0.0-1.0"), is(0L));
+            assertThat(range.get("1.0-2.0"), is(1L));
+            assertThat(range.get("2.0-3.0"), is(1L));
+        }
+    }
+
+    @Test
+    public void testFacetQueryElastic() throws Exception {
+        ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+
+        SearchIndexModel search = new SearchIndexModel();
+        search.name = "Bill";
+        search.num = 1;
+        search.save();
+
+        SearchIndexModel search1 = new SearchIndexModel();
+        search1.name = "Joe";
+        search1.num = 2;
+        search1.save();
+
+        SearchIndexModel search2 = new SearchIndexModel();
+        search2.name = "Tom";
+        search2.num = 5;
+        search2.save();
+
+        SearchIndexModel search3 = new SearchIndexModel();
+        search3.name = "Bill";
+        search3.num = 10;
+        search3.save();
+
+        Query q1 = Query.from(SearchIndexModel.class).where("name = ?", "Joe");
+        Query<SearchIndexModel> q2 = Query
+                .from(SearchIndexModel.class)
+                .facetQuery(q1);
+
+        List<SearchIndexModel> fooResult3 = q2.selectAll();
+        assertThat(fooResult3, hasSize(4));
+
+        Object e = db.readPartial(q2, 0L, 100);
+        if (e instanceof ElasticPaginatedResult) {
+            ElasticPaginatedResult<SearchIndexModel> e1 = (ElasticPaginatedResult) e;
+            assertThat(e1.getQueryFacet(), notNullValue());
+            Long count = e1.getQueryFacetCount();
+            assertThat(count, is(1L));
+        }
+    }
+
 }
