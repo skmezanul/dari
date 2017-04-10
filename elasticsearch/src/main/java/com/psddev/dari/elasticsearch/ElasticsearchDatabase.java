@@ -145,6 +145,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String HOSTNAME_SUB_SETTING = "clusterHostname";
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SHARDS_MAX_SETTING = "shardsMax";
+    public static final String PREFERFILTERS_SETTING = "preferFilters";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
     public static final String DEFAULT_DATAFIELD_TYPE_SETTING = "defaultDataFieldType";
@@ -319,6 +320,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private transient TransportClient client;
     private boolean painlessModule = false;
     private int shardsMax = 1000;   // default provided by Elastic
+    private boolean preferFilters = true;
 
     /**
      * get the Nodes for the Cluster
@@ -500,6 +502,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         String shardsMax = ObjectUtils.to(String.class, settings.get(SHARDS_MAX_SETTING));
         if (shardsMax != null) {
             this.shardsMax = Integer.parseInt(shardsMax);
+        }
+
+        String preferFilters = ObjectUtils.to(String.class, settings.get(PREFERFILTERS_SETTING));
+        if (preferFilters != null) {
+            this.preferFilters = Boolean.parseBoolean(preferFilters);
         }
 
         boolean done = false;
@@ -1127,13 +1134,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         SearchResponse response;
 
-        // if no sort, then we can use Filtered
+        // if no sort, then we can use filtered is setting preferFilters is set to true (default)
+        // else leave the query alone
         QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
-        if (query.getSorters() == null || query.getSorters().size() == 0) {
+        if (this.preferFilters && (query.getSorters() == null || query.getSorters().size() == 0)) {
             qb = QueryBuilders.boolQuery().filter(qb);
-        } else {
-            qb = QueryBuilders.boolQuery().must(qb);
         }
+
         SearchRequestBuilder srb;
 
         if (typeIds.size() > 0) {

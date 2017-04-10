@@ -19,6 +19,7 @@ Example as AggregateDatabase:
 
     <Environment name="dari/database/project/delegate/elasticsearch/class"                type="java.lang.String" value="com.psddev.dari.elasticsearch.ElasticsearchDatabase" />
     <Environment name="dari/database/project/delegate/elasticsearch/clusterName"          type="java.lang.String" value="elasticsearch" />
+    <Environment name="dari/database/project/delegate/elasticsearch/preferFilters"        type="java.lang.String" value="true" />
     <Environment name="dari/database/project/delegate/elasticsearch/indexName"            type="java.lang.String" value="index1" />
     <Environment name="dari/database/project/delegate/elasticsearch/shardsMax"            type="java.lang.String" value="5000" />
     <Environment name="dari/database/project/delegate/elasticsearch/defaultDataFieldType" type="java.lang.String" value="json" />
@@ -36,6 +37,8 @@ Some explanation:
 - the 1/clusterPort, 1/clusterRestPort, and 1/clusterHostname indicates the first Node in the Cluster. If you want you can include 2, 3... Or just the Load Balancer.
 - When using defaultDataFieldType = "json" you can set some types to "raw" by setting SparseSet like below.
 <Environment name="dari/database/project/delegate/elasticsearch/dataTypesRaw"          type="java.lang.String" value="-* +com.psddev.dari.test.WriteModel " />
+
+- preferFilters - when not sorting, prefer filters since that Caches better - performance is better when set to true (default). Set to false to prefer queries for legacy operation.
 
 2. Here is a sample query specific to ElasticsearchDatabase.
 
