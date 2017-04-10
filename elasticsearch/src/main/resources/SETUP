@@ -2,11 +2,18 @@ Config for Elastic Search 5.2.2+ Setup Ubuntu
 
 1. Install Elasticsearch v5.2.2 / Kibana
 
+apt-get update
+apt-get install apt-transport-https
+
 wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.2.2.deb
 dpkg -i elasticsearch-5.2.2.deb
 
-wget https://artifacts.elastic.co/downloads/elasticsearch/kibana-5.2.2.deb
-dpkg -i kibana-5.2.2.deb
+wget https://artifacts.elastic.co/downloads/kibana/kibana-5.2.2-amd64.deb
+dpkg -i kibana-5.2.2-amd64.deb
+
+update-rc.d elasticsearch defaults
+update-rc.d kibana defaults
+update-rc.d -f solr remove
 
 2. Install Oracle Java JDK 1.8.0_73 or later (Vagrant boxes need to be upgraded). Lucene has an issue with Java JDK < 1.8.0_73
 apt-get update
@@ -14,6 +21,7 @@ apt-get install python-software-properties
 add-apt-repository ppa:webupd8team/java
 apt-get update
 apt-get install oracle-java8-installer
+apt install oracle-java8-set-default
 
 3. Setup elasticsearch.yml for performance /etc/elasticsearch/elasticsearch.yml. This is needed to boost performance.
 the *.size gives more power to Elastic since you give it number of cores. If you have an 8 core box you probably want to
@@ -41,15 +49,17 @@ indices.memory.index_buffer_size: 30%
 network.host: 172.28.128.XXX
 http.port: 9200
 
-4. Set - this sets the memory so that Elastic does not hang.
+4. Set - this sets the memory so that Elastic does not hang. Also, turn off swappiness
 sysctl -w vm.max_map_count=262144
+sysctl -w vm.swappiness=1
 
 In /etc/sysctl.conf
 vm.max_map_count = 262144
+vm.swappiness = 1
 
 sysctl -p
 
-5. Set memory edit jvm.options file: set half of memory - "/etc/init.d/solr stop" to save mem since you are using elastic now.
+5. Set memory edit /etc/elasticsearch/jvm.options file: set half of memory - "/etc/init.d/solr stop" to save mem since you are using elastic now.
 -Xms2g
 -Xmx2g
 
@@ -58,19 +68,63 @@ root - nofile 100000
 elasticsearch  -  nofile  65536
 elasticsearch	-	nproc	5000
 root	-	nproc	5000
+elasticsearch soft memlock unlimited
+elasticsearch hard memlock unlimited
 
- 7. Uncomment /etc/pam.d/su on Ubuntu - you need to do that on Unbuntu or it won't use limits.conf
+7. Uncomment /etc/pam.d/su on Ubuntu - you need to do that on Unbuntu or it won't use limits.conf
  # session    required   pam_limits.so
 
- 8. Start Elastic -- also set to auto start
+8. Systemd file change /usr/lib/systemd/system/elasticsearch.service
+
+cd /etc/systemd/system
+mkdir elasticsearch.service.d
+cd elasticsearch.service.d/
+edit elasticsearch.conf
+
+[Service]
+LimitMEMLOCK=infinity
+
+Also set /etc/default/elasticsearch by uncommenting:
+
+MAX_OPEN_FILES=65536
+MAX_LOCKED_MEMORY=unlimited
+MAX_MAP_COUNT=262144
+
+ 9. Start Elastic -- also set to auto start
  /etc/init.d/elasticsearch start
 
  Check http://localhost:9200/_nodes/stats/process?filter_path=**.max_file_descriptor
  Check http://localhost:9200/_nodes?filter_path=**.mlockall
 
- 9. You should run Kibana since that is how most people interface with Elastic
+ 10. You should run Kibana since that is how most people interface with Elastic
+ Edit /etc/kibana/kibana.yml
+ server.host: "172.28.128.XXX"
+ elasticsearch.url: "http://172.28.128.XXX:9200"
+
  /etc/init.d/kibana start
 
- 10. See example-tomcat-context.xml for Sample config
+ 11. See example-tomcat-context.xml for Sample config - edit /servers/projectXXX/conf/context.xml
+
+ 12. Then copy ROOT.war into /servers/projectXXX/webapps
+
+ cd webapps
+ rm -rf ROOT
+ cp ROOT.war /servers/projectXXX/webapps
+
+Also, set JAVA to latest:
+
+edit /servers/projectXXX/bin/setenv.sh
+
+export JAVA_HOME='/usr/lib/jvm/java-8-oracle'
+
+To get JDBC to work /etc/hosts:
+
+127.0.0.1 host.reader.service.qa.projectXXX.internal
+
+/etc/init.d/projectXXX stop
+/etc/init.d/projectXXX start
+/etc/init.d/projectXXX start
+
+
 
 
