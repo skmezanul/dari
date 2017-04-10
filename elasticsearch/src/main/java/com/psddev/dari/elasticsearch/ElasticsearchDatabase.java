@@ -660,6 +660,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         List<String> aggsRangeNames = new ArrayList<>();
     }
 
+    /**
+     * Get Facet info from Elastic response
+     */
     public void getFacets(Query<?> query, SearchResponse response,
                           ElasticFacet facet) {
         Aggregations aggregations = response.getAggregations();
@@ -688,7 +691,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Add facets to srb
+     * Add facets to SearchRequestBuilder and store the facet info
      */
     public void addFacets(Query<?> query, SearchRequestBuilder srb, ElasticFacet facet) {
 
