@@ -52,13 +52,9 @@
     },
     "filter" : {
       "ngram_filter": {
-        "type": "edge_ngram",
+        "type": "edgeNGram",
         "min_gram": 1,
-        "max_gram": 12,
-        "token_chars": [
-          "letter",
-          "digit"
-        ]
+        "max_gram": 12
       },
       "search_delimiter" : {
         "type" : "word_delimiter",
@@ -88,8 +84,7 @@
         "split_on_case_change": true
       },
       "text_stemmer" : {
-        "type" : "stemmer",
-        "name" : "porter2"
+        "type" : "porter_stem"
       },
       "unique_words" : {
         "type" : "unique"
