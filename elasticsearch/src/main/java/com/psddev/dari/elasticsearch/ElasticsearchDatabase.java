@@ -54,6 +54,7 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.bulk.Retry;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.geo.GeoPoint;
@@ -146,6 +147,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SHARDS_MAX_SETTING = "shardsMax";
     public static final String PREFERFILTERS_SETTING = "preferFilters";
+    public static final String DFS_QUERY_THEN_FETCH_SETTING = "dfsQueryThenFetch";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
     public static final String DEFAULT_DATAFIELD_TYPE_SETTING = "defaultDataFieldType";
@@ -321,6 +323,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private boolean painlessModule = false;
     private int shardsMax = 1000;   // default provided by Elastic
     private boolean preferFilters = true;
+    private boolean dfsQueryThenFetch = false;
 
     /**
      * get the Nodes for the Cluster
@@ -507,6 +510,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         String preferFilters = ObjectUtils.to(String.class, settings.get(PREFERFILTERS_SETTING));
         if (preferFilters != null) {
             this.preferFilters = Boolean.parseBoolean(preferFilters);
+        }
+
+        String dfsQueryThenFetch = ObjectUtils.to(String.class, settings.get(DFS_QUERY_THEN_FETCH_SETTING));
+        if (dfsQueryThenFetch != null) {
+            this.dfsQueryThenFetch = Boolean.parseBoolean(dfsQueryThenFetch);
         }
 
         boolean done = false;
@@ -1133,14 +1141,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         checkIndexes(indexIdStrings);
 
         SearchResponse response;
-
-        // if no sort, then we can use filtered is setting preferFilters is set to true (default)
-        // else leave the query alone
-        QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
-        if (this.preferFilters && (query.getSorters() == null || query.getSorters().size() == 0)) {
-            qb = QueryBuilders.boolQuery().filter(qb);
-        }
-
         SearchRequestBuilder srb;
 
         if (typeIds.size() > 0) {
@@ -1152,6 +1152,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             srb = client.prepareSearch(getIndexName() + "*")
                     .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
+        }
+
+        // if no sort, then we can use filtered is setting preferFilters is set to true (default)
+        // else leave the query alone
+        QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
+        if (this.preferFilters && (query.getSorters() == null || query.getSorters().size() == 0)) {
+            qb = QueryBuilders.boolQuery().filter(qb);
+        } else {
+            if (this.dfsQueryThenFetch) {
+                srb.setSearchType(SearchType.DFS_QUERY_THEN_FETCH);
+            }
         }
 
         srb.setQuery(qb)

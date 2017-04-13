@@ -20,6 +20,7 @@ Example as AggregateDatabase:
     <Environment name="dari/database/project/delegate/elasticsearch/class"                type="java.lang.String" value="com.psddev.dari.elasticsearch.ElasticsearchDatabase" />
     <Environment name="dari/database/project/delegate/elasticsearch/clusterName"          type="java.lang.String" value="elasticsearch" />
     <Environment name="dari/database/project/delegate/elasticsearch/preferFilters"        type="java.lang.String" value="true" />
+    <Environment name="dari/database/elasticsearch/dfsQueryThenFetch"                     type="java.lang.String" value="false" />
     <Environment name="dari/database/project/delegate/elasticsearch/indexName"            type="java.lang.String" value="index1" />
     <Environment name="dari/database/project/delegate/elasticsearch/shardsMax"            type="java.lang.String" value="5000" />
     <Environment name="dari/database/project/delegate/elasticsearch/defaultDataFieldType" type="java.lang.String" value="json" />
@@ -39,6 +40,7 @@ Some explanation:
 <Environment name="dari/database/project/delegate/elasticsearch/dataTypesRaw"          type="java.lang.String" value="-* +com.psddev.dari.test.WriteModel " />
 
 - preferFilters - when not sorting, prefer filters since that Caches better - performance is better when set to true (default). Set to false to prefer queries for legacy operation.
+- dfsQueryThenFetch - Queries are more accurate but might slow down depending on size of results and # of shards
 
 2. Here is a sample query specific to ElasticsearchDatabase.
 
