@@ -1180,8 +1180,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         try {
             LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]",
-                    new Object[] {(indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings),
-                            (typeIdStrings.length == 0 ? "" : typeIdStrings),
+                    new Object[] {(indexIdStrings.length == 0 ? getIndexName() + "*" : Arrays.toString(indexIdStrings)),
+                            (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings)),
                             srb.toString()});
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
@@ -2870,6 +2870,21 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         doWriteRecalculations(client, isImmediate, recalculations);
     }
 
+    @Override
+    protected void doSaves(TransportClient client, boolean isImmediate, List<State> saves) throws Exception {
+        doWrites(client, isImmediate, saves, null, null);
+    }
+
+    @Override
+    protected void doIndexes(TransportClient client, boolean isImmediate, List<State> indexes) throws Exception {
+        doWrites(client, isImmediate, null, indexes, null);
+    }
+
+    @Override
+    protected void doDeletes(TransportClient client, boolean isImmediate, List<State> deletes) throws Exception {
+        doWrites(client, isImmediate, null, null, deletes);
+    }
+
     /**
      * Write saves, indexes, deletes as a bulk Elastic operation
      *
@@ -2918,8 +2933,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             String indexName = getIndexName();
 
-            if (saves != null) {
+            if (saves != null && !saves.isEmpty()) {
                 // "groups" are set in context.xml are aggregate and limit the saves
+                LOGGER.debug("doWrites saves:" + saves.size());
                 Set<String> databaseGroups = getGroups();
                 Iterator<State> iterator = saves.iterator();
                 while (iterator.hasNext()) {
@@ -2958,7 +2974,23 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         List<AtomicOperation> atomicOperations = state.getAtomicOperations();
                         StringBuilder allBuilder = new StringBuilder();
 
+                        Object oldObject = null;
+                        if (!(isNew || atomicOperations.isEmpty())) {
+                            oldObject = Query
+                                    .from(Object.class)
+                                    .where("_id = ?", documentId)
+                                    .using(this)
+                                    .master()
+                                    .noCache()
+                                    .first();
+
+                            if (oldObject == null) {
+                                isNew = true;
+                            }
+                        }
+
                         if (isNew || atomicOperations.isEmpty()) {
+                            LOGGER.debug("doWrites isNew or not atomic");
                             Map<String, Object> t = new HashMap<>();
                             if (isJsonState(state)) {
                                 t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
@@ -2994,19 +3026,22 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
 
                         } else {
+                            LOGGER.debug("doWrites update or atomic");
                             // there is no getting around it, must grab query to get old value and set it
                             boolean sendFullUpdate = false;
-                            Object oldObject = Query
-                                    .from(Object.class)
-                                    .where("_id = ?", documentId)
-                                    .using(this)
-                                    .master()
-                                    .noCache()
-                                    .first();
+                            if (oldObject == null) {
+                                oldObject = Query
+                                        .from(Object.class)
+                                        .where("_id = ?", documentId)
+                                        .using(this)
+                                        .master()
+                                        .noCache()
+                                        .first();
+                            }
 
                             if (oldObject == null) {
-                                retryWrites();
-                                break;
+                                LOGGER.warn("doWrites: Cannot update object");
+                                continue;
                             }
 
                             // Restore the data from the old object.
@@ -3017,7 +3052,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             state.setValues(oldState.getValues());
 
                             if (!this.painlessModule) {
-                                LOGGER.info("Painless module is not installed");
+                                LOGGER.info("doWrites: Painless module is not installed");
                                 sendFullUpdate = true;
                             }
 
@@ -3138,6 +3173,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 LOGGER.debug("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
                                         new Object[] {newIndexname, documentType, documentId, extra.toString()});
                                 bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(extra));
+                            } else {
+                                LOGGER.debug("Elasticsearch doWrites regular overwrit index [{}] and _type [{}] and _id [{}] = [{}]",
+                                        new Object[] {newIndexname, documentType, documentId, extra.toString()});
+                                bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
                             }
                         }
                     } catch (Exception error) {
@@ -3189,11 +3228,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
                 }
-                if (isImmediate) {
-                    commitTransaction(client, true);
-                }
             } else {
                 LOGGER.info("Elasticsearch bulk request had 0 actions");
+            }
+            if (isImmediate) {
+                commitTransaction(client, true);
             }
         } catch (Exception error) {
             LOGGER.warn(

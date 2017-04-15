@@ -20,7 +20,7 @@ Example as AggregateDatabase:
     <Environment name="dari/database/project/delegate/elasticsearch/class"                type="java.lang.String" value="com.psddev.dari.elasticsearch.ElasticsearchDatabase" />
     <Environment name="dari/database/project/delegate/elasticsearch/clusterName"          type="java.lang.String" value="elasticsearch" />
     <Environment name="dari/database/project/delegate/elasticsearch/preferFilters"        type="java.lang.String" value="true" />
-    <Environment name="dari/database/elasticsearch/dfsQueryThenFetch"                     type="java.lang.String" value="false" />
+    <Environment name="dari/database/project/delegate/elasticsearch/dfsQueryThenFetch"    type="java.lang.String" value="false" />
     <Environment name="dari/database/project/delegate/elasticsearch/indexName"            type="java.lang.String" value="index1" />
     <Environment name="dari/database/project/delegate/elasticsearch/shardsMax"            type="java.lang.String" value="5000" />
     <Environment name="dari/database/project/delegate/elasticsearch/defaultDataFieldType" type="java.lang.String" value="json" />
@@ -56,7 +56,7 @@ public class Code {
 
 3. Dari Query syntax as per docs
 
-4, Static.escapeValue(special) only needed on matchesany, contains, and matchesall. startswith and =,<,>,<=,>=,!= generally Elastic already handles these.
+4. Static.escapeValue(special) only needed on matchesany, contains, and matchesall. startswith and =,<,>,<=,>=,!= generally Elastic already handles these.
    But remember you can decide just not send these specialty characters to Elastic on matchesany, matchesall since they would be tokenized out in most cases.
 
     Also, you might want to send where("name matches bill*") so we don't escape for you.
@@ -68,3 +68,20 @@ public class Code {
               "com.psddev.dari.test.SearchIndexModel/one._string^1.0"
             ]
     }
+
+5. After setting up AggregateDatabase and Bulk loading. Run this to verify:
+
+        Database source =  Database.Static.getFirst(SqlDatabase.class);
+        Database elastic =  Database.Static.getFirst(ElasticsearchDatabase.class);
+
+        Set<ObjectType> dbTypes = source.getEnvironment().getTypes();
+        List<String> diff = new ArrayList<>();
+        for (ObjectType o : dbTypes) {
+	   		UUID id = o.getId();
+            long count = Query.fromAll().timeout(50000d).using(elastic).where("_type = ?", id).count();
+            long count2 = Query.fromAll().timeout(50000d).using(source).where("_type = ?", id).count();
+            if (count != count2) {
+                diff.add("_typeId = " + id + " elastic/mysql: " + count + "/" + count2);
+            }
+        }
+        return diff;
