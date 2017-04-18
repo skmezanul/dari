@@ -32,6 +32,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
+import static com.psddev.dari.elasticsearch.ElasticsearchDatabase.TEMPLATE_NAME;
+
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
         ElasticDBSuite.ElasticTests.class
@@ -48,6 +50,34 @@ public class ElasticDBSuite {
 
         public static void setIsEmbedded(boolean isEmbedded) {
             ElasticTests.isEmbedded = isEmbedded;
+        }
+
+        /**
+         * delete Elastic Template
+         */
+        public static void deleteTemplate(String nodeHost) throws IOException {
+            LOGGER.info("Deleting Template " + TEMPLATE_NAME);
+            try {
+                CloseableHttpClient httpClient = HttpClients.createDefault();
+                HttpDelete delete = new HttpDelete(nodeHost + "_template/" + TEMPLATE_NAME);
+                delete.addHeader("accept", "application/json");
+                CloseableHttpResponse response = httpClient.execute(delete);
+                try {
+                    HttpEntity entity = response.getEntity();
+                    String res = EntityUtils.toString(entity);
+                    EntityUtils.consume(entity);
+                    LOGGER.info("Deleted Template {} [{}] {}", TEMPLATE_NAME, res, response.getStatusLine().getStatusCode());
+                } finally {
+                    response.close();
+                }
+            } catch (Exception error) {
+                LOGGER.warn(
+                        String.format("Warning: deleteTemplate[%s: %s]",
+                                error.getClass().getName(),
+                                error.getMessage()),
+                        error);
+                throw error;
+            }
         }
 
         /**
@@ -112,6 +142,7 @@ public class ElasticDBSuite {
             String verifyClusterName = ElasticsearchDatabase.Static.getClusterName(nodeHost);
             Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, verifyClusterName);
             deleteIndex(Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING) + "*", nodeHost);
+            deleteTemplate(nodeHost);
         }
 
         public static TestSuite suite() throws Exception {

@@ -42,11 +42,10 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
-import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
+import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResponse;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
@@ -137,6 +136,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     public static final String ELASTIC_VERSION = "5.2.2";
+    public static final String TEMPLATE_NAME = "bright_1";
     public static final String DEFAULT_DATABASE_NAME = "dari/defaultDatabase";
     public static final String DATABASE_NAME = "elasticsearch";
     public static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
@@ -181,10 +181,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final String ELASTIC_SETTING = Static.getSetting("");
 
     public class IndexKey {
+        private String indexName;
         private String indexId;
         private int shardsMax;
         private List<ElasticsearchNode> clusterNodes;
         private org.elasticsearch.common.settings.Settings nodeSettings;
+
+        public String getIndexName() {
+            return indexName;
+        }
+
+        public void setIndexName(String indexName) {
+            this.indexName = indexName;
+        }
 
         public int getShardsMax() {
             return shardsMax;
@@ -259,7 +268,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         @Override
                         public String load(IndexKey index) throws Exception {
                             TransportClient client = ElasticsearchDatabaseConnection.getClient(index.getNodeSettings(), index.getClusterNodes());
-                            defaultMap(client, index.getIndexId(), index.getShardsMax());
+                            setTemplate(client, index.getIndexName(), false);
+                            checkShards(client, index.getShardsMax());
                             LOGGER.debug("Elasticsearch creating index [{}]", index.getIndexId());
                             return "setIndex";
                         }
@@ -277,19 +287,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         @Override
                         public String load(UUID index) throws Exception {
                             String indexName = JSONINDEX_SUB_NAME;
-                            if (index != null) {
-                                ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
-                                if (db != null) {
-                                    ObjectType type = db.getEnvironment().getTypeById(index);
-                                    if (type != null) {
-                                        if (db.isJsonGroup(type.getGroups())) {
-                                            indexName = JSONINDEX_SUB_NAME;
-                                        } else {
-                                            indexName = Static.replaceDash(index.toString());
-                                        }
-                                    } else if (db.defaultDataFieldType.equals(RAW_DATAFIELD_TYPE)) {
+                            ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
+                            if (db != null) {
+                                ObjectType type = db.getEnvironment().getTypeById(index);
+                                if (type != null) {
+                                    if (db.isJsonGroup(type.getGroups())) {
+                                        indexName = JSONINDEX_SUB_NAME;
+                                    } else {
                                         indexName = Static.replaceDash(index.toString());
                                     }
+                                } else if (db.defaultDataFieldType.equals(RAW_DATAFIELD_TYPE)) {
+                                    indexName = Static.replaceDash(index.toString());
                                 }
                             }
                             return indexName;
@@ -1050,6 +1058,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 index.setNodeSettings(this.nodeSettings);
                 index.setClusterNodes(this.clusterNodes);
                 index.setIndexId(newIndexname);
+                index.setIndexName(this.indexName);
                 index.setShardsMax(this.shardsMax);
                 CREATE_INDEX_CACHE.get(index);
             }
@@ -2255,34 +2264,23 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Elastic mapping which will set the types used for Elastic on index creation
-     *
+     * Set Elastic template for indexName + "*"
      */
-    private static synchronized void defaultMap(TransportClient client, String indexName, int shardsMax) {
+    private static synchronized void setTemplate(TransportClient client, String indexName, boolean removeOldTemplate) {
 
         if (client != null) {
-            boolean indexExists = client.admin().indices()
-                    .prepareExists(indexName)
-                    .execute().actionGet().isExists();
+            if (removeOldTemplate) {
+                client.admin().indices().prepareDeleteTemplate(TEMPLATE_NAME).get();
+            }
 
-            if (!indexExists) {
-                CreateIndexRequestBuilder cirb = client.admin().indices().prepareCreate(indexName).addMapping("_default_", ELASTIC_MAPPING)
-                        .setSettings(ELASTIC_SETTING);
-                CreateIndexResponse createIndexResponse = cirb.execute().actionGet();
-                if (!createIndexResponse.isAcknowledged()) {
-                    LOGGER.warn("Could not create index {}", indexName);
-                }
+            GetIndexTemplatesResponse response = client.admin().indices().prepareGetTemplates(TEMPLATE_NAME).get();
 
-                int current = 1000;   // default is NULL
-                Settings currentVal = client.admin().cluster().prepareState().execute().actionGet().getState().metaData().persistentSettings();
-                if (currentVal.get("action.search.shard_count.limit") != null) {
-                    current = Integer.valueOf(currentVal.get("action.search.shard_count.limit"));
-                }
+            if (response.getIndexTemplates().size() == 0) {
 
-                if (current != shardsMax) {
-                    client.admin().cluster().prepareUpdateSettings().setPersistentSettings(
-                            Settings.builder().put("action.search.shard_count.limit", String.valueOf(shardsMax)).build()).execute().actionGet();
-                }
+                client.admin().indices().preparePutTemplate(TEMPLATE_NAME)
+                        .setTemplate(indexName + "*")
+                        .setOrder(0).addMapping("_default_", ELASTIC_MAPPING)
+                        .setSettings(ELASTIC_SETTING).get();
 
                 ClusterHealthResponse yellow = client.admin().cluster().prepareHealth(indexName)
                         .setWaitForYellowStatus()
@@ -2294,6 +2292,24 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 } catch (Exception e) {
                     LOGGER.warn("Refresh failed");
                 }
+            }
+        }
+    }
+
+    /**
+     * Make sure the cluster has enough Shards
+     */
+    private static void checkShards(TransportClient client, int shardsMax) {
+        if (client != null) {
+            int current = 1000;   // default is NULL
+            Settings currentVal = client.admin().cluster().prepareState().execute().actionGet().getState().metaData().persistentSettings();
+            if (currentVal.get("action.search.shard_count.limit") != null) {
+                current = Integer.valueOf(currentVal.get("action.search.shard_count.limit"));
+            }
+
+            if (current != shardsMax) {
+                client.admin().cluster().prepareUpdateSettings().setPersistentSettings(
+                        Settings.builder().put("action.search.shard_count.limit", String.valueOf(shardsMax)).build()).execute().actionGet();
             }
         }
     }
@@ -3455,7 +3471,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         /**
-         * The settings for indexes analysis
+         * The settings for indexes analysis - PUT /index/
          */
         public static String getSetting(String path) {
             try {
@@ -3469,8 +3485,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         + "  \"index.mapping.ignore_malformed\": true,\n"
                         + "  \"index\": {\n"
                         + "    \"refresh_interval\" : \"2s\",\n"
-                        + "    \"number_of_shards\": \"2\",\n"
-                        + "    \"number_of_replicas\": \"1\"\n"
+                        + "    \"number_of_shards\": \"1\",\n"
+                        + "    \"number_of_replicas\": \"0\"\n"
                         + "  },\n"
                         + "  \"analysis\": {\n"
                         + "    \"analyzer\": {\n"
