@@ -1167,6 +1167,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
         }
 
+        srb.setFetchSource(DATA_FIELD, null);
+
         // if no sort, then we can use filtered is setting preferFilters is set to true (default)
         // else leave the query alone
         QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
