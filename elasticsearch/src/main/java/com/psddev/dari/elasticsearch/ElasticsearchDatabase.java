@@ -1419,8 +1419,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb) {
         List<SortBuilder> list = new ArrayList<>();
         if (sorters == null || sorters.size() == 0) {
-            list.add(new FieldSortBuilder(TYPE_ID_FIELD).order(ASC).unmappedType("keyword"));
-            list.add(new FieldSortBuilder(IDS_FIELD).order(ASC).unmappedType("keyword"));
+            //list.add(new FieldSortBuilder(TYPE_ID_FIELD).order(ASC).unmappedType("keyword"));
+            list.add(new FieldSortBuilder(IDS_FIELD).order(DESC).unmappedType("keyword"));
         } else {
             List<FunctionScoreQueryBuilder.FilterFunctionBuilder> filterFunctionBuilders = new ArrayList<>();
 
