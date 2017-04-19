@@ -171,8 +171,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final int TIMEOUT = 30000;            // 30 seconds
     public static final int MAX_BINARY_FIELD_LENGTH = 1024;
     public static final int FACET_MAX_ROWS = 100;
-    public static final int CACHE_TIMEOUT_MIN = 60;
-    public static final int CACHE_MAX_INDEX_SIZE = 5000;
+    public static final int CACHE_TIMEOUT_MIN = 120;
+    public static final int CACHE_MAX_INDEX_SIZE = 7500;
     private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
     public static final String SCORE_EXTRA = "elastic.score";
@@ -270,8 +270,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             TransportClient client = ElasticsearchDatabaseConnection.getClient(index.getNodeSettings(), index.getClusterNodes());
                             setTemplate(client, index.getIndexName(), false);
                             checkShards(client, index.getShardsMax());
-                            LOGGER.debug("Elasticsearch creating index [{}]", index.getIndexId());
-                            return "setIndex";
+                            return index.getIndexId();
                         }
                     });
 
@@ -1033,7 +1032,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Get cached version of the indexName using the typeId
      */
-    private static String getElasticIndexName(UUID typeId) {
+    private String getElasticIndexName(UUID typeId) {
+
+        if ((this.dataTypesRaw == null || ObjectUtils.isBlank(this.dataTypesRaw)) && this.defaultDataFieldType.equals(JSON_DATAFIELD_TYPE)) {
+            return JSONINDEX_SUB_NAME;
+        }
 
         try {
                 return INDEXTYPEID_CACHE.get(typeId);
@@ -1053,6 +1056,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private void checkIndexes(String[] indexNames) {
 
         try {
+            // Note must have at least 1
             for (String newIndexname : indexNames) {
                 IndexKey index = new IndexKey();
                 index.setNodeSettings(this.nodeSettings);
@@ -1188,10 +1192,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         addFacets(query, srb, facet);
 
         try {
-            LOGGER.debug("Elasticsearch srb index [{}] typeIds [{}] - [{}]",
-                    new Object[] {(indexIdStrings.length == 0 ? getIndexName() + "*" : Arrays.toString(indexIdStrings)),
-                            (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings)),
-                            srb.toString()});
+            LOGGER.debug("Elasticsearch srb index ["
+                    + (indexIdStrings.length == 0 ? getIndexName() + "*" : Arrays.toString(indexIdStrings))
+                    + "] typeIds ["
+                    + (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings))
+                    + "] - [" + srb.toString() + "]");
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
             Float maxScore = hits.getMaxScore();
@@ -1213,13 +1218,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     query.getClass(),
                     com.psddev.dari.util.Settings.isDebug() ? srb : null);
 
-            //return new PaginatedResult<>(offset, limit, hits.getTotalHits(), items);
-
         } catch (Exception error) {
             LOGGER.warn(
                     String.format("index [%s] typeIds [%s] - [%s] readPartial threw Exception [%s: %s]",
-                            (indexIdStrings.length == 0 ? getIndexName() + "*" : indexIdStrings),
-                            (typeIdStrings.length == 0 ? "" : typeIdStrings),
+                            (indexIdStrings.length == 0 ? getIndexName() + "*" : Arrays.toString(indexIdStrings)),
+                            (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings)),
                             srb.toString(),
                             error.getClass().getName(),
                             error.getMessage()),
