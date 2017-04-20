@@ -332,7 +332,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private int shardsMax = 1000;   // default provided by Elastic
     private boolean preferFilters = true;
     private boolean dfsQueryThenFetch = false;
-    private static final SortBuilder SCORESORT = new ScoreSortBuilder();
 
     /**
      * get the Nodes for the Cluster
@@ -1186,9 +1185,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 .setFrom((int) offset)
                 .setSize(limit);
         for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb)) {
-            if (SCORESORT.equals(sb)) {
-                srb.setTrackScores(true);  // if score is needed
-            }
             srb.addSort(sb);
         }
 
@@ -1418,6 +1414,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Build a list of SortBuilder sorters based on Elastic
      */
     private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb) {
+        boolean hasScoreSorter = false;
         List<SortBuilder> list = new ArrayList<>();
         // Don't add sort which will slow down performance on large data sets
         if (sorters != null && sorters.size() != 0) {
@@ -1515,13 +1512,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         weightFactorFunction(boost)));
                     } else {
                         list.add(new ScoreSortBuilder());
+                        hasScoreSorter = true;
                     }
                 } else {
                     throw new UnsupportedOperationException(operator + " not supported");
                 }
             }
             if (filterFunctionBuilders.size() > 0) {
-                list.add(new ScoreSortBuilder());
+                if (!hasScoreSorter) {
+                    list.add(new ScoreSortBuilder());
+                    hasScoreSorter = true;
+                }
                 FunctionScoreQueryBuilder.FilterFunctionBuilder[] functions = new FunctionScoreQueryBuilder.FilterFunctionBuilder[filterFunctionBuilders.size()];
                 for (int i = 0; i < filterFunctionBuilders.size(); i++) {
                     functions[i] = filterFunctionBuilders.get(i);
@@ -1531,6 +1532,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .boost(1.0f)
                         .maxBoost(1000.0f);
                 srb.setQuery(orig);
+            }
+            if (hasScoreSorter) {
+                srb.setTrackScores(true);
             }
         }
         return list;
