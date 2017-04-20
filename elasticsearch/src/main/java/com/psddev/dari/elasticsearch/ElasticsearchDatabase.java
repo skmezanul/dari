@@ -1372,9 +1372,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private List<Terms.Order> predicateToSortBuilderGrouping(List<Sorter> sorters, Query<?> query, String aggKey) {
         List<Terms.Order> list = new ArrayList<>();
-        if (sorters == null || sorters.size() == 0) {
-            list.add(Terms.Order.count(false));
-        } else {
+        if (sorters != null && sorters.size() != 0) {
 
             aggKey = Static.getField(aggKey);
             for (Sorter sorter : sorters) {
@@ -1418,10 +1416,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private List<SortBuilder> predicateToSortBuilder(List<Sorter> sorters, QueryBuilder orig, Query<?> query, SearchRequestBuilder srb) {
         List<SortBuilder> list = new ArrayList<>();
-        if (sorters == null || sorters.size() == 0) {
-            //list.add(new FieldSortBuilder(TYPE_ID_FIELD).order(ASC).unmappedType("keyword"));
-            list.add(new FieldSortBuilder(IDS_FIELD).order(DESC).unmappedType("keyword"));
-        } else {
+        // Don't add sort which will slow down performance on large data sets
+        if (sorters != null && sorters.size() != 0) {
             List<FunctionScoreQueryBuilder.FilterFunctionBuilder> filterFunctionBuilders = new ArrayList<>();
 
             for (Sorter sorter : sorters) {
@@ -1481,7 +1477,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         // boostFunctionBuilder.append(String.format("{!boost b=recip(ms(NOW/HOUR,%s),3.16e-11,%s,%s)}", elasticField, boost, boost));
                     } else {
                         filterFunctionBuilders.add(
-                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elasticField, DateUtils.addYears(new java.util.Date(), -5).getTime(), scale, 0, .1).setWeight(boost))
+                                new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.exponentialDecayFunction(elasticField, DateUtils.addYears(new Date(), -5).getTime(), scale, 0, .1).setWeight(boost))
                         );
                         // Solr: linear(x,2,4) returns 2*x+4
                         // boostFunctionBuilder.append(String.format("{!boost b=linear(ms(NOW/HOUR,%s),3.16e-11,%s)}", elasticField, boost));
