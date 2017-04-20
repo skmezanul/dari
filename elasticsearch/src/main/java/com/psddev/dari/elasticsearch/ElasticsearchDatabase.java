@@ -122,6 +122,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders.weightFactorFunction;
 import static org.elasticsearch.search.sort.SortOrder.ASC;
@@ -2509,6 +2510,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     // --- ExcludeFromAnyProcessor  ---
 
     /**
+     * Remove duplicate terms before storing
+     */
+    public String deDup(String s) {
+        if (s == null || s.length() == 0) {
+            return "";
+        }
+        return Arrays.stream(s.toLowerCase().split(" "))
+                .distinct()
+                .collect(Collectors.joining(" "));
+    }
+
+    /**
      * Add Indexed Values and Indexed Methods to Elastic
      */
     public void addDocumentValues(Map<String, Object> extras, StringBuilder allBuilder, boolean includeInAny, ObjectField field, String name, Object value) {
@@ -3036,7 +3049,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.remove("_type");
                             t.put(UPDATEDATE_FIELD, this.now());
                             t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
-                            t.put(ANY_FIELD, allBuilder.toString().trim());
+                            t.put(ANY_FIELD, deDup(allBuilder.toString()));
 
                             LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
@@ -3171,7 +3184,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.remove("_type");
                             t.put(UPDATEDATE_FIELD,  this.now());
                             t.put(IDS_FIELD, documentId);
-                            t.put(ANY_FIELD, allBuilder.toString().trim());
+                            t.put(ANY_FIELD, deDup(allBuilder.toString()));
 
                             // if you move TypeId you need to add the whole document and remove old
                             if (!oldTypeId.equals(documentTypeUUID) || !oldId.equals(documentUUID)) {
