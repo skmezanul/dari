@@ -332,6 +332,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private int shardsMax = 1000;   // default provided by Elastic
     private boolean preferFilters = true;
     private boolean dfsQueryThenFetch = false;
+    private static final SortBuilder SCORESORT = new ScoreSortBuilder();
 
     /**
      * get the Nodes for the Cluster
@@ -1185,10 +1186,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 .setFrom((int) offset)
                 .setSize(limit);
         for (SortBuilder sb : predicateToSortBuilder(query.getSorters(), qb, query, srb)) {
+            if (SCORESORT.equals(sb)) {
+                srb.setTrackScores(true);  // if score is needed
+            }
             srb.addSort(sb);
         }
-
-        srb.setTrackScores(true);
 
         ElasticFacet facet = new ElasticFacet();
 
@@ -1946,10 +1948,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intLtType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                                     v == null ? QueryBuilders.matchAllQuery()
-                                    : (Static.isUUID(v) ? QueryBuilders.rangeQuery(Static.addRaw(key)).lt(v)
-                                    : (v instanceof Location ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
-                                        .must(QueryBuilders.rangeQuery(key + ".y").lt(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(Static.addQueryFieldType(intLtType, key, true)).lt(v))));
+                                    : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).lt(v))
+                                    : (v instanceof Location ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
+                                        .filter(QueryBuilders.rangeQuery(key + ".y").lt(((Location) v).getY()))
+                                    : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intLtType, key, true)).lt(v)))));
 
                 case PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
@@ -1976,11 +1978,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intLteType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(Static.addRaw(key)).lte(v)
+                            : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).lte(v))
                             : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").lte(((Location) v).getX()))
-                                    .must(QueryBuilders.rangeQuery(key + ".y").lte(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(Static.addQueryFieldType(intLteType, key, true)).lte(v))));
+                                    ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").lte(((Location) v).getX()))
+                                    .filter(QueryBuilders.rangeQuery(key + ".y").lte(((Location) v).getY()))
+                                    : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intLteType, key, true)).lte(v)))));
 
                 case PredicateParser.GREATER_THAN_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
@@ -2006,11 +2008,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intGtType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(Static.addRaw(key)).gt(v)
+                            : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).gt(v))
                             : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
-                                    .must(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(Static.addQueryFieldType(intGtType, key, true)).gt(v))));
+                                    ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
+                                    .filter(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
+                                    : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGtType, key, true)).gt(v)))));
 
                 case PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR :
 
@@ -2037,11 +2039,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intGteType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.rangeQuery(Static.addRaw(key)).gte(v)
+                            : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).gte(v))
                             : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(key + ".x").gte(((Location) v).getX()))
-                                    .must(QueryBuilders.rangeQuery(key + ".y").gte(((Location) v).getY()))
-                                    : QueryBuilders.rangeQuery(Static.addQueryFieldType(intGteType, key, true)).gte(v))));
+                                    ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").gte(((Location) v).getX()))
+                                    .filter(QueryBuilders.rangeQuery(key + ".y").gte(((Location) v).getY()))
+                                    : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGteType, key, true)).gte(v)))));
 
                 case PredicateParser.STARTS_WITH_OPERATOR :
                     mappedKey = mapFullyDenormalizedKey(query, key);
