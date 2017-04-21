@@ -197,43 +197,43 @@ public class ElasticInitializationTest {
 
         ElasticsearchDatabase e = Database.Static.getFirst(ElasticsearchDatabase.class);
         Query q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.EQUALS_ANY_OPERATOR + " ?", "3");
-        QueryBuilder x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        QueryBuilder x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.NOT_EQUALS_ALL_OPERATOR + " ?", "3");
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.LESS_THAN_OPERATOR + " ?", 3d);
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR + " ?", 3d);
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.GREATER_THAN_OPERATOR + " ?", 3d);
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR + " ?", 3d);
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.STARTS_WITH_OPERATOR + " ?", "3");
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.CONTAINS_OPERATOR + " ?", "3");
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.MATCHES_ANY_OPERATOR + " ?", "3");
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.MATCHES_ALL_OPERATOR + " ?", "3");
-        x = e.predicateToQueryBuilder(q.getPredicate(), q);
+        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
     }
 

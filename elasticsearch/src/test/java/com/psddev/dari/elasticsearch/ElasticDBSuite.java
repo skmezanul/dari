@@ -10,6 +10,7 @@ import com.psddev.dari.test.RegionIndexTest;
 import com.psddev.dari.test.RegionLocationTest;
 import com.psddev.dari.test.SearchArticleIndexTest;
 import com.psddev.dari.test.SearchIndexTest;
+import com.psddev.dari.test.SearchIteratorTest;
 import com.psddev.dari.test.SingletonTest;
 import com.psddev.dari.test.StateIndexTest;
 import com.psddev.dari.test.StringIndexTest;
@@ -149,6 +150,7 @@ public class ElasticDBSuite {
             LOGGER.info("Starting Elastic test");
             ElasticSetupDatabase();
             TestSuite suite = new TestSuite();
+            suite.addTest(new JUnit4TestAdapter(SearchIteratorTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticDatabaseConnectionTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticInitializationTest.class));
             suite.addTest(new JUnit4TestAdapter(LocationIndexTest.class));

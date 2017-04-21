@@ -468,7 +468,7 @@ public abstract class AbstractDatabase<C> implements Database {
             if (result == null) {
                 Query<T> nextQuery = query.clone();
                 if (lastObjectId != null) {
-                    nextQuery.and("_id > ?", lastObjectId);
+                    nextQuery.and("_id > ?", lastObjectId).option("ByIdIterator", lastObjectId);
                 }
 
                 result = nextQuery.select(0, fetchSize);

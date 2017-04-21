@@ -721,7 +721,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         int index = 0;
         Query<?> facetedQuery = query.getFacetQuery();
         if (facetedQuery != null) {
-            QueryBuilder qb = QueryBuilders.boolQuery().must(predicateToQueryBuilder(facetedQuery.getPredicate(), facetedQuery));
+            QueryBuilder qb = QueryBuilders.boolQuery().must(predicateToQueryBuilder(null, facetedQuery.getPredicate(), facetedQuery));
             FilterAggregationBuilder ab = AggregationBuilders.filter("query_agg", qb);
             srb.addAggregation(ab);
         }
@@ -757,7 +757,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
             }
             if (filterCount > 0) {
-                QueryBuilder qb = predicateToQueryBuilder(newFilter.getPredicate(), query);
+                QueryBuilder qb = predicateToQueryBuilder(null, newFilter.getPredicate(), query);
                 srb.setQuery(qb);
             }
         }
@@ -825,8 +825,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         checkIndexes(indexIdStrings);
 
         SearchResponse response;
-        QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
         SearchRequestBuilder srb;
+        QueryBuilder qb = predicateToQueryBuilder(null, query.getPredicate(), query);
 
         Matcher groupingMatcher = Query.RANGE_PATTERN.matcher(fields[0]);
         if (groupingMatcher.find()) {
@@ -974,8 +974,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         checkIndexes(indexIdStrings);
 
         SearchResponse response;
-        QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
         SearchRequestBuilder srb;
+        QueryBuilder qb = predicateToQueryBuilder(null, query.getPredicate(), query);
 
         if (typeIds.size() > 0) {
             srb = client.prepareSearch(indexIdStrings)
@@ -1172,7 +1172,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         // if no sort, then we can use filtered is setting preferFilters is set to true (default)
         // else leave the query alone
-        QueryBuilder qb = predicateToQueryBuilder(query.getPredicate(), query);
+        QueryBuilder qb = predicateToQueryBuilder(srb, query.getPredicate(), query);
         if (this.preferFilters && (query.getSorters() == null || query.getSorters().size() == 0)) {
             qb = QueryBuilders.boolQuery().filter(qb);
         } else {
@@ -1508,7 +1508,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         sortPredicate = (Predicate) predicateObject;
                         filterFunctionBuilders.add(
                                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
-                                        predicateToQueryBuilder(sortPredicate, query),
+                                        predicateToQueryBuilder(null, sortPredicate, query),
                                         weightFactorFunction(boost)));
                     } else {
                         list.add(new ScoreSortBuilder());
@@ -1808,9 +1808,42 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * When using Iterator and one Sorter, use search_after instead of Range gt on UUID to improve performance
+     * This only works on ES 5+ and all sort options must be set
+     * Remove ByIdIterator after setting search_after
+     */
+    private boolean iteratorOption(SearchRequestBuilder srb, Query<?> query, Map<String, Object> options, Object v) {
+        if (options != null && srb != null && options.get("ByIdIterator") != null) {
+            if (query.getSorters() != null && query.getSorters().size() == 1) {
+                String optionsValue;
+                String value;
+                if (options.get("ByIdIterator") instanceof UUID) {
+                    optionsValue = options.get("ByIdIterator").toString();
+                } else {
+                    optionsValue = (String) options.get("ByIdIterator");
+                }
+                if (v instanceof UUID) {
+                    value = v.toString();
+                } else {
+                    value = (String) v;
+                }
+                if (value.equals(optionsValue)) {
+                    Object[] singleton = {value};
+                    srb.searchAfter(singleton);
+                    options.remove("ByIdIterator");
+                    query.setOptions(options);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * This is the main method for querying Elastic. Converts predicate and query into QueryBuilder
      */
-    QueryBuilder predicateToQueryBuilder(Predicate predicate, Query<?> query) {
+    QueryBuilder predicateToQueryBuilder(SearchRequestBuilder srb, Predicate predicate, Query<?> query) {
         if (predicate == null) {
             return QueryBuilders.matchAllQuery();
         }
@@ -1821,13 +1854,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             switch (compound.getOperator()) {
                 case PredicateParser.AND_OPERATOR:
-                    return combine(compound.getOperator(), children, BoolQueryBuilder::must, (predicate1) -> predicateToQueryBuilder(predicate1, query));
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::must, (predicate1) -> predicateToQueryBuilder(srb, predicate1, query));
 
                 case PredicateParser.OR_OPERATOR:
-                    return combine(compound.getOperator(), children, BoolQueryBuilder::should, (predicate1) -> predicateToQueryBuilder(predicate1, query));
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::should, (predicate1) -> predicateToQueryBuilder(srb, predicate1, query));
 
                 case PredicateParser.NOT_OPERATOR:
-                    return combine(compound.getOperator(), children, BoolQueryBuilder::mustNot, (predicate1) -> predicateToQueryBuilder(predicate1, query));
+                    return combine(compound.getOperator(), children, BoolQueryBuilder::mustNot, (predicate1) -> predicateToQueryBuilder(srb, predicate1, query));
 
                 default:
                     break;
@@ -1898,7 +1931,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     Query part2 = Query.fromAll().where(Static.convertKeyToQuery(elasticField) + " = ?", ids);
                     Query combinedParts = Query.fromAll().where(part1.getPredicate()).and(part2.getPredicate());
                     LOGGER.debug("returning subQuery ids [{}] [{}]", ids.size(), combinedParts.getPredicate());
-                    return predicateToQueryBuilder(combinedParts.getPredicate(), query);
+                    return predicateToQueryBuilder(null, combinedParts.getPredicate(), query);
                 } else if (queryKey.indexOf('/') != -1) {
                     // fields().size not the same as array in keys "/"
                     List<String> keyArr = Arrays.asList(queryKey.split("/"));
@@ -1989,6 +2022,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intLteType, key, true)).lte(v)))));
 
                 case PredicateParser.GREATER_THAN_OPERATOR :
+                    Map<String, Object> options = query.getOptions();
+
                     mappedKey = mapFullyDenormalizedKey(query, key);
                     checkField = specialRangeFields.get(mappedKey);
                     if (checkField == null) {
@@ -2012,7 +2047,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     final String intGtType = internalType;
                     return combine(operator, values, BoolQueryBuilder::must, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).gt(v))
+                            : (Static.isUUID(v) ? (iteratorOption(srb, query, options, v) ? QueryBuilders.matchAllQuery() : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).gt(v)))
                             : (v instanceof Location
                                     ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
                                     .filter(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
@@ -2208,7 +2243,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Combines the items and operators
      *
-     * @see #predicateToQueryBuilder(Predicate, Query)
+     * @see #predicateToQueryBuilder(SearchRequestBuilder, Predicate, Query)
      */
     @SuppressWarnings("unchecked")
     private <T> QueryBuilder combine(String operatorType,
