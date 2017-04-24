@@ -1211,7 +1211,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             getFacets(query, response, facet);
 
-            LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} of {} totalHits]", items.size(), hits.getTotalHits());
+            LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} / {} totalHits] in {}ms", items.size(), hits.getTotalHits(), response.getTookInMillis());
 
             return new ElasticPaginatedResult<>(
                     offset, limit, hits.getTotalHits(), items,
@@ -1301,7 +1301,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private final Map<Query.MappedKey, String> specialFields; {
         Map<Query.MappedKey, String> m = new HashMap<>();
-        m.put(Query.MappedKey.ID, ID_FIELD);
+        m.put(Query.MappedKey.ID, IDS_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
         m.put(Query.MappedKey.ANY, ANY_FIELD);
         specialFields = m;
