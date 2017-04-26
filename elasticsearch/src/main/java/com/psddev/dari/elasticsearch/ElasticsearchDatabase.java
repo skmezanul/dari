@@ -851,7 +851,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
                 srb.setTypes(typeIdStrings);
             } else {
-                srb = client.prepareSearch(getIndexName() + "*")
+                srb = client.prepareSearch(getAllElasticIndexName())
                         .setFetchSource(!query.isReferenceOnly())
                         .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
             }
@@ -891,7 +891,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
                 srb.setTypes(typeIdStrings);
             } else {
-                srb = client.prepareSearch(getIndexName() + "*")
+                srb = client.prepareSearch(getAllElasticIndexName())
                         .setFetchSource(!query.isReferenceOnly())
                         .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
             }
@@ -983,7 +983,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
             srb.setTypes(typeIdStrings);
         } else {
-            srb = client.prepareSearch(getIndexName() + "*")
+            srb = client.prepareSearch(getAllElasticIndexName())
                     .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
         }
@@ -1027,6 +1027,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         @Override
         public long getCount() {
             return count;
+        }
+    }
+
+    /**
+     * Get All Elastic Index name for Querying.
+     */
+    private String getAllElasticIndexName() {
+
+        if ((this.dataTypesRaw == null || ObjectUtils.isBlank(this.dataTypesRaw)) && this.defaultDataFieldType.equals(JSON_DATAFIELD_TYPE)) {
+            return getIndexName() + JSONINDEX_SUB_NAME;
+        } else {
+            return getIndexName() + "*";
         }
     }
 
@@ -1163,7 +1175,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
             srb.setTypes(typeIdStrings);
         } else {
-            srb = client.prepareSearch(getIndexName() + "*")
+            srb = client.prepareSearch(getAllElasticIndexName())
                     .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
         }
@@ -1194,7 +1206,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         try {
             LOGGER.debug("Elasticsearch srb index ["
-                    + (indexIdStrings.length == 0 ? getIndexName() + "*" : Arrays.toString(indexIdStrings))
+                    + (indexIdStrings.length == 0 ? getAllElasticIndexName() : Arrays.toString(indexIdStrings))
                     + "] typeIds ["
                     + (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings))
                     + "] - [" + srb.toString() + "]");
@@ -1222,7 +1234,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } catch (Exception error) {
             LOGGER.warn(
                     String.format("index [%s] typeIds [%s] - [%s] readPartial threw Exception [%s: %s]",
-                            (indexIdStrings.length == 0 ? getIndexName() + "*" : Arrays.toString(indexIdStrings)),
+                            (indexIdStrings.length == 0 ? getAllElasticIndexName() : Arrays.toString(indexIdStrings)),
                             (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings)),
                             srb.toString(),
                             error.getClass().getName(),
