@@ -40,7 +40,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.elasticsearch.action.ActionRequest;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
@@ -3305,7 +3305,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     for (int i = 0; i < resItems.length; i++) {
                         BulkItemResponse r = resItems[i];
                         if (r.isFailed()) {
-                            ActionRequest ireq = bulk.request().requests().get(i);
+                            DocWriteRequest ireq = bulk.request().requests().get(i);
                             LOGGER.warn("Errors on Bulk {} {} {} {} [{}]",
                                     new Object[] {r.getIndex(), r.getType(), r.getId(), r.getFailureMessage(), ireq});
                         }
