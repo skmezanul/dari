@@ -129,14 +129,14 @@ import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
 
 /**
- * ElasticsearchDatabase for Elasticsearch 5.2
+ * ElasticsearchDatabase for Elasticsearch 5.3.1
  *
  */
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
-    public static final String ELASTIC_VERSION = "5.2.2";
+    public static final String ELASTIC_VERSION = "5.3.1";
     public static final String TEMPLATE_NAME = "bright_1";
     public static final String DEFAULT_DATABASE_NAME = "dari/defaultDatabase";
     public static final String DATABASE_NAME = "elasticsearch";
