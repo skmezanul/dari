@@ -237,7 +237,7 @@ public class ElasticPaginatedResult<E> extends PaginatedResult<E> implements Htm
             for (Terms.Bucket entry : this.field.getBuckets()) {
                 String key = entry.getKeyAsString();    // Term
                 long docCount = entry.getDocCount();    // Doc count
-                LOGGER.info("key [{}], doc_count [{}]", key, docCount);
+                LOGGER.debug("key [{}], doc_count [{}]", key, docCount);
                 index.put(key, docCount);
             }
             return index;
@@ -253,7 +253,7 @@ public class ElasticPaginatedResult<E> extends PaginatedResult<E> implements Htm
             for (Terms.Bucket entry : this.field.getBuckets()) {
                 String key = entry.getKeyAsString();    // Term
                 long docCount = entry.getDocCount();    // Doc count
-                LOGGER.info("key [{}], doc_count [{}]", key, docCount);
+                LOGGER.debug("key [{}], doc_count [{}]", key, docCount);
                 index.put(key, docCount);
                 if (ElasticsearchDatabase.Static.isUUID(key)) {
                     ids.add(key);

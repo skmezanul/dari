@@ -129,14 +129,14 @@ import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
 
 /**
- * ElasticsearchDatabase for Elasticsearch 5.3.1
+ * ElasticsearchDatabase for Elasticsearch 5.3.2
  *
  */
 public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
-    public static final String ELASTIC_VERSION = "5.3.1";
+    public static final String ELASTIC_VERSION = "5.3.2";
     public static final String TEMPLATE_NAME = "bright_1";
     public static final String DEFAULT_DATABASE_NAME = "dari/defaultDatabase";
     public static final String DATABASE_NAME = "elasticsearch";
@@ -803,7 +803,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         List<Grouping<T>> groupings = new ArrayList<>();
 
         TransportClient client = openConnection();
-        if (client == null || !isAlive(client)) {
+        if (client == null) {
             return null;
         }
 
@@ -952,7 +952,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public <T> Date readUpdateMax(Query<T> query) {
 
         TransportClient client = openConnection();
-        if (client == null || !isAlive(client)) {
+        if (client == null) {
             return null;
         }
 
@@ -1137,7 +1137,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         List<T> items = new ArrayList<>();
         TransportClient client = openConnection();
-        if (client == null || !isAlive(client)) {
+        if (client == null) {
             LOGGER.info("readPartial could not openConnection / not Alive");
             return new PaginatedResult<>(offset, limit, 0, items);
         }
@@ -2752,7 +2752,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (fname.endsWith("." + STRING_FIELD) && !(truncatedValue instanceof String)) {
             truncatedValue = String.valueOf(truncatedValue);
         }
-        //LOGGER.info("fname: {}, truncatedValue: {}", fname, truncatedValue.toString());
 
         // all field fair game is String and does not start with "_" which are IDs
         if (!name.startsWith("_")) {
@@ -2977,7 +2976,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     protected void doWrites(TransportClient client, boolean isImmediate, List<State> saves, List<State> indexes, List<State> deletes) throws Exception {
         try {
             client = openConnection();
-            if (client == null || !isAlive(client)) {
+            if (client == null) {
                 LOGGER.warn("Connection not open for doWrites");
                 return;
             }
@@ -3749,7 +3748,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         + "        \"match\": \"data\",\n"
                         + "        \"mapping\": {\n"
                         + "          \"type\": \"{dynamic_type}\",\n"
-                        + "          \"include_in_all\": false,\n"
                         + "          \"index\": false,\n"
                         + "          \"ignore_malformed\": true\n"
                         + "        }\n"
@@ -3760,7 +3758,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         + "        \"path_match\": \"data.*\",\n"
                         + "        \"mapping\": {\n"
                         + "          \"type\": \"{dynamic_type}\",\n"
-                        + "          \"include_in_all\": false,\n"
                         + "          \"index\": false,\n"
                         + "          \"ignore_malformed\": true\n"
                         + "        }\n"
@@ -4037,7 +4034,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
          * file, uri, url are Strings
          */
         private static String addIndexFieldType(String internalType, String key, Object value) {
-            //LOGGER.info("key: [{}]", key);
+
             if (IDS_FIELD.equals(key) || ID_FIELD.equals(key) || TYPE_ID_FIELD.equals(key) || (internalType == null)) {
                 return key;
             } else {
