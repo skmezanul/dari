@@ -2289,11 +2289,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             if (Query.MISSING_VALUE.equals(item)) {
                 if (operatorType.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
                     operator = BoolQueryBuilder::mustNot;
+                    builder = QueryBuilders.boolQuery().filter(operator.apply(builder, itemFunction.apply(item)));
+                } else if (operatorType.equals(PredicateParser.NOT_EQUALS_ALL_OPERATOR)) {
+                    operator = BoolQueryBuilder::filter;
+                    builder = operator.apply(builder, itemFunction.apply(item));
+                } else {
+                    builder = operator.apply(builder, itemFunction.apply(item));
                 }
-                if (operatorType.equals(PredicateParser.NOT_EQUALS_ALL_OPERATOR)) {
-                    operator = BoolQueryBuilder::must;
-                }
-                builder = operator.apply(builder, itemFunction.apply(item));
+
             } else {
                 builder = operator.apply(builder, itemFunction.apply(item));
             }
