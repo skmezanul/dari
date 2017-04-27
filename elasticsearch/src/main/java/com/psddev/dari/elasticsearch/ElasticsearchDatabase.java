@@ -42,6 +42,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
@@ -232,7 +233,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         public String toString() {
 
             return MoreObjects.toStringHelper(this)
-                    .add("indexId", indexId)
+                    .add("indexName", indexName)
                     .toString();
 
         }
@@ -248,17 +249,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             IndexKey indexKey = (IndexKey) o;
 
-            return indexId.equals(indexKey.indexId);
+            return indexName.equals(indexKey.indexName);
         }
 
         @Override
         public int hashCode() {
-            return indexId.hashCode();
+            return indexName.hashCode();
         }
     }
 
     /**
      * CREATE_INDEX_CACHE indicates if the index has been setup in Elastic
+     * The shardsMax is at the Cluster level, and the Elastic template is for all indexes
+     * The key for the cache is indexName as defined in the Settings
      */
     private static final LoadingCache<IndexKey, String> CREATE_INDEX_CACHE =
             CacheBuilder.newBuilder()
@@ -271,7 +274,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             TransportClient client = ElasticsearchDatabaseConnection.getClient(index.getNodeSettings(), index.getClusterNodes());
                             setTemplate(client, index.getIndexName(), false);
                             checkShards(client, index.getShardsMax());
-                            return index.getIndexId();
+                            return index.getIndexName();
                         }
                     });
 
@@ -1231,6 +1234,13 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     query.getClass(),
                     com.psddev.dari.util.Settings.isDebug() ? srb : null);
 
+        } catch (org.elasticsearch.index.IndexNotFoundException error) {
+            LOGGER.info("Creating index [{}]", (indexIdStrings.length == 0 ? getAllElasticIndexName() : Arrays.toString(indexIdStrings)));
+            for (String index : indexIdStrings) {
+                CreateIndexRequest indexRequest = new CreateIndexRequest(index);
+                client.admin().indices().create(indexRequest).actionGet();
+            }
+            return new PaginatedResult<>(offset, limit, 0, items);
         } catch (Exception error) {
             LOGGER.warn(
                     String.format("index [%s] typeIds [%s] - [%s] readPartial threw Exception [%s: %s]",
