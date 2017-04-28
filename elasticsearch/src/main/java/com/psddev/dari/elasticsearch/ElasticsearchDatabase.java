@@ -272,7 +272,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         @Override
                         public String load(IndexKey index) throws Exception {
                             TransportClient client = ElasticsearchDatabaseConnection.getClient(index.getNodeSettings(), index.getClusterNodes());
-                            setTemplate(client, index.getIndexName(), false);
+                            setTemplate(client, index.getIndexName(), index.getIndexId(), false);
                             checkShards(client, index.getShardsMax());
                             return index.getIndexName();
                         }
@@ -2334,26 +2334,37 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Set Elastic template for indexName + "*"
      */
-    private static synchronized void setTemplate(TransportClient client, String indexName, boolean removeOldTemplate) {
+    private static synchronized void setTemplate(TransportClient client, String indexName, String indexId, boolean removeOldTemplate) {
 
         if (client != null) {
-            if (removeOldTemplate) {
-                client.admin().indices().prepareDeleteTemplate(TEMPLATE_NAME).get();
-            }
+
+            boolean setTemplate = false;
 
             GetIndexTemplatesResponse response = client.admin().indices().prepareGetTemplates(TEMPLATE_NAME).get();
 
             if (response.getIndexTemplates().size() == 0) {
+                setTemplate = true;
+            }
 
+            if (removeOldTemplate && response.getIndexTemplates().size() > 0) {
+                client.admin().indices().prepareDeleteTemplate(TEMPLATE_NAME).get();
+                setTemplate = true;
+            }
+
+            if (setTemplate) {
+
+                LOGGER.info("Resetting template [{}] for [{}]", TEMPLATE_NAME, indexName + "*");
                 client.admin().indices().preparePutTemplate(TEMPLATE_NAME)
                         .setTemplate(indexName + "*")
                         .setOrder(0).addMapping("_default_", ELASTIC_MAPPING)
                         .setSettings(ELASTIC_SETTING).get();
 
-                ClusterHealthResponse yellow = client.admin().cluster().prepareHealth(indexName)
-                        .setWaitForYellowStatus()
-                        .setTimeout(TimeValue.timeValueSeconds(10))
-                        .get();
+                if (indexName != null) {
+                    ClusterHealthResponse yellow = client.admin().cluster().prepareHealth(indexId)
+                            .setWaitForYellowStatus()
+                            .setTimeout(TimeValue.timeValueSeconds(10))
+                            .get();
+                }
 
                 try {
                     refresh(client, false);
