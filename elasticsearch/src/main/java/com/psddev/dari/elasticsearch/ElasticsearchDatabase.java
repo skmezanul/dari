@@ -1128,6 +1128,20 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
+     * Create Indexes as needed wait for Yellow
+     */
+    private void createIndexes(String[] indexIdStrings) {
+        for (String index : indexIdStrings) {
+            CreateIndexRequest indexRequest = new CreateIndexRequest(index);
+            client.admin().indices().create(indexRequest).actionGet();
+            client.admin().cluster().prepareHealth(index)
+                    .setWaitForYellowStatus()
+                    .setTimeout(TimeValue.timeValueSeconds(10))
+                    .get();
+        }
+    }
+
+    /**
      * Read partial results from Elastic - convert Query to SearchRequestBuilder
      *
      * @see #getSubQueryResolveLimit()
@@ -1236,10 +1250,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         } catch (org.elasticsearch.index.IndexNotFoundException error) {
             LOGGER.info("Creating index [{}]", (indexIdStrings.length == 0 ? getAllElasticIndexName() : Arrays.toString(indexIdStrings)));
-            for (String index : indexIdStrings) {
-                CreateIndexRequest indexRequest = new CreateIndexRequest(index);
-                client.admin().indices().create(indexRequest).actionGet();
-            }
+            createIndexes(indexIdStrings);
             return new PaginatedResult<>(offset, limit, 0, items);
         } catch (Exception error) {
             LOGGER.warn(
