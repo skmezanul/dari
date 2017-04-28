@@ -86,3 +86,7 @@ public class Code {
             }
         }
         return diff;
+
+6. If you deploy a new version, and it has a new template, you need to delete the old template by running the following and restarting Brightspot
+
+curl -XDELETE "http://IPADDRESS:9200/_template/bright_1"
