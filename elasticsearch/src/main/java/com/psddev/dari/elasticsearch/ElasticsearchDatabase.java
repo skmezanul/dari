@@ -138,7 +138,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
 
     public static final String ELASTIC_VERSION = "5.3.2";
-    public static final String TEMPLATE_NAME = "bright_1";
+    public static final String PREFIX_TEMPLATE_NAME = "bright_";
+    public static final String TEMPLATE_NAME = PREFIX_TEMPLATE_NAME + "1";   // bright_version increment
     public static final String DEFAULT_DATABASE_NAME = "dari/defaultDatabase";
     public static final String DATABASE_NAME = "elasticsearch";
     public static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
@@ -2351,14 +2352,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             boolean setTemplate = false;
 
-            GetIndexTemplatesResponse response = client.admin().indices().prepareGetTemplates(TEMPLATE_NAME).get();
+            GetIndexTemplatesResponse response = client.admin().indices().prepareGetTemplates(PREFIX_TEMPLATE_NAME + "*").get();
 
             if (response.getIndexTemplates().size() == 0) {
                 setTemplate = true;
             }
 
             if (removeOldTemplate && response.getIndexTemplates().size() > 0) {
-                client.admin().indices().prepareDeleteTemplate(TEMPLATE_NAME).get();
+                client.admin().indices().prepareDeleteTemplate(PREFIX_TEMPLATE_NAME + "*").get();
                 setTemplate = true;
             }
 
@@ -2371,7 +2372,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         .setSettings(ELASTIC_SETTING).get();
 
                 if (indexName != null) {
-                    ClusterHealthResponse yellow = client.admin().cluster().prepareHealth(indexId)
+                    client.admin().cluster().prepareHealth(indexId)
                             .setWaitForYellowStatus()
                             .setTimeout(TimeValue.timeValueSeconds(10))
                             .get();
