@@ -125,3 +125,312 @@ To get JDBC to work /etc/hosts:
 /etc/init.d/projectXXX start
 /etc/init.d/projectXXX start
 
+13. Setup Template
+
+curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: application/json' -d'
+{
+  "template": "index1*",
+  "settings": {
+    "index": {
+      "mapping": {
+        "total_fields": {
+          "limit": "100000"
+        },
+        "ignore_malformed": "true"
+      },
+      "refresh_interval": "2s",
+      "analysis": {
+        "filter": {
+          "suggest_delimiter": {
+            "generate_word_parts": "true",
+            "catenate_words": "true",
+            "generate_number_parts": "true",
+            "catenate_all": "false",
+            "split_on_case_change": "true",
+            "type": "word_delimiter",
+            "catenate_numbers": "false"
+          },
+          "text_delimiter": {
+            "generate_word_parts": "true",
+            "catenate_words": "true",
+            "generate_number_parts": "true",
+            "catenate_all": "false",
+            "split_on_case_change": "true",
+            "type": "word_delimiter",
+            "catenate_numbers": "true"
+          },
+          "unique_words": {
+            "type": "unique"
+          },
+          "ngram_filter": {
+            "type": "edgeNGram",
+            "min_gram": "1",
+            "max_gram": "12"
+          },
+          "text_stemmer": {
+            "type": "porter_stem"
+          },
+          "search_delimiter": {
+            "generate_word_parts": "true",
+            "catenate_words": "true",
+            "generate_number_parts": "true",
+            "catenate_all": "false",
+            "split_on_case_change": "true",
+            "type": "word_delimiter",
+            "catenate_numbers": "false"
+          }
+        },
+        "analyzer": {
+          "search_contains_analyzer": {
+            "filter": [
+              "lowercase",
+              "asciifolding"
+            ],
+            "char_filter": [
+              "html_strip"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "suggest_analyzer": {
+            "filter": [
+              "suggest_delimiter",
+              "lowercase",
+              "asciifolding",
+              "ngram_filter"
+            ],
+            "char_filter": [
+              "html_strip"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "search_match_analyzer": {
+            "filter": [
+              "search_delimiter",
+              "lowercase",
+              "asciifolding",
+              "text_stemmer"
+            ],
+            "char_filter": [
+              "html_strip"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "contains_analyzer": {
+            "filter": [
+              "lowercase",
+              "asciifolding"
+            ],
+            "char_filter": [
+              "html_strip"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "any_analyzer": {
+            "filter": [
+              "text_delimiter",
+              "lowercase",
+              "asciifolding",
+              "text_stemmer",
+              "unique_words"
+            ],
+            "char_filter": [
+              "html_strip"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "search_suggest_analyzer": {
+            "filter": [
+              "suggest_delimiter",
+              "lowercase",
+              "asciifolding"
+            ],
+            "char_filter": [
+              "html_strip"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "search_any_analyzer": {
+            "filter": [
+              "search_delimiter",
+              "lowercase",
+              "asciifolding",
+              "text_stemmer"
+            ],
+            "char_filter": [
+              "html_strip"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "match_analyzer": {
+            "filter": [
+              "text_delimiter",
+              "lowercase",
+              "asciifolding",
+              "text_stemmer"
+            ],
+            "char_filter": [
+              "html_strip"
+            ],
+            "tokenizer": "whitespace"
+          }
+        }
+      },
+      "number_of_shards": "1",
+      "number_of_replicas": "0",
+      "query": {
+        "default_field": "_any"
+      }
+    }
+  },
+  "mappings": {
+    "_default_": {
+      "dynamic_templates": [
+        {
+          "locationgeo": {
+            "mapping": {
+              "type": "geo_point"
+            },
+            "match_mapping_type": "string",
+            "match": "_location"
+          }
+        },
+        {
+          "boolean_type": {
+            "mapping": {
+              "norms": false,
+              "type": "boolean"
+            },
+            "match": "_boolean"
+          }
+        },
+        {
+          "date_type": {
+            "mapping": {
+              "norms": false,
+              "type": "long"
+            },
+            "match": "_date"
+          }
+        },
+        {
+          "number_type": {
+            "mapping": {
+              "norms": false,
+              "type": "double"
+            },
+            "match": "_number"
+          }
+        },
+        {
+          "string_type": {
+            "mapping": {
+              "search_analyzer": "search_contains_analyzer",
+              "analyzer": "contains_analyzer",
+              "type": "text",
+              "fields": {
+                "match": {
+                  "search_analyzer": "search_match_analyzer",
+                  "analyzer": "match_analyzer",
+                  "type": "text"
+                },
+                "raw": {
+                  "ignore_above": 512,
+                  "type": "keyword"
+                }
+              }
+            },
+            "match_mapping_type": "string",
+            "match": "_string"
+          }
+        },
+        {
+          "suggest_type": {
+            "mapping": {
+              "search_analyzer": "search_suggest_analyzer",
+              "norms": false,
+              "analyzer": "suggest_analyzer",
+              "type": "text"
+            },
+            "match": "_suggest"
+          }
+        },
+        {
+          "shapegeo": {
+            "mapping": {
+              "type": "geo_shape"
+            },
+            "match_mapping_type": "object",
+            "match": "_polygon"
+          }
+        },
+        {
+          "data_template_top": {
+            "mapping": {
+              "index": false,
+              "ignore_malformed": true,
+              "type": "{dynamic_type}"
+            },
+            "match": "data"
+          }
+        },
+        {
+          "data_template": {
+            "path_match": "data.*",
+            "mapping": {
+              "index": false,
+              "ignore_malformed": true,
+              "type": "{dynamic_type}"
+            }
+          }
+        },
+        {
+          "int_template": {
+            "mapping": {
+              "ignore_above": 1024,
+              "type": "keyword"
+            },
+            "match_mapping_type": "string",
+            "match": "_*"
+          }
+        },
+        {
+          "notanalyzed": {
+            "mapping": {
+              "search_analyzer": "search_contains_analyzer",
+              "analyzer": "contains_analyzer",
+              "type": "text",
+              "fields": {
+                "match": {
+                  "search_analyzer": "search_match_analyzer",
+                  "analyzer": "match_analyzer",
+                  "type": "text"
+                },
+                "raw": {
+                  "ignore_above": 512,
+                  "type": "keyword"
+                }
+              }
+            },
+            "match_mapping_type": "string",
+            "match": "*"
+          }
+        }
+      ],
+      "_all": {
+        "enabled": false
+      },
+      "properties": {
+        "_any": {
+          "search_analyzer": "search_any_analyzer",
+          "analyzer": "any_analyzer",
+          "type": "text"
+        },
+        "_ids": {
+          "norms": false,
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "aliases": {}
+}'
