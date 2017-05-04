@@ -125,7 +125,18 @@ To get JDBC to work /etc/hosts:
 /etc/init.d/projectXXX start
 /etc/init.d/projectXXX start
 
-13. Setup Template
+13. .kibana has default of 1 replica. For cluster health "green" set this to 0:
+
+PUT _settings
+{
+    "index" : {
+        "number_of_replicas" : 0
+    }
+}
+
+14. If not using SSD - set "index.merge.scheduler.max_thread_count": 1 - if using SSD leave it as default
+
+15. Setup Template (Dari Elastic will set this if not set)
 
 curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: application/json' -d'
 {
@@ -139,6 +150,10 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
         "ignore_malformed": "true"
       },
       "refresh_interval": "2s",
+      "translog": {
+          "sync_interval": "5s",
+           "durability": "async"
+      },
       "analysis": {
         "filter": {
           "suggest_delimiter": {
