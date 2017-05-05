@@ -95,7 +95,7 @@ class ElasticsearchDatabaseConnection {
                     c.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(n.getHostname()), n.getPort()));
                 }
                 CLIENT_CONNECTIONS.put(getHash(nodeSettings, nodes), c);
-                LOGGER.info("Creating connection {}", getHashString(nodeSettings, nodes));
+                LOGGER.warn("Creating connection {}", getHashString(nodeSettings, nodes));
                 return c;
             } catch (Exception error) {
                 LOGGER.warn(

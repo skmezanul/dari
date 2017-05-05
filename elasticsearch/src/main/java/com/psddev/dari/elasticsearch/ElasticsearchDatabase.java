@@ -437,7 +437,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             error.getMessage()),
                     error);
         }
-        LOGGER.info("Elasticsearch openConnection return null");
+        LOGGER.warn("Elasticsearch openConnection return null");
         return null;
     }
 
@@ -1155,7 +1155,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         List<T> items = new ArrayList<>();
         TransportClient client = openConnection();
         if (client == null) {
-            LOGGER.info("readPartial could not openConnection / not Alive");
+            LOGGER.warn("readPartial could not openConnection / not Alive return empty");
             return new PaginatedResult<>(offset, limit, 0, items);
         }
 
@@ -1251,6 +1251,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } catch (org.elasticsearch.index.IndexNotFoundException error) {
             LOGGER.info("Creating index [{}]", (indexIdStrings.length == 0 ? getAllElasticIndexName() : Arrays.toString(indexIdStrings)));
             createIndexes(indexIdStrings);
+            return new PaginatedResult<>(offset, limit, 0, items);
+        } catch (org.elasticsearch.client.transport.NoNodeAvailableException error) {
+            LOGGER.warn("readPartial retry not openConnection / not Alive returning empty");
             return new PaginatedResult<>(offset, limit, 0, items);
         } catch (Exception error) {
             LOGGER.warn(
