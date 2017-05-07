@@ -44,7 +44,6 @@ thread_pool.index.queue_size: 1000
 bootstrap.memory_lock: true
 
 # Indices settings
-indices.memory.index_buffer_size: 10%
 indices.fielddata.cache.size: 30%
 indices.queries.cache.size: 10%
 indices.requests.cache.size: 2%
