@@ -43,8 +43,11 @@ thread_pool.index.queue_size: 1000
 # Force all memory to be locked, forcing the JVM to never swap. This is recommended - no  swappiness on Elastic.
 bootstrap.memory_lock: true
 
-# Indices settings - The default of 10% is too low in general and this is recommended to cache more.
-indices.memory.index_buffer_size: 30%
+# Indices settings
+indices.memory.index_buffer_size: 10%
+indices.fielddata.cache.size: 30%
+indices.queries.cache.size: 10%
+indices.requests.cache.size: 2%
 
 network.host: 172.28.128.XXX
 http.port: 9200
@@ -54,25 +57,32 @@ sysctl -w vm.max_map_count=262144
 sysctl -w vm.swappiness=1
 
 In /etc/sysctl.conf
-vm.max_map_count = 262144
-vm.swappiness = 1
+echo "vm.max_map_count = 262144" >> /etc/sysctl.conf
+echo "vm.swappiness = 1" >> /etc/sysctl.conf
+echo "net.core.somaxconn = 65535" >> /etc/sysctl.conf
+echo "fs.file-max = 518144" >> /etc/sysctl.conf
 
 sysctl -p
 
 5. Set memory edit /etc/elasticsearch/jvm.options file: set half of memory - "/etc/init.d/solr stop" to save mem since you are using elastic now.
--Xms2g
--Xmx2g
+-Xms1900m
+-Xmx1900m
+
+Also lower to 70%.
+
+-XX:CMSInitiatingOccupancyFraction=70
 
 6. Start /etc/security/limits.conf - Need to give root and elasticsearch user more open files, and nproc for threads.
-root - nofile 100000
-elasticsearch  -  nofile  65536
-elasticsearch	-	nproc	5000
-root	-	nproc	5000
-elasticsearch soft memlock unlimited
-elasticsearch hard memlock unlimited
+root    -   nofile 100000
+root	-	nproc  5000
+elasticsearch   soft  nofile  65535
+elasticsearch   hard  nofile  65535
+elasticsearch   soft  memlock unlimited
+elasticsearch   hard  memlock unlimited
+elasticsearch	-     nproc	  5000
 
 7. Uncomment /etc/pam.d/su on Ubuntu - you need to do that on Unbuntu or it won't use limits.conf
- # session    required   pam_limits.so
+session    required   pam_limits.so
 
 8. Systemd file change /usr/lib/systemd/system/elasticsearch.service
 
