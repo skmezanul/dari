@@ -71,6 +71,11 @@ Also lower to 70%.
 
 -XX:CMSInitiatingOccupancyFraction=70
 
+Comment out HeapDumpOnOutOfMemoryError and add ExitOnOutOfMemoryError for Java 8 over v92
+#-XX:+HeapDumpOnOutOfMemoryError
+-XX:+ExitOnOutOfMemoryError
+
+
 6. Start /etc/security/limits.conf - Need to give root and elasticsearch user more open files, and nproc for threads.
 root    -   nofile 100000
 root	-	nproc  5000
@@ -99,7 +104,7 @@ MAX_OPEN_FILES=65536
 MAX_LOCKED_MEMORY=unlimited
 MAX_MAP_COUNT=262144
 
- 9. Start Elastic -- also set to auto start
+9. Start Elastic -- also set to auto start
  /etc/init.d/elasticsearch start
 
  Check http://localhost:9200/_nodes/stats/process?filter_path=**.max_file_descriptor
@@ -112,9 +117,9 @@ MAX_MAP_COUNT=262144
 
  /etc/init.d/kibana start
 
- 11. See example-tomcat-context.xml for Sample config - edit /servers/projectXXX/conf/context.xml
+11. See example-tomcat-context.xml for Sample config - edit /servers/projectXXX/conf/context.xml
 
- 12. Then copy ROOT.war into /servers/projectXXX/webapps
+12. Then copy ROOT.war into /servers/projectXXX/webapps
 
  cd webapps
  rm -rf ROOT
@@ -458,3 +463,58 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
   },
   "aliases": {}
 }'
+
+16. Setup Runit in /etc/sv/elastic and link in /etc/service
+
+mkdir -p /etc/sv/elastic
+ln -s /etc/sv/elastic/ /etc/service/elastic
+
+/etc/sv/elastic/run file -
+
+#!/bin/bash
+
+SERVER=elasticsearch
+JAVA_HOME=/usr/bin/java
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+NAME=elasticsearch
+DESC="Elasticsearch Server"
+DEFAULT=/etc/default/$NAME
+ES_USER=elasticsearch
+ES_GROUP=elasticsearch
+ES_HOME=/usr/share/$NAME
+MAX_OPEN_FILES=65536
+LOG_DIR=/var/log/$NAME
+DATA_DIR=/var/lib/$NAME
+CONF_DIR=/etc/$NAME
+MAX_MAP_COUNT=262144
+PID_DIR="/var/run/elasticsearch"
+if [ -f "$DEFAULT" ]; then
+	. "$DEFAULT"
+fi
+
+PID_FILE="$PID_DIR/$NAME.pid"
+DAEMON=$ES_HOME/bin/elasticsearch
+DAEMON_OPTS="-p $PID_FILE -Edefault.path.logs=$LOG_DIR -Edefault.path.data=$DATA_DIR -Edefault.path.conf=$CONF_DIR"
+
+export ES_JAVA_OPTS
+export JAVA_HOME
+export ES_INCLUDE
+export ES_JVM_OPTIONS
+
+if [ -n "$MAX_OPEN_FILES" ]; then
+	ulimit -n $MAX_OPEN_FILES
+fi
+
+if [ -n "$MAX_LOCKED_MEMORY" ]; then
+	ulimit -l $MAX_LOCKED_MEMORY
+fi
+
+if [ -n "$MAX_MAP_COUNT" -a -f /proc/sys/vm/max_map_count ]; then
+	sysctl -q -w vm.max_map_count=$MAX_MAP_COUNT
+fi
+
+# exec 2>&1
+exec chpst -u $ES_USER -U $ES_USER -- bash $DAEMON $DAEMON_OPTS
+
+
