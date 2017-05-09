@@ -2324,15 +2324,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Force a flush if isImmediate since it needs to be committed now, otherwise just do a refresh which
-     * is lightweight.
+     * Write to the index when isImmediate and make avail for search.
+     * isDurable means flush to disk and clear the translog.
      */
-    private static void refresh(TransportClient client, boolean isImmediate) {
+    public static void refresh(TransportClient client, boolean isImmediate, boolean isDurable) {
         if (client != null) {
+            LOGGER.debug("Committing isImmediate {} isDurable {}", isImmediate, isDurable);
             if (isImmediate) {
+                client.admin().indices().prepareRefresh().get();
+            }
+            if (isDurable) {
                 client.admin().indices().prepareFlush().get();
             }
-            client.admin().indices().prepareRefresh().get();
         }
     }
 
@@ -2342,7 +2345,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     @Override
     protected void commitTransaction(TransportClient client, boolean isImmediate) throws Exception {
-        refresh(client, isImmediate);
+        refresh(client, isImmediate, false);
     }
 
     /**
@@ -2385,7 +2388,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
 
                 try {
-                    refresh(client, false);
+                    refresh(client, true, false);
                 } catch (Exception e) {
                     LOGGER.warn("Refresh failed");
                 }
@@ -3356,7 +3359,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 LOGGER.info("Elasticsearch bulk request had 0 actions");
             }
             if (isImmediate) {
-                commitTransaction(client, true);
+                commitTransaction(client, isImmediate);
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -3592,7 +3595,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         + "  \"index.mapping.total_fields.limit\": 100000,\n"
                         + "  \"index.mapping.ignore_malformed\": true,\n"
                         + "  \"index\": {\n"
-                        + "    \"refresh_interval\" : \"2s\",\n"
+                        + "    \"refresh_interval\" : \"10s\",\n"
                         + "    \"number_of_shards\": \"1\",\n"
                         + "    \"number_of_replicas\": \"0\",\n"
                         + "    \"translog.durability\": \"async\",\n"

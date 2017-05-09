@@ -17,6 +17,7 @@ import com.psddev.dari.test.StringIndexTest;
 import com.psddev.dari.test.TypeIndexTest;
 import com.psddev.dari.test.UuidIndexTest;
 import com.psddev.dari.test.WriteTest;
+import com.psddev.dari.test.WriteTestElastic;
 import com.psddev.dari.util.Settings;
 import junit.framework.JUnit4TestAdapter;
 import junit.framework.TestSuite;
@@ -169,6 +170,7 @@ public class ElasticDBSuite {
             suite.addTest(new JUnit4TestAdapter(TypeIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(UuidIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(WriteTest.class));
+            suite.addTest(new JUnit4TestAdapter(WriteTestElastic.class));
             return suite;
         }
 
