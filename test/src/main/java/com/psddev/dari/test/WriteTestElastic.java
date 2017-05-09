@@ -60,7 +60,7 @@ public class WriteTestElastic extends AbstractTest {
 
     @Test
     public void perfTestEventually() {
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 2000; i++) {
             new WriteModel().saveEventually();
         }
         assertThat("After perfTestEventually",  stopwatch.runtime(TimeUnit.SECONDS), lessThan(10L));
@@ -69,10 +69,10 @@ public class WriteTestElastic extends AbstractTest {
 
     @Test
     public void perfTest() {
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 2000; i++) {
             new WriteModel().save();
         }
-        assertThat("After perfTest",  stopwatch.runtime(TimeUnit.SECONDS), greaterThan(10L));
+        assertThat("After perfTest",  stopwatch.runtime(TimeUnit.SECONDS), greaterThan(4L));
     }
 
     private List<WriteModel> createDeleteTestModels() {
