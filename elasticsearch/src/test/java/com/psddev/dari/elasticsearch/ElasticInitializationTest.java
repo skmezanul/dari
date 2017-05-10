@@ -231,9 +231,13 @@ public class ElasticInitializationTest {
         x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
         Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
 
-        q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.CONTAINS_OPERATOR + " ?", "3");
-        x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
-        Assert.assertTrue(x.toString().contains(ElasticsearchDatabase.ANY_FIELD));
+        try {
+            q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.CONTAINS_OPERATOR + " ?", "3");
+            e.predicateToQueryBuilder(null, q.getPredicate(), q);
+            Assert.fail("_any should not be allowed");
+        } catch (java.lang.IllegalArgumentException error) {
+            // squash;
+        }
 
         q = Query.from(SearchIndexModel.class).using(e).where("_any " + PredicateParser.MATCHES_ANY_OPERATOR + " ?", "3");
         x = e.predicateToQueryBuilder(null, q.getPredicate(), q);
