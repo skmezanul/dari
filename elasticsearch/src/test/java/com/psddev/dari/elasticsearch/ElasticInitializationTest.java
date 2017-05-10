@@ -180,12 +180,19 @@ public class ElasticInitializationTest {
                 .from(SearchIndexModel.class)
                 .where("message startswith ?", message.substring(0, 255))
                 .selectAll();
-        assertThat("check database size", fooResult1, hasSize(1));
+        assertThat("check database size", fooResult1, hasSize(0));
+
+        // redo under 512
+        SearchIndexModel search1 = new SearchIndexModel();
+        search1.eid = "939393";
+        search1.name = "Bill";
+        search1.message = message.substring(0, 511);
+        search1.save();
         List<SearchIndexModel> fooResult2 = Query
                 .from(SearchIndexModel.class)
-                .where("message startswith ?", message.substring(0, 256))
+                .where("message startswith ?", message.substring(0, 511))
                 .selectAll();
-        assertThat("after the limit", fooResult2, hasSize(0));
+        assertThat("after the limit", fooResult2, hasSize(1));
     }
 
     @Test

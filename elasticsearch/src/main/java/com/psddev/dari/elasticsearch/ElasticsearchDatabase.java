@@ -315,7 +315,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String DATE_FIELD = "_date";
     public static final String NUMBER_FIELD = "_number";
     public static final String REGION_FIELD = "_polygon";
-    public static final String RAW_FIELD = STRING_FIELD + ".raw";   // UUID, String not text, and RECORD
+    public static final String RAW_FIELD = STRING_FIELD + ".raw";   // UUID, String not text, StartsWith, and RECORD
+    public static final String RAWCI_FIELD = STRING_FIELD + ".rawci";
     public static final String MATCH_FIELD = STRING_FIELD + ".match";
     public static final String SUGGEST_FIELD = "_suggest";
 
@@ -1222,7 +1223,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         addFacets(query, srb, facet);
 
         try {
-            LOGGER.debug("Elasticsearch srb index ["
+            LOGGER.info("Elasticsearch srb index ["
                     + (indexIdStrings.length == 0 ? getAllElasticIndexName() : Arrays.toString(indexIdStrings))
                     + "] typeIds ["
                     + (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings))
@@ -1240,7 +1241,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             getFacets(query, response, facet);
 
-            LOGGER.debug("Elasticsearch PaginatedResult readPartial hits [{} / {} totalHits] in {}ms", items.size(), hits.getTotalHits(), response.getTookInMillis());
+            LOGGER.info("Elasticsearch PaginatedResult readPartial hits [{} / {} totalHits] in {}ms", items.size(), hits.getTotalHits(), response.getTookInMillis());
 
             return new ElasticPaginatedResult<>(
                     offset, limit, hits.getTotalHits(), items,
@@ -1321,6 +1322,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         m.put(Query.MappedKey.ID, IDS_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
         m.put(Query.MappedKey.ANY, ANY_FIELD);
+        m.put(Query.MappedKey.LABEL, Query.LABEL_KEY);
         specialSortFields = m;
     }
 
@@ -1329,6 +1331,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         m.put(Query.MappedKey.ID, IDS_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
         m.put(Query.MappedKey.ANY, ANY_FIELD);
+        m.put(Query.MappedKey.LABEL, Query.LABEL_KEY);
         specialRangeFields = m;
     }
 
@@ -1340,6 +1343,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         m.put(Query.MappedKey.ID, IDS_FIELD);
         m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
         m.put(Query.MappedKey.ANY, ANY_FIELD);
+        m.put(Query.MappedKey.LABEL, Query.LABEL_KEY);
         specialFields = m;
     }
 
@@ -1812,7 +1816,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * For Matches, add ".match" to the query, typeAhead add _suggest
      */
     private String matchesAnalyzer(String operator, String key, Set<UUID> typeIds) {
-        if (key.endsWith("." + RAW_FIELD) || key.equals(ANY_FIELD)) {
+        if (key.endsWith("." + RAW_FIELD) || key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) {
             return key;
         } else if (operator.equals(PredicateParser.CONTAINS_OPERATOR)) {
             return key + "." + STRING_FIELD;
@@ -2148,8 +2152,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : checkField != null ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v)))
-                            : QueryBuilders.prefixQuery(key + "." + STRING_FIELD, String.valueOf(v)));
+                            : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v)))
+                            : checkField != null ? QueryBuilders.prefixQuery(Static.addRawCI(key), String.valueOf(Static.matchesAnyUUID(operator, key, v)))
+                            : QueryBuilders.prefixQuery(Static.addRawCI(key), Static.escapeSpaceValue(String.valueOf(v).toLowerCase())));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
@@ -2162,6 +2167,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
 
                     for (Object v : values) {
+                        if (v != null && v instanceof String && ((String) v).length() > 25 && PredicateParser.CONTAINS_OPERATOR.equals(operator)) {
+                            throw new IllegalArgumentException(operator + " CONTAINS limited to 25 characters");
+                        }
                         if (internalType != null && ObjectField.NUMBER_TYPE.equals(internalType)) {
                             throw new IllegalArgumentException(operator + " number not allowed");
                         }
@@ -3377,6 +3385,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         // Same in SOLR and Elastic since they are to be escaped in Lucene
         private static final Pattern ESCAPE_PATTERN = Pattern.compile("([-+&|!(){}\\[\\]^\"~*?:\\\\\\s/])");
 
+        // Ignore space for prefix
+        private static final Pattern ESCAPE_SAFE_PATTERN = Pattern.compile("([-+&|!(){}\\[\\]^\"~*?:\\\\/])");
+
         /**
          * Escapes the given {@code value} so that it's safe to use
          * in a Elastic query.
@@ -3385,6 +3396,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
          */
         public static String escapeValue(Object value) {
             return value != null ? ESCAPE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
+        }
+
+        public static String escapeSpaceValue(Object value) {
+            return value != null ? ESCAPE_SAFE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
         }
 
         /**
@@ -3603,6 +3618,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         + "    \"merge.scheduler.max_thread_count\": 1\n"
                         + "  },\n"
                         + "  \"analysis\": {\n"
+                        + "    \"normalizer\": {\n"
+                        + "      \"lower_normalizer\": {\n"
+                        + "        \"type\": \"custom\",\n"
+                        + "        \"filter\": [ \"lowercase\", \"asciifolding\" ]\n"
+                        + "      }\n"
+                        + "    },\n"
                         + "    \"analyzer\": {\n"
                         + "      \"contains_analyzer\": {\n"
                         + "        \"char_filter\": [ \"html_strip\" ],\n"
@@ -3700,156 +3721,121 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             } catch (Exception error) {
                 LOGGER.info("Using default mapping - switch to resource file");
                 return "{\n"
-                        + "  \"_default_\": {\n"
-                        + "    \"_all\": {\n"
-                        + "      \"enabled\": false\n"
-                        + "    },\n"
-                        + "    \"properties\": {\n"
-                        + "      \"_ids\": {\n"
-                        + "        \"type\": \"keyword\",\n"
-                        + "        \"norms\": false\n"
-                        + "      },\n"
-                        + "      \"_any\": {\n"
-                        + "        \"type\": \"text\",\n"
-                        + "        \"analyzer\": \"any_analyzer\",\n"
-                        + "        \"search_analyzer\": \"search_any_analyzer\"\n"
+                        + "  \"index.query.default_field\": \"_any\",\n"
+                        + "  \"index.mapping.total_fields.limit\": 100000,\n"
+                        + "  \"index.mapping.ignore_malformed\": true,\n"
+                        + "  \"index\": {\n"
+                        + "    \"refresh_interval\" : \"10s\",\n"
+                        + "    \"number_of_shards\": \"1\",\n"
+                        + "    \"number_of_replicas\": \"0\",\n"
+                        + "    \"translog.durability\": \"async\",\n"
+                        + "    \"translog.sync_interval\": \"5s\",\n"
+                        + "    \"merge.scheduler.max_thread_count\": 1\n"
+                        + "  },\n"
+                        + "  \"analysis\": {\n"
+                        + "    \"normalizer\": {\n"
+                        + "      \"lower_normalizer\": {\n"
+                        + "        \"type\": \"custom\",\n"
+                        + "        \"filter\": [ \"lowercase\", \"asciifolding\" ]\n"
                         + "      }\n"
                         + "    },\n"
-                        + "    \"dynamic_templates\": [\n"
-                        + "      {\n"
-                        + "        \"locationgeo\": {\n"
-                        + "          \"match\": \"_location\",\n"
-                        + "          \"match_mapping_type\": \"string\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"geo_point\"\n"
-                        + "          }\n"
-                        + "        }\n"
+                        + "    \"analyzer\": {\n"
+                        + "      \"contains_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\", \"gram_filter\" ]\n"
                         + "      },\n"
-                        + "      {\n"
-                        + "        \"boolean_type\": {\n"
-                        + "          \"match\": \"_boolean\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"boolean\",\n"
-                        + "            \"norms\": false\n"
-                        + "          }\n"
-                        + "        }\n"
+                        + "      \"search_contains_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\", \"truncate_contains_filter\" ]\n"
                         + "      },\n"
-                        + "      {\n"
-                        + "        \"date_type\": {\n"
-                        + "          \"match\": \"_date\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"long\",\n"
-                        + "            \"norms\": false\n"
-                        + "          }\n"
-                        + "        }\n"
+                        + "      \"match_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"text_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
                         + "      },\n"
-                        + "      {\n"
-                        + "        \"number_type\": {\n"
-                        + "          \"match\": \"_number\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"double\",\n"
-                        + "            \"norms\": false\n"
-                        + "          }\n"
-                        + "        }\n"
+                        + "      \"search_match_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"search_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
                         + "      },\n"
-                        + "      {\n"
-                        + "        \"string_type\": {\n"
-                        + "          \"match\": \"_string\",\n"
-                        + "          \"match_mapping_type\": \"string\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"text\",\n"
-                        + "            \"analyzer\": \"contains_analyzer\",\n"
-                        + "            \"search_analyzer\": \"search_contains_analyzer\",\n"
-                        + "            \"fields\": {\n"
-                        + "              \"raw\": {\n"
-                        + "                \"type\": \"keyword\",\n"
-                        + "                \"ignore_above\": 512\n"
-                        + "              },\n"
-                        + "              \"match\": {\n"
-                        + "                \"type\": \"text\",\n"
-                        + "                \"analyzer\": \"match_analyzer\",\n"
-                        + "                \"search_analyzer\": \"search_match_analyzer\"\n"
-                        + "              }\n"
-                        + "            }\n"
-                        + "          }\n"
-                        + "        }\n"
+                        + "      \"any_analyzer\": {\n"
+                        + "          \"char_filter\": [ \"html_strip\" ],\n"
+                        + "          \"tokenizer\": \"whitespace\",\n"
+                        + "          \"filter\" : [ \"text_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\", \"unique_words\" ]\n"
                         + "      },\n"
-                        + "      {\n"
-                        + "        \"suggest_type\": {\n"
-                        + "          \"match\": \"_suggest\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"text\",\n"
-                        + "            \"analyzer\": \"suggest_analyzer\",\n"
-                        + "            \"search_analyzer\": \"search_suggest_analyzer\",\n"
-                        + "            \"norms\": false\n"
-                        + "          }\n"
-                        + "        }\n"
+                        + "      \"search_any_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"search_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
                         + "      },\n"
-                        + "      {\n"
-                        + "        \"shapegeo\": {\n"
-                        + "          \"match\": \"_polygon\",\n"
-                        + "          \"match_mapping_type\": \"object\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"geo_shape\"\n"
-                        + "          }\n"
-                        + "        }\n"
+                        + "      \"suggest_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"suggest_delimiter\", \"lowercase\", \"asciifolding\", \"ngram_filter\" ]\n"
                         + "      },\n"
-                        + "      {\n"
-                        + "        \"data_template_top\": {\n"
-                        + "          \"match\": \"data\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"{dynamic_type}\",\n"
-                        + "            \"index\": false,\n"
-                        + "            \"ignore_malformed\": true\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"data_template\": {\n"
-                        + "          \"path_match\": \"data.*\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"{dynamic_type}\",\n"
-                        + "            \"index\": false,\n"
-                        + "            \"ignore_malformed\": true\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"int_template\": {\n"
-                        + "          \"match\": \"_*\",\n"
-                        + "          \"match_mapping_type\": \"string\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"keyword\",\n"
-                        + "            \"ignore_above\": 1024\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"notanalyzed\": {\n"
-                        + "          \"match\": \"*\",\n"
-                        + "          \"match_mapping_type\": \"string\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"text\",\n"
-                        + "            \"analyzer\": \"contains_analyzer\",\n"
-                        + "            \"search_analyzer\": \"search_contains_analyzer\",\n"
-                        + "            \"fields\": {\n"
-                        + "              \"raw\": {\n"
-                        + "                \"type\": \"keyword\",\n"
-                        + "                \"ignore_above\": 512\n"
-                        + "              },\n"
-                        + "              \"match\": {\n"
-                        + "                \"type\": \"text\",\n"
-                        + "                \"analyzer\": \"match_analyzer\",\n"
-                        + "                \"search_analyzer\": \"search_match_analyzer\"\n"
-                        + "              }\n"
-                        + "            }\n"
-                        + "          }\n"
-                        + "        }\n"
+                        + "      \"search_suggest_analyzer\": {\n"
+                        + "        \"char_filter\": [ \"html_strip\" ],\n"
+                        + "        \"tokenizer\": \"whitespace\",\n"
+                        + "        \"filter\" : [ \"suggest_delimiter\", \"lowercase\", \"asciifolding\", \"truncate_suggest_filter\" ]\n"
                         + "      }\n"
-                        + "    ]\n"
+                        + "    },\n"
+                        + "    \"filter\" : {\n"
+                        + "      \"truncate_contains_filter\": {\n"
+                        + "        \"type\": \"truncate\",\n"
+                        + "        \"length\": 25\n"
+                        + "      },\n"
+                        + "      \"truncate_suggest_filter\": {\n"
+                        + "        \"type\": \"truncate\",\n"
+                        + "        \"length\": 12\n"
+                        + "      },\n"
+                        + "      \"ngram_filter\": {\n"
+                        + "        \"type\": \"edgeNGram\",\n"
+                        + "        \"min_gram\": 1,\n"
+                        + "        \"max_gram\": 12\n"
+                        + "      },\n"
+                        + "      \"gram_filter\": {\n"
+                        + "        \"type\": \"nGram\",\n"
+                        + "        \"min_gram\": 1,\n"
+                        + "        \"max_gram\": 25\n"
+                        + "      },\n"
+                        + "      \"search_delimiter\" : {\n"
+                        + "        \"type\" : \"word_delimiter\",\n"
+                        + "        \"catenate_all\": false,\n"
+                        + "        \"catenate_numbers\": false,\n"
+                        + "        \"catenate_words\": true,\n"
+                        + "        \"generate_number_parts\": true,\n"
+                        + "        \"generate_word_parts\": true,\n"
+                        + "        \"split_on_case_change\": true\n"
+                        + "      },\n"
+                        + "      \"suggest_delimiter\" : {\n"
+                        + "        \"type\" : \"word_delimiter\",\n"
+                        + "        \"catenate_all\": false,\n"
+                        + "        \"catenate_numbers\": false,\n"
+                        + "        \"catenate_words\": true,\n"
+                        + "        \"generate_number_parts\": true,\n"
+                        + "        \"generate_word_parts\": true,\n"
+                        + "        \"split_on_case_change\": true\n"
+                        + "      },\n"
+                        + "      \"text_delimiter\" : {\n"
+                        + "        \"type\" : \"word_delimiter\",\n"
+                        + "        \"catenate_all\": false,\n"
+                        + "        \"catenate_numbers\": true,\n"
+                        + "        \"catenate_words\": true,\n"
+                        + "        \"generate_number_parts\": true,\n"
+                        + "        \"generate_word_parts\": true,\n"
+                        + "        \"split_on_case_change\": true\n"
+                        + "      },\n"
+                        + "      \"text_stemmer\" : {\n"
+                        + "        \"type\" : \"porter_stem\"\n"
+                        + "      },\n"
+                        + "      \"unique_words\" : {\n"
+                        + "        \"type\" : \"unique\"\n"
+                        + "      }\n"
+                        + "    }\n"
                         + "  }\n"
-                        + "}\n"
-                        + "\n";
+                        + "}";
             }
         }
 
@@ -3947,7 +3933,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
          */
         private static Object containsWildcard(String operator, Object value) {
             if (operator.equals(PredicateParser.CONTAINS_OPERATOR) && (value instanceof String)) {
-                return "*" + value + "*";
+                return value; //"*" + value + "*";
             }
             return value;
         }
@@ -3996,6 +3982,22 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     return query;
                 } else {
                     return query + "." + RAW_FIELD;
+                }
+            }
+
+        }
+
+        /**
+         * add Case Insensitive Raw Field for fields that are not _ids, _id, _type
+         */
+        private static String addRawCI(String query) {
+            if (IDS_FIELD.equals(query) || ID_FIELD.equals(query) || TYPE_ID_FIELD.equals(query)) {
+                return query;
+            } else {
+                if (query.endsWith("." + RAWCI_FIELD)) {
+                    return query;
+                } else {
+                    return query + "." + RAWCI_FIELD;
                 }
             }
 

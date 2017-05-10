@@ -1333,11 +1333,11 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check matchesall 2", sem3, hasSize(1));
 
         List<String> many2 = new ArrayList<>();
-        many.add("test");
-        many.add("story");
-        List<SearchIndexModel> sem4 = Query.from(SearchIndexModel.class).where("one matchesany ?", many).selectAll();
+        many2.add("test");
+        many2.add("story");
+        List<SearchIndexModel> sem4 = Query.from(SearchIndexModel.class).where("one matchesany ?", many2).selectAll();
         assertThat("check matchesany 3", sem4, hasSize(2));
-        List<SearchIndexModel> sem5 = Query.from(SearchIndexModel.class).where("one matchesall ?", many).selectAll();
+        List<SearchIndexModel> sem5 = Query.from(SearchIndexModel.class).where("one matchesall ?", many2).selectAll();
         assertThat("check matchesall 3", sem5, hasSize(1));
     }
 
@@ -1349,7 +1349,7 @@ public class SearchIndexTest extends AbstractTest {
         model1.save();
 
         SearchIndexModel model2 = new SearchIndexModel();
-        model2.one = "AnOtHeR StOrY";
+        model2.one = "AnOtHeR StOrY thisisalongverylongwordthatgoesonandon";
         model2.save();
 
         List<SearchIndexModel> zeroAny = Query.from(SearchIndexModel.class).where("one matchesany ?", (Object) null).selectAll();
@@ -1367,6 +1367,19 @@ public class SearchIndexTest extends AbstractTest {
         List<SearchIndexModel> contains = Query.from(SearchIndexModel.class).where("one contains ?", "headline").selectAll();
         assertThat("check contains", contains, hasSize(1));
 
+        List<SearchIndexModel> containsPartial = Query.from(SearchIndexModel.class).where("one contains ?", "sto").selectAll();
+        assertThat("check containsPartial", containsPartial, hasSize(2));
+
+        List<SearchIndexModel> containsPartial2 = Query.from(SearchIndexModel.class).where("one contains ?", "oth").selectAll();
+        assertThat("check containsPartial2", containsPartial2, hasSize(1));
+
+        try {
+            List<SearchIndexModel> containsPartial3 = Query.from(SearchIndexModel.class).where("one contains ?", "thisisalongverylongwordthatgoesonandon").selectAll();
+            fail("Exception not thrown");
+        } catch (IllegalArgumentException error) {
+            // squash
+        }
+
         List<String> many = new ArrayList<>();
         many.add("test");
         many.add("headline");
@@ -1382,6 +1395,9 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check matchesany", sem4, hasSize(2));
         List<SearchIndexModel> sem5 = Query.from(SearchIndexModel.class).where("one matchesall ?", many).selectAll();
         assertThat("check matchesall", sem5, hasSize(1));
+    }
+
+    private void fail(String s) {
     }
 
     // Same in SOLR and Elastic since they are to be escaped in Lucene
@@ -1439,6 +1455,17 @@ public class SearchIndexTest extends AbstractTest {
         List<SearchIndexModel> total1 = Query.from(SearchIndexModel.class).where("one matchesany ?", "story").selectAll();
         assertThat("total1", total1, hasSize(count));
 
+        // default is case insensitive.
+        List<SearchIndexModel> total3 = Query.from(SearchIndexModel.class).where("one startswith ?", "te").selectAll();
+        assertThat("total3", total3, hasSize(count/2));
+
+        List<SearchIndexModel> total4 = Query.from(SearchIndexModel.class).where("one startswith ?", "Beginning another").selectAll();
+        assertThat("total4", total4, hasSize(count/2));
+
+        // default is case insensitive.
+        List<SearchIndexModel> total5 = Query.from(SearchIndexModel.class).where("_label startswith ?", "te").selectAll();
+        assertThat("total5", total5, hasSize(count/2));
+
         for (String special : specialChars) {
             String specialEscaped = escapeValue(special);
             List<SearchIndexModel> total2a = Query.from(SearchIndexModel.class).where("one matchesany ?", specialEscaped + "beginning").selectAll();
@@ -1449,11 +1476,11 @@ public class SearchIndexTest extends AbstractTest {
             List<SearchIndexModel> total2c = Query.from(SearchIndexModel.class).where("one matchesany ?", "story" + specialEscaped).selectAll();
             assertThat("total2c", total2c, hasSize(count));
 
-            List<SearchIndexModel> total2d = Query.from(SearchIndexModel.class).where("one startswith ?", "story" + special).selectAll();
-            assertThat("total2d", total2d, hasSize(2));
+            List<SearchIndexModel> total2d = Query.from(SearchIndexModel.class).where("one startswith ?", "Te" + specialEscaped).selectAll(); // new
+            assertThat("total2d", total2d, hasSize(0));
 
-            List<SearchIndexModel> total2e = Query.from(SearchIndexModel.class).where("one contains ?", "story" + specialEscaped).selectAll();
-            assertThat("total2e", total2e, hasSize(2));
+            List<SearchIndexModel> total2f = Query.from(SearchIndexModel.class).where("one contains ?", "story" + specialEscaped).selectAll();
+            assertThat("total2f", total2f, hasSize(2));
         }
 
         for (String special : specialChars) {
@@ -1699,6 +1726,12 @@ public class SearchIndexTest extends AbstractTest {
                 .selectAll();
         assertThat(fooAny, hasSize(1));
 
+        List<SearchIndexModel> fooAnyA = Query
+                .from(SearchIndexModel.class)
+                .where("_any matches ?", "tou")
+                .selectAll();
+        assertThat(fooAnyA, hasSize(0));
+
         List<SearchIndexModel> fooAny2 = Query
                 .from(SearchIndexModel.class)
                 .where("_any matches ?", "BiLl")
@@ -1742,6 +1775,13 @@ public class SearchIndexTest extends AbstractTest {
                 .where("_any matchesall ?", "Anyonly")
                 .selectAll();
         assertThat(fooResult4, hasSize(1));
+
+        // Case insensitive
+        List<SearchIndexModel> fooResult5 = Query
+                .from(SearchIndexModel.class)
+                .where("_any matchesall ?", "anyonly")
+                .selectAll();
+        assertThat(fooResult5, hasSize(1));
     }
 
     /**

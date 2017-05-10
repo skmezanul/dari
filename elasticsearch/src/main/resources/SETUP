@@ -1,5 +1,17 @@
 Config for Elastic Search 5.3.2 Setup Ubuntu
 
+Note:
+
+For Tomcat - Reccommend 3 new settings. JAVA_HOME to point to 1.8.131 and 2000m for memory, and start GC at 70%.
+
+cd /servers/projectXXX/bin
+edit setenv.sh
+export JAVA_HOME='/usr/lib/jvm/java-8-oracle'
+export HEAP_SIZE='2000m'
+
+Add to JAVA-OPTS:
+-XX:+UseConcMarkSweepGC -XX:CMSInitiatingOccupancyFraction=70 -XX:+UseCMSInitiatingOccupancyOnly \
+
 1. Install Elasticsearch / Kibana
 
 apt-get update
@@ -152,317 +164,357 @@ PUT _settings
 
 15. Setup Template (Dari Elastic will set this if not set)
 
-curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: application/json' -d'
+curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: application/json' -d '
 {
-  "template": "index1*",
-  "settings": {
-    "index": {
-      "mapping": {
-        "total_fields": {
-          "limit": "100000"
+    "template": "index1*",
+    "settings": {
+      "index": {
+        "mapping": {
+          "total_fields": {
+            "limit": "100000"
+          },
+          "ignore_malformed": "true"
         },
-        "ignore_malformed": "true"
-      },
-      "refresh_interval": "2s",
-      "translog": {
+        "refresh_interval": "10s",
+        "number_of_shards": "1",
+        "translog": {
           "sync_interval": "5s",
-           "durability": "async"
-      },
-      "analysis": {
-        "filter": {
-          "suggest_delimiter": {
-            "generate_word_parts": "true",
-            "catenate_words": "true",
-            "generate_number_parts": "true",
-            "catenate_all": "false",
-            "split_on_case_change": "true",
-            "type": "word_delimiter",
-            "catenate_numbers": "false"
-          },
-          "text_delimiter": {
-            "generate_word_parts": "true",
-            "catenate_words": "true",
-            "generate_number_parts": "true",
-            "catenate_all": "false",
-            "split_on_case_change": "true",
-            "type": "word_delimiter",
-            "catenate_numbers": "true"
-          },
-          "unique_words": {
-            "type": "unique"
-          },
-          "ngram_filter": {
-            "type": "edgeNGram",
-            "min_gram": "1",
-            "max_gram": "12"
-          },
-          "text_stemmer": {
-            "type": "porter_stem"
-          },
-          "search_delimiter": {
-            "generate_word_parts": "true",
-            "catenate_words": "true",
-            "generate_number_parts": "true",
-            "catenate_all": "false",
-            "split_on_case_change": "true",
-            "type": "word_delimiter",
-            "catenate_numbers": "false"
+          "durability": "async"
+        },
+        "merge": {
+          "scheduler": {
+            "max_thread_count": "1"
           }
         },
-        "analyzer": {
-          "search_contains_analyzer": {
-            "filter": [
-              "lowercase",
-              "asciifolding"
-            ],
-            "char_filter": [
-              "html_strip"
-            ],
-            "tokenizer": "whitespace"
-          },
-          "suggest_analyzer": {
-            "filter": [
-              "suggest_delimiter",
-              "lowercase",
-              "asciifolding",
-              "ngram_filter"
-            ],
-            "char_filter": [
-              "html_strip"
-            ],
-            "tokenizer": "whitespace"
-          },
-          "search_match_analyzer": {
-            "filter": [
-              "search_delimiter",
-              "lowercase",
-              "asciifolding",
-              "text_stemmer"
-            ],
-            "char_filter": [
-              "html_strip"
-            ],
-            "tokenizer": "whitespace"
-          },
-          "contains_analyzer": {
-            "filter": [
-              "lowercase",
-              "asciifolding"
-            ],
-            "char_filter": [
-              "html_strip"
-            ],
-            "tokenizer": "whitespace"
-          },
-          "any_analyzer": {
-            "filter": [
-              "text_delimiter",
-              "lowercase",
-              "asciifolding",
-              "text_stemmer",
-              "unique_words"
-            ],
-            "char_filter": [
-              "html_strip"
-            ],
-            "tokenizer": "whitespace"
-          },
-          "search_suggest_analyzer": {
-            "filter": [
-              "suggest_delimiter",
-              "lowercase",
-              "asciifolding"
-            ],
-            "char_filter": [
-              "html_strip"
-            ],
-            "tokenizer": "whitespace"
-          },
-          "search_any_analyzer": {
-            "filter": [
-              "search_delimiter",
-              "lowercase",
-              "asciifolding",
-              "text_stemmer"
-            ],
-            "char_filter": [
-              "html_strip"
-            ],
-            "tokenizer": "whitespace"
-          },
-          "match_analyzer": {
-            "filter": [
-              "text_delimiter",
-              "lowercase",
-              "asciifolding",
-              "text_stemmer"
-            ],
-            "char_filter": [
-              "html_strip"
-            ],
-            "tokenizer": "whitespace"
-          }
-        }
-      },
-      "number_of_shards": "1",
-      "number_of_replicas": "0",
-      "query": {
-        "default_field": "_any"
-      }
-    }
-  },
-  "mappings": {
-    "_default_": {
-      "dynamic_templates": [
-        {
-          "locationgeo": {
-            "mapping": {
-              "type": "geo_point"
+        "query": {
+          "default_field": "_any"
+        },
+        "analysis": {
+          "filter": {
+            "truncate_suggest_filter": {
+              "length": "12",
+              "type": "truncate"
             },
-            "match_mapping_type": "string",
-            "match": "_location"
-          }
-        },
-        {
-          "boolean_type": {
-            "mapping": {
-              "norms": false,
-              "type": "boolean"
+            "suggest_delimiter": {
+              "generate_word_parts": "true",
+              "catenate_words": "true",
+              "generate_number_parts": "true",
+              "catenate_all": "false",
+              "split_on_case_change": "true",
+              "type": "word_delimiter",
+              "catenate_numbers": "false"
             },
-            "match": "_boolean"
-          }
-        },
-        {
-          "date_type": {
-            "mapping": {
-              "norms": false,
-              "type": "long"
+            "ngram_filter": {
+              "type": "edgeNGram",
+              "min_gram": "1",
+              "max_gram": "12"
             },
-            "match": "_date"
-          }
-        },
-        {
-          "number_type": {
-            "mapping": {
-              "norms": false,
-              "type": "double"
+            "text_stemmer": {
+              "type": "porter_stem"
             },
-            "match": "_number"
-          }
-        },
-        {
-          "string_type": {
-            "mapping": {
-              "search_analyzer": "search_contains_analyzer",
-              "analyzer": "contains_analyzer",
-              "type": "text",
-              "fields": {
-                "match": {
-                  "search_analyzer": "search_match_analyzer",
-                  "analyzer": "match_analyzer",
-                  "type": "text"
-                },
-                "raw": {
-                  "ignore_above": 512,
-                  "type": "keyword"
-                }
-              }
+            "search_delimiter": {
+              "generate_word_parts": "true",
+              "catenate_words": "true",
+              "generate_number_parts": "true",
+              "catenate_all": "false",
+              "split_on_case_change": "true",
+              "type": "word_delimiter",
+              "catenate_numbers": "false"
             },
-            "match_mapping_type": "string",
-            "match": "_string"
-          }
-        },
-        {
-          "suggest_type": {
-            "mapping": {
-              "search_analyzer": "search_suggest_analyzer",
-              "norms": false,
-              "analyzer": "suggest_analyzer",
-              "type": "text"
+            "truncate_contains_filter": {
+              "length": "25",
+              "type": "truncate"
             },
-            "match": "_suggest"
-          }
-        },
-        {
-          "shapegeo": {
-            "mapping": {
-              "type": "geo_shape"
+            "text_delimiter": {
+              "generate_word_parts": "true",
+              "catenate_words": "true",
+              "generate_number_parts": "true",
+              "catenate_all": "false",
+              "split_on_case_change": "true",
+              "type": "word_delimiter",
+              "catenate_numbers": "true"
             },
-            "match_mapping_type": "object",
-            "match": "_polygon"
-          }
-        },
-        {
-          "data_template_top": {
-            "mapping": {
-              "index": false,
-              "ignore_malformed": true,
-              "type": "{dynamic_type}"
+            "unique_words": {
+              "type": "unique"
             },
-            "match": "data"
-          }
-        },
-        {
-          "data_template": {
-            "path_match": "data.*",
-            "mapping": {
-              "index": false,
-              "ignore_malformed": true,
-              "type": "{dynamic_type}"
+            "gram_filter": {
+              "type": "nGram",
+              "min_gram": "1",
+              "max_gram": "25"
+            }
+          },
+          "normalizer": {
+            "lower_normalizer": {
+              "filter": [
+                "lowercase",
+                "asciifolding"
+              ],
+              "type": "custom"
+            }
+          },
+          "analyzer": {
+            "search_contains_analyzer": {
+              "filter": [
+                "lowercase",
+                "asciifolding",
+                "truncate_contains_filter"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "suggest_analyzer": {
+              "filter": [
+                "suggest_delimiter",
+                "lowercase",
+                "asciifolding",
+                "ngram_filter"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "search_match_analyzer": {
+              "filter": [
+                "search_delimiter",
+                "lowercase",
+                "asciifolding",
+                "text_stemmer"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "contains_analyzer": {
+              "filter": [
+                "lowercase",
+                "asciifolding",
+                "gram_filter"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "any_analyzer": {
+              "filter": [
+                "text_delimiter",
+                "lowercase",
+                "asciifolding",
+                "text_stemmer",
+                "unique_words"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "search_suggest_analyzer": {
+              "filter": [
+                "suggest_delimiter",
+                "lowercase",
+                "asciifolding",
+                "truncate_suggest_filter"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "search_any_analyzer": {
+              "filter": [
+                "search_delimiter",
+                "lowercase",
+                "asciifolding",
+                "text_stemmer"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
+            },
+            "match_analyzer": {
+              "filter": [
+                "text_delimiter",
+                "lowercase",
+                "asciifolding",
+                "text_stemmer"
+              ],
+              "char_filter": [
+                "html_strip"
+              ],
+              "tokenizer": "whitespace"
             }
           }
         },
-        {
-          "int_template": {
-            "mapping": {
-              "ignore_above": 1024,
-              "type": "keyword"
-            },
-            "match_mapping_type": "string",
-            "match": "_*"
-          }
-        },
-        {
-          "notanalyzed": {
-            "mapping": {
-              "search_analyzer": "search_contains_analyzer",
-              "analyzer": "contains_analyzer",
-              "type": "text",
-              "fields": {
-                "match": {
-                  "search_analyzer": "search_match_analyzer",
-                  "analyzer": "match_analyzer",
-                  "type": "text"
-                },
-                "raw": {
-                  "ignore_above": 512,
-                  "type": "keyword"
+        "number_of_replicas": "0"
+      }
+    },
+    "mappings": {
+      "_default_": {
+        "dynamic_templates": [
+          {
+            "locationgeo": {
+              "mapping": {
+                "type": "geo_point"
+              },
+              "match_mapping_type": "string",
+              "match": "_location"
+            }
+          },
+          {
+            "boolean_type": {
+              "mapping": {
+                "norms": false,
+                "type": "boolean"
+              },
+              "match": "_boolean"
+            }
+          },
+          {
+            "date_type": {
+              "mapping": {
+                "norms": false,
+                "type": "long"
+              },
+              "match": "_date"
+            }
+          },
+          {
+            "number_type": {
+              "mapping": {
+                "norms": false,
+                "type": "double"
+              },
+              "match": "_number"
+            }
+          },
+          {
+            "string_type": {
+              "mapping": {
+                "search_analyzer": "search_contains_analyzer",
+                "analyzer": "contains_analyzer",
+                "type": "text",
+                "fields": {
+                  "match": {
+                    "search_analyzer": "search_match_analyzer",
+                    "analyzer": "match_analyzer",
+                    "type": "text"
+                  },
+                  "raw": {
+                    "ignore_above": 512,
+                    "type": "keyword"
+                  },
+                  "rawci": {
+                    "normalizer": "lower_normalizer",
+                    "ignore_above": 512,
+                    "type": "keyword"
+                  }
                 }
+              },
+              "match_mapping_type": "string",
+              "match": "_string"
+            }
+          },
+          {
+            "suggest_type": {
+              "mapping": {
+                "search_analyzer": "search_suggest_analyzer",
+                "norms": false,
+                "analyzer": "suggest_analyzer",
+                "type": "text"
+              },
+              "match": "_suggest"
+            }
+          },
+          {
+            "shapegeo": {
+              "mapping": {
+                "type": "geo_shape"
+              },
+              "match_mapping_type": "object",
+              "match": "_polygon"
+            }
+          },
+          {
+            "data_template_top": {
+              "mapping": {
+                "index": false,
+                "ignore_malformed": true,
+                "type": "{dynamic_type}"
+              },
+              "match": "data"
+            }
+          },
+          {
+            "data_template": {
+              "path_match": "data.*",
+              "mapping": {
+                "index": false,
+                "ignore_malformed": true,
+                "type": "{dynamic_type}"
               }
-            },
-            "match_mapping_type": "string",
-            "match": "*"
+            }
+          },
+          {
+            "int_template": {
+              "mapping": {
+                "ignore_above": 1024,
+                "type": "keyword"
+              },
+              "match_mapping_type": "string",
+              "match": "_*"
+            }
+          },
+          {
+            "notanalyzed": {
+              "mapping": {
+                "search_analyzer": "search_contains_analyzer",
+                "analyzer": "contains_analyzer",
+                "type": "text",
+                "fields": {
+                  "match": {
+                    "search_analyzer": "search_match_analyzer",
+                    "analyzer": "match_analyzer",
+                    "type": "text"
+                  },
+                  "raw": {
+                    "ignore_above": 512,
+                    "type": "keyword"
+                  },
+                  "rawci": {
+                    "normalizer": "lower_normalizer",
+                    "ignore_above": 512,
+                    "type": "keyword"
+                  }
+                }
+              },
+              "match_mapping_type": "string",
+              "match": "*"
+            }
           }
-        }
-      ],
-      "_all": {
-        "enabled": false
-      },
-      "properties": {
-        "_any": {
-          "search_analyzer": "search_any_analyzer",
-          "analyzer": "any_analyzer",
-          "type": "text"
+        ],
+        "_all": {
+          "enabled": false
         },
-        "_ids": {
-          "norms": false,
-          "type": "keyword"
+        "properties": {
+          "_any": {
+            "search_analyzer": "search_any_analyzer",
+            "analyzer": "any_analyzer",
+            "type": "text"
+          },
+          "_ids": {
+            "norms": false,
+            "type": "keyword"
+          }
         }
       }
-    }
-  },
-  "aliases": {}
-}'
+    },
+    "aliases": {}
+}''
 
 16. Setup Runit in /etc/sv/elastic and link in /etc/service
 

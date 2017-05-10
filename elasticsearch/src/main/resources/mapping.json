@@ -64,6 +64,11 @@
                 "type": "keyword",
                 "ignore_above": 512
               },
+              "rawci": {
+                "type": "keyword",
+                "normalizer": "lower_normalizer",
+                "ignore_above": 512
+              },
               "match": {
                 "type": "text",
                 "analyzer": "match_analyzer",
@@ -132,6 +137,11 @@
             "analyzer": "contains_analyzer",
             "search_analyzer": "search_contains_analyzer",
             "fields": {
+              "rawci": {
+                "type": "keyword",
+                "normalizer": "lower_normalizer",
+                "ignore_above": 512
+              },
               "raw": {
                 "type": "keyword",
                 "ignore_above": 512
