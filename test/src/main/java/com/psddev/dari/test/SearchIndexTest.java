@@ -11,6 +11,7 @@ import com.psddev.dari.db.State;
 import com.psddev.dari.util.PaginatedResult;
 import org.apache.commons.lang3.time.DateUtils;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -1375,7 +1376,7 @@ public class SearchIndexTest extends AbstractTest {
 
         try {
             List<SearchIndexModel> containsPartial3 = Query.from(SearchIndexModel.class).where("one contains ?", "thisisalongverylongwordthatgoesonandon").selectAll();
-            fail("Exception not thrown");
+            Assert.fail("Exception not thrown");
         } catch (IllegalArgumentException error) {
             // squash
         }
@@ -1384,20 +1385,25 @@ public class SearchIndexTest extends AbstractTest {
         many.add("test");
         many.add("headline");
         List<SearchIndexModel> sem2 = Query.from(SearchIndexModel.class).where("one matchesany ?", many).selectAll();
-        assertThat("check matchesany", sem2, hasSize(1));
+        assertThat("check matchesany sem2", sem2, hasSize(1));
         List<SearchIndexModel> sem3 = Query.from(SearchIndexModel.class).where("one matchesall ?", many).selectAll();
-        assertThat("check matchesall", sem3, hasSize(1));
+        assertThat("check matchesall sem3", sem3, hasSize(1));
 
         List<String> many2 = new ArrayList<>();
-        many.add("test");
-        many.add("story");
-        List<SearchIndexModel> sem4 = Query.from(SearchIndexModel.class).where("one matchesany ?", many).selectAll();
-        assertThat("check matchesany", sem4, hasSize(2));
-        List<SearchIndexModel> sem5 = Query.from(SearchIndexModel.class).where("one matchesall ?", many).selectAll();
-        assertThat("check matchesall", sem5, hasSize(1));
-    }
+        many2.add("test");
+        many2.add("story");
+        List<SearchIndexModel> sem4 = Query.from(SearchIndexModel.class).where("one matchesany ?", many2).selectAll();
+        assertThat("check matchesany sem4", sem4, hasSize(2));
+        List<SearchIndexModel> sem5 = Query.from(SearchIndexModel.class).where("one matchesall ?", many2).selectAll();
+        assertThat("check matchesall sem5", sem5, hasSize(1));
 
-    private void fail(String s) {
+        List<String> many3 = new ArrayList<>();
+        many3.add("tes");
+        many3.add("story");
+        List<SearchIndexModel> sem6 = Query.from(SearchIndexModel.class).where("one matchesany ?", many3).selectAll();
+        assertThat("check matchesany sem6", sem6, hasSize(2));
+        List<SearchIndexModel> sem7 = Query.from(SearchIndexModel.class).where("one matchesall ?", many3).selectAll();
+        assertThat("check matchesall sem7", sem7, hasSize(0));
     }
 
     // Same in SOLR and Elastic since they are to be escaped in Lucene
@@ -1457,14 +1463,14 @@ public class SearchIndexTest extends AbstractTest {
 
         // default is case insensitive.
         List<SearchIndexModel> total3 = Query.from(SearchIndexModel.class).where("one startswith ?", "te").selectAll();
-        assertThat("total3", total3, hasSize(count/2));
+        assertThat("total3", total3, hasSize(count / 2));
 
         List<SearchIndexModel> total4 = Query.from(SearchIndexModel.class).where("one startswith ?", "Beginning another").selectAll();
-        assertThat("total4", total4, hasSize(count/2));
+        assertThat("total4", total4, hasSize(count / 2));
 
         // default is case insensitive.
         List<SearchIndexModel> total5 = Query.from(SearchIndexModel.class).where("_label startswith ?", "te").selectAll();
-        assertThat("total5", total5, hasSize(count/2));
+        assertThat("total5", total5, hasSize(count / 2));
 
         for (String special : specialChars) {
             String specialEscaped = escapeValue(special);

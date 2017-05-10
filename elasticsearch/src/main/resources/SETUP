@@ -514,7 +514,7 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
       }
     },
     "aliases": {}
-}''
+}'
 
 16. Setup Runit in /etc/sv/elastic and link in /etc/service
 
