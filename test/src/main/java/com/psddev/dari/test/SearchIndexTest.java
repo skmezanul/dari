@@ -1398,7 +1398,7 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check matchesall sem5", sem5, hasSize(1));
 
         List<String> many3 = new ArrayList<>();
-        many3.add("tes");
+        many3.add("t");
         many3.add("story");
         List<SearchIndexModel> sem6 = Query.from(SearchIndexModel.class).where("one matchesany ?", many3).selectAll();
         assertThat("check matchesany sem6", sem6, hasSize(2));

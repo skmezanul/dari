@@ -1223,7 +1223,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         addFacets(query, srb, facet);
 
         try {
-            LOGGER.debug("Elasticsearch srb index ["
+            LOGGER.info("Elasticsearch srb index ["
                     + (indexIdStrings.length == 0 ? getAllElasticIndexName() : Arrays.toString(indexIdStrings))
                     + "] typeIds ["
                     + (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings))
