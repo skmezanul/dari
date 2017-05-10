@@ -21,12 +21,12 @@
       "contains_analyzer": {
         "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
-        "filter" : [ "lowercase", "asciifolding", "gram_filter" ]
+        "filter" : [ "lowercase", "asciifolding" ]
       },
       "search_contains_analyzer": {
         "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
-        "filter" : [ "lowercase", "asciifolding", "truncate_contains_filter" ]
+        "filter" : [ "lowercase", "asciifolding" ]
       },
       "match_analyzer": {
         "char_filter": [ "html_strip" ],

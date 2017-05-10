@@ -256,8 +256,7 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
             "search_contains_analyzer": {
               "filter": [
                 "lowercase",
-                "asciifolding",
-                "truncate_contains_filter"
+                "asciifolding"
               ],
               "char_filter": [
                 "html_strip"
@@ -291,8 +290,7 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
             "contains_analyzer": {
               "filter": [
                 "lowercase",
-                "asciifolding",
-                "gram_filter"
+                "asciifolding"
               ],
               "char_filter": [
                 "html_strip"

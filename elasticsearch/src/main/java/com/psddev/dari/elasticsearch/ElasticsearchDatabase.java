@@ -2165,11 +2165,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             internalType = mappedKey.getInternalType();
                         }
                     }
+                    if (ANY_FIELD.equals(key) && PredicateParser.CONTAINS_OPERATOR.equals(operator)) {
+                        throw new IllegalArgumentException(operator + " CONTAINS not allowed on " + ANY_FIELD + " field");
+                    }
 
                     for (Object v : values) {
-                        if (v != null && v instanceof String && ((String) v).length() > 25 && PredicateParser.CONTAINS_OPERATOR.equals(operator)) {
-                            throw new IllegalArgumentException(operator + " CONTAINS limited to 25 characters");
-                        }
                         if (internalType != null && ObjectField.NUMBER_TYPE.equals(internalType)) {
                             throw new IllegalArgumentException(operator + " number not allowed");
                         }
@@ -2209,7 +2209,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         ? QueryBuilders.boolQuery().must(
                                                 equalsAnyQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
                                         : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)))));
-                                          //QueryBuilders.matchPhrasePrefixQuery(key, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
@@ -2265,7 +2264,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         ? QueryBuilders.boolQuery().must(
                                         equalsAnyQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
                                         : QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)))));
-                                       //QueryBuilders.matchPhrasePrefixQuery(key, v))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
@@ -3628,12 +3626,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         + "      \"contains_analyzer\": {\n"
                         + "        \"char_filter\": [ \"html_strip\" ],\n"
                         + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\", \"gram_filter\" ]\n"
+                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\" ]\n"
                         + "      },\n"
                         + "      \"search_contains_analyzer\": {\n"
                         + "        \"char_filter\": [ \"html_strip\" ],\n"
                         + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\", \"truncate_contains_filter\" ]\n"
+                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\" ]\n"
                         + "      },\n"
                         + "      \"match_analyzer\": {\n"
                         + "        \"char_filter\": [ \"html_strip\" ],\n"
@@ -3987,11 +3985,11 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         /**
-         * For contains, add * for within strings
+         * For contains, add * for within strings. This is not the best performance on large fields. Use matches on larger fields.
          */
         private static Object containsWildcard(String operator, Object value) {
             if (operator.equals(PredicateParser.CONTAINS_OPERATOR) && (value instanceof String)) {
-                return value; //"*" + value + "*";
+                return "*" + value + "*";
             }
             return value;
         }

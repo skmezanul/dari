@@ -1375,7 +1375,7 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check containsPartial2", containsPartial2, hasSize(1));
 
         try {
-            List<SearchIndexModel> containsPartial3 = Query.from(SearchIndexModel.class).where("one contains ?", "thisisalongverylongwordthatgoesonandon").selectAll();
+            Query.from(SearchIndexModel.class).where("* contains ?", "thisisalongverylongwordthatgoesonandon").selectAll();
             Assert.fail("Exception not thrown");
         } catch (IllegalArgumentException error) {
             // squash
