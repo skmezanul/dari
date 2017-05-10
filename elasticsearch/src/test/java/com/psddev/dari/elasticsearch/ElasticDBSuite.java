@@ -151,7 +151,7 @@ public class ElasticDBSuite {
             LOGGER.info("Starting Elastic test");
             ElasticSetupDatabase();
             TestSuite suite = new TestSuite();
-/*            suite.addTest(new JUnit4TestAdapter(SearchIteratorTest.class));
+            suite.addTest(new JUnit4TestAdapter(SearchIteratorTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticDatabaseConnectionTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticInitializationTest.class));
             suite.addTest(new JUnit4TestAdapter(LocationIndexTest.class));
@@ -162,15 +162,15 @@ public class ElasticDBSuite {
             suite.addTest(new JUnit4TestAdapter(RegionCircleIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(RegionIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(RegionLocationTest.class));
-            suite.addTest(new JUnit4TestAdapter(SearchArticleIndexTest.class));*/
+            suite.addTest(new JUnit4TestAdapter(SearchArticleIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(SearchIndexTest.class));
-/*            suite.addTest(new JUnit4TestAdapter(SingletonTest.class));
+            suite.addTest(new JUnit4TestAdapter(SingletonTest.class));
             suite.addTest(new JUnit4TestAdapter(StateIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(StringIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(TypeIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(UuidIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(WriteTest.class));
-            suite.addTest(new JUnit4TestAdapter(WriteTestElastic.class));*/
+            suite.addTest(new JUnit4TestAdapter(WriteTestElastic.class));
             return suite;
         }
 
