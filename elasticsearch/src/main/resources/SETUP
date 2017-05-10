@@ -2,7 +2,7 @@ Config for Elastic Search 5.3.2 Setup Ubuntu
 
 Note:
 
-For Tomcat - Reccommend 3 new settings. JAVA_HOME to point to 1.8.131 and 2000m for memory, and start GC at 70%.
+For Tomcat - Recommend 3 new settings. JAVA_HOME to point to 1.8.131 and 2000m for memory, and start GC at 70%.
 
 cd /servers/projectXXX/bin
 edit setenv.sh
@@ -10,7 +10,7 @@ export JAVA_HOME='/usr/lib/jvm/java-8-oracle'
 export HEAP_SIZE='2000m'
 
 Add to JAVA-OPTS:
--XX:+UseConcMarkSweepGC -XX:CMSInitiatingOccupancyFraction=70 -XX:+UseCMSInitiatingOccupancyOnly \
+-XX:+UseConcMarkSweepGC -XX:CMSInitiatingOccupancyFraction=70 -XX:+UseCMSInitiatingOccupancyOnly -XX:+ExitOnOutOfMemoryError \
 
 1. Install Elasticsearch / Kibana
 

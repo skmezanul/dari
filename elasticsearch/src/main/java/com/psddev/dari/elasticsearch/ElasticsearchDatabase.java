@@ -29,6 +29,7 @@ import com.psddev.dari.db.StateSerializer;
 import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.db.UnsupportedPredicateException;
 import com.psddev.dari.db.UpdateNotifier;
+import com.psddev.dari.util.IoUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
 import com.psddev.dari.util.SparseSet;
@@ -102,8 +103,7 @@ import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -179,8 +179,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
     public static final String SCORE_EXTRA = "elastic.score";
     public static final String NORMALIZED_SCORE_EXTRA = "elastic.normalizedScore";
-    private static final String ELASTIC_MAPPING = Static.getMapping("");
-    private static final String ELASTIC_SETTING = Static.getSetting("");
+    private static final String ELASTIC_MAPPING = Static.getMapping();
+    private static final String ELASTIC_SETTING = Static.getSetting();
 
     public class IndexKey {
         private String indexName;
@@ -2152,8 +2152,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v)))
-                            : checkField != null ? QueryBuilders.prefixQuery(Static.addRawCI(key), String.valueOf(Static.matchesAnyUUID(operator, key, v)))
+                            : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
+                            : checkField != null ? QueryBuilders.prefixQuery(Static.addRawCI(key), String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
                             : QueryBuilders.prefixQuery(Static.addRawCI(key), Static.escapeSpaceValue(String.valueOf(v).toLowerCase())));
 
                 case PredicateParser.CONTAINS_OPERATOR :
@@ -2208,13 +2208,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                     : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                                 equalsAnyQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)))));
+                                        : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
+                                          ? QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false)))
+                                          : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
-                                : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v)))).field(matchesAnalyzer(operator, key, typeIds)));
+                                : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
+                                          ? QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false)))
+                                          : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)));
                     }
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
@@ -2263,13 +2267,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                         equalsAnyQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)))));
+                                        : QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))))));
+                                        //: QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)));
+                                        : QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))));
+                                        //: QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)));
                     }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
@@ -3580,9 +3586,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         /**
-         * For "_Any" and Matches, switch UUID for value to uuidWord
+         * For "_Any" and Matches, switch UUID for value to uuidWord, also going into query_string so need escaping
          */
-        private static Object matchesAnyUUID(String operator, String key, Object value) {
+        private static Object matchesAnyUUID(String operator, String key, Object value, boolean isEscape) {
             if (operator.equals(PredicateParser.STARTS_WITH_OPERATOR) || operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
                 if (key.equals(ANY_FIELD)) {
                     UUID valueUuid = ObjectUtils.to(UUID.class, value);
@@ -3591,308 +3597,37 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                 }
             }
-            return value;
-        }
-
-        /**
-         * The settings for indexes analysis - PUT /index/
-         */
-        public static String getSetting(String path) {
-            try {
-                LOGGER.debug("trying resource mapping.json mapping");
-                return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "setting.json").toURI())));
-            } catch (Exception error) {
-                LOGGER.info("Using default setting - switch to resource file");
-                return "{\n"
-                        + "  \"index.query.default_field\": \"_any\",\n"
-                        + "  \"index.mapping.total_fields.limit\": 100000,\n"
-                        + "  \"index.mapping.ignore_malformed\": true,\n"
-                        + "  \"index\": {\n"
-                        + "    \"refresh_interval\" : \"10s\",\n"
-                        + "    \"number_of_shards\": \"1\",\n"
-                        + "    \"number_of_replicas\": \"0\",\n"
-                        + "    \"translog.durability\": \"async\",\n"
-                        + "    \"translog.sync_interval\": \"5s\",\n"
-                        + "    \"merge.scheduler.max_thread_count\": 1\n"
-                        + "  },\n"
-                        + "  \"analysis\": {\n"
-                        + "    \"normalizer\": {\n"
-                        + "      \"lower_normalizer\": {\n"
-                        + "        \"type\": \"custom\",\n"
-                        + "        \"filter\": [ \"lowercase\", \"asciifolding\" ]\n"
-                        + "      }\n"
-                        + "    },\n"
-                        + "    \"analyzer\": {\n"
-                        + "      \"contains_analyzer\": {\n"
-                        + "        \"char_filter\": [ \"html_strip\" ],\n"
-                        + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\" ]\n"
-                        + "      },\n"
-                        + "      \"search_contains_analyzer\": {\n"
-                        + "        \"char_filter\": [ \"html_strip\" ],\n"
-                        + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"lowercase\", \"asciifolding\" ]\n"
-                        + "      },\n"
-                        + "      \"match_analyzer\": {\n"
-                        + "        \"char_filter\": [ \"html_strip\" ],\n"
-                        + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"text_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
-                        + "      },\n"
-                        + "      \"search_match_analyzer\": {\n"
-                        + "        \"char_filter\": [ \"html_strip\" ],\n"
-                        + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"search_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
-                        + "      },\n"
-                        + "      \"any_analyzer\": {\n"
-                        + "          \"char_filter\": [ \"html_strip\" ],\n"
-                        + "          \"tokenizer\": \"whitespace\",\n"
-                        + "          \"filter\" : [ \"text_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\", \"unique_words\" ]\n"
-                        + "      },\n"
-                        + "      \"search_any_analyzer\": {\n"
-                        + "        \"char_filter\": [ \"html_strip\" ],\n"
-                        + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"search_delimiter\", \"lowercase\", \"asciifolding\", \"text_stemmer\" ]\n"
-                        + "      },\n"
-                        + "      \"suggest_analyzer\": {\n"
-                        + "        \"char_filter\": [ \"html_strip\" ],\n"
-                        + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"suggest_delimiter\", \"lowercase\", \"asciifolding\", \"ngram_filter\" ]\n"
-                        + "      },\n"
-                        + "      \"search_suggest_analyzer\": {\n"
-                        + "        \"char_filter\": [ \"html_strip\" ],\n"
-                        + "        \"tokenizer\": \"whitespace\",\n"
-                        + "        \"filter\" : [ \"suggest_delimiter\", \"lowercase\", \"asciifolding\", \"truncate_suggest_filter\" ]\n"
-                        + "      }\n"
-                        + "    },\n"
-                        + "    \"filter\" : {\n"
-                        + "      \"truncate_contains_filter\": {\n"
-                        + "        \"type\": \"truncate\",\n"
-                        + "        \"length\": 25\n"
-                        + "      },\n"
-                        + "      \"truncate_suggest_filter\": {\n"
-                        + "        \"type\": \"truncate\",\n"
-                        + "        \"length\": 12\n"
-                        + "      },\n"
-                        + "      \"ngram_filter\": {\n"
-                        + "        \"type\": \"edgeNGram\",\n"
-                        + "        \"min_gram\": 1,\n"
-                        + "        \"max_gram\": 12\n"
-                        + "      },\n"
-                        + "      \"gram_filter\": {\n"
-                        + "        \"type\": \"nGram\",\n"
-                        + "        \"min_gram\": 1,\n"
-                        + "        \"max_gram\": 25\n"
-                        + "      },\n"
-                        + "      \"search_delimiter\" : {\n"
-                        + "        \"type\" : \"word_delimiter\",\n"
-                        + "        \"catenate_all\": false,\n"
-                        + "        \"catenate_numbers\": false,\n"
-                        + "        \"catenate_words\": true,\n"
-                        + "        \"generate_number_parts\": true,\n"
-                        + "        \"generate_word_parts\": true,\n"
-                        + "        \"split_on_case_change\": true\n"
-                        + "      },\n"
-                        + "      \"suggest_delimiter\" : {\n"
-                        + "        \"type\" : \"word_delimiter\",\n"
-                        + "        \"catenate_all\": false,\n"
-                        + "        \"catenate_numbers\": false,\n"
-                        + "        \"catenate_words\": true,\n"
-                        + "        \"generate_number_parts\": true,\n"
-                        + "        \"generate_word_parts\": true,\n"
-                        + "        \"split_on_case_change\": true\n"
-                        + "      },\n"
-                        + "      \"text_delimiter\" : {\n"
-                        + "        \"type\" : \"word_delimiter\",\n"
-                        + "        \"catenate_all\": false,\n"
-                        + "        \"catenate_numbers\": true,\n"
-                        + "        \"catenate_words\": true,\n"
-                        + "        \"generate_number_parts\": true,\n"
-                        + "        \"generate_word_parts\": true,\n"
-                        + "        \"split_on_case_change\": true\n"
-                        + "      },\n"
-                        + "      \"text_stemmer\" : {\n"
-                        + "        \"type\" : \"porter_stem\"\n"
-                        + "      },\n"
-                        + "      \"unique_words\" : {\n"
-                        + "        \"type\" : \"unique\"\n"
-                        + "      }\n"
-                        + "    }\n"
-                        + "  }\n"
-                        + "}";
+            if (isEscape) {
+                return Static.escapeSpaceValue(value);
+            } else {
+                return value;
             }
         }
 
         /**
-         * The actual map for Elasticsearch
+         * The settings for indexes analysis - for Elastic Template
          */
-        private static String getMapping(String path) {
+        public static String getSetting() {
             try {
-                LOGGER.debug("trying resource mapping.json mapping");
-                return new String(Files.readAllBytes(Paths.get(ElasticsearchDatabase.class.getClassLoader().getResource(path + "mapping.json").toURI())));
+                LOGGER.info("Loading resource setting.json");
+               return IoUtils.toString(ElasticsearchDatabase.class.getClassLoader().getResourceAsStream("com/psddev/dari/elasticsearch/setting.json"), StandardCharsets.UTF_8);
             } catch (Exception error) {
-                LOGGER.info("Using default mapping - switch to resource file");
-                return "{\n"
-                        + "  \"_default_\": {\n"
-                        + "    \"_all\": {\n"
-                        + "      \"enabled\": false\n"
-                        + "    },\n"
-                        + "    \"properties\": {\n"
-                        + "      \"_ids\": {\n"
-                        + "        \"type\": \"keyword\",\n"
-                        + "        \"norms\": false\n"
-                        + "      },\n"
-                        + "      \"_any\": {\n"
-                        + "        \"type\": \"text\",\n"
-                        + "        \"analyzer\": \"any_analyzer\",\n"
-                        + "        \"search_analyzer\": \"search_any_analyzer\"\n"
-                        + "      }\n"
-                        + "    },\n"
-                        + "    \"dynamic_templates\": [\n"
-                        + "      {\n"
-                        + "        \"locationgeo\": {\n"
-                        + "          \"match\": \"_location\",\n"
-                        + "          \"match_mapping_type\": \"string\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"geo_point\"\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"boolean_type\": {\n"
-                        + "          \"match\": \"_boolean\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"boolean\",\n"
-                        + "            \"norms\": false\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"date_type\": {\n"
-                        + "          \"match\": \"_date\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"long\",\n"
-                        + "            \"norms\": false\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"number_type\": {\n"
-                        + "          \"match\": \"_number\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"double\",\n"
-                        + "            \"norms\": false\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"string_type\": {\n"
-                        + "          \"match\": \"_string\",\n"
-                        + "          \"match_mapping_type\": \"string\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"text\",\n"
-                        + "            \"analyzer\": \"contains_analyzer\",\n"
-                        + "            \"search_analyzer\": \"search_contains_analyzer\",\n"
-                        + "            \"fields\": {\n"
-                        + "              \"raw\": {\n"
-                        + "                \"type\": \"keyword\",\n"
-                        + "                \"ignore_above\": 512\n"
-                        + "              },\n"
-                        + "              \"rawci\": {\n"
-                        + "                \"type\": \"keyword\",\n"
-                        + "                \"normalizer\": \"lower_normalizer\",\n"
-                        + "                \"ignore_above\": 512\n"
-                        + "              },\n"
-                        + "              \"match\": {\n"
-                        + "                \"type\": \"text\",\n"
-                        + "                \"analyzer\": \"match_analyzer\",\n"
-                        + "                \"search_analyzer\": \"search_match_analyzer\"\n"
-                        + "              }\n"
-                        + "            }\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"suggest_type\": {\n"
-                        + "          \"match\": \"_suggest\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"text\",\n"
-                        + "            \"analyzer\": \"suggest_analyzer\",\n"
-                        + "            \"search_analyzer\": \"search_suggest_analyzer\",\n"
-                        + "            \"norms\": false\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"shapegeo\": {\n"
-                        + "          \"match\": \"_polygon\",\n"
-                        + "          \"match_mapping_type\": \"object\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"geo_shape\"\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"data_template_top\": {\n"
-                        + "          \"match\": \"data\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"{dynamic_type}\",\n"
-                        + "            \"index\": false,\n"
-                        + "            \"ignore_malformed\": true\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"data_template\": {\n"
-                        + "          \"path_match\": \"data.*\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"{dynamic_type}\",\n"
-                        + "            \"index\": false,\n"
-                        + "            \"ignore_malformed\": true\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"int_template\": {\n"
-                        + "          \"match\": \"_*\",\n"
-                        + "          \"match_mapping_type\": \"string\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"keyword\",\n"
-                        + "            \"ignore_above\": 1024\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      {\n"
-                        + "        \"notanalyzed\": {\n"
-                        + "          \"match\": \"*\",\n"
-                        + "          \"match_mapping_type\": \"string\",\n"
-                        + "          \"mapping\": {\n"
-                        + "            \"type\": \"text\",\n"
-                        + "            \"analyzer\": \"contains_analyzer\",\n"
-                        + "            \"search_analyzer\": \"search_contains_analyzer\",\n"
-                        + "            \"fields\": {\n"
-                        + "              \"rawci\": {\n"
-                        + "                \"type\": \"keyword\",\n"
-                        + "                \"normalizer\": \"lower_normalizer\",\n"
-                        + "                \"ignore_above\": 512\n"
-                        + "              },\n"
-                        + "              \"raw\": {\n"
-                        + "                \"type\": \"keyword\",\n"
-                        + "                \"ignore_above\": 512\n"
-                        + "              },\n"
-                        + "              \"match\": {\n"
-                        + "                \"type\": \"text\",\n"
-                        + "                \"analyzer\": \"match_analyzer\",\n"
-                        + "                \"search_analyzer\": \"search_match_analyzer\"\n"
-                        + "              }\n"
-                        + "            }\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      }\n"
-                        + "    ]\n"
-                        + "  }\n"
-                        + "}\n"
-                        + "\n";
+                LOGGER.warn("Cannot find resource setting.json");
             }
+            return "";
+        }
+
+        /**
+         * The actual map for Elasticsearch - for Elastic Template
+         */
+        private static String getMapping() {
+            try {
+                LOGGER.info("Loading resource mapping.json");
+                return IoUtils.toString(ElasticsearchDatabase.class.getClassLoader().getResourceAsStream("com/psddev/dari/elasticsearch/mapping.json"), StandardCharsets.UTF_8);
+            } catch (Exception error) {
+                LOGGER.warn("Cannot find mapping mapping.json");
+            }
+            return "";
         }
 
         private static final char[] UUID_WORD_CHARS = new char[] {

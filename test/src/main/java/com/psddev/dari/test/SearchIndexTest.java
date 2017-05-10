@@ -244,8 +244,8 @@ public class SearchIndexTest extends AbstractTest {
             model.save();
         });
 
-        assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "f*").count(), equalTo(3L));
-        assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "fo*").count(), equalTo(2L));
+        assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "f*").count(), equalTo(1L));
+        assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "fo*").count(), equalTo(1L));
         assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "foo*").count(), equalTo(1L));
     }
 
@@ -1350,7 +1350,7 @@ public class SearchIndexTest extends AbstractTest {
         model1.save();
 
         SearchIndexModel model2 = new SearchIndexModel();
-        model2.one = "AnOtHeR StOrY thisisalongverylongwordthatgoesonandon";
+        model2.one = "AnOtHeR StOrY thisisalongverylongwordthatgoesonandon specialchar*";
         model2.save();
 
         List<SearchIndexModel> zeroAny = Query.from(SearchIndexModel.class).where("one matchesany ?", (Object) null).selectAll();
@@ -1361,6 +1361,12 @@ public class SearchIndexTest extends AbstractTest {
 
         List<SearchIndexModel> sem = Query.from(SearchIndexModel.class).where("one matchesany ?", "headline").selectAll();
         assertThat("check matchesany", sem, hasSize(1));
+
+        List<SearchIndexModel> sem10 = Query.from(SearchIndexModel.class).where("one matchesany ?", "headline*").selectAll();
+        assertThat("check matchesany", sem10, hasSize(1));
+
+        List<SearchIndexModel> sem11 = Query.from(SearchIndexModel.class).where("one matchesany ?", "specialchar*").selectAll();
+        assertThat("check matchesany", sem11, hasSize(1));
 
         List<SearchIndexModel> sem1 = Query.from(SearchIndexModel.class).where("one matchesall ?", "headline").selectAll();
         assertThat("check matchesall", sem1, hasSize(1));
@@ -1482,10 +1488,10 @@ public class SearchIndexTest extends AbstractTest {
             List<SearchIndexModel> total2c = Query.from(SearchIndexModel.class).where("one matchesany ?", "story" + specialEscaped).selectAll();
             assertThat("total2c", total2c, hasSize(count));
 
-            List<SearchIndexModel> total2d = Query.from(SearchIndexModel.class).where("one startswith ?", "Te" + specialEscaped).selectAll(); // new
+            List<SearchIndexModel> total2d = Query.from(SearchIndexModel.class).where("one startswith ?", "Te" + specialEscaped).selectAll();
             assertThat("total2d", total2d, hasSize(0));
 
-            List<SearchIndexModel> total2f = Query.from(SearchIndexModel.class).where("one contains ?", "story" + specialEscaped).selectAll();
+            List<SearchIndexModel> total2f = Query.from(SearchIndexModel.class).where("one contains ?", "story" + special).selectAll();
             assertThat("total2f", total2f, hasSize(2));
         }
 
