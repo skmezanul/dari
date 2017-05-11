@@ -1,9 +1,9 @@
-package com.psddev.dari.test;
+package com.psddev.dari.h2;
 
 import org.junit.Test;
 import java.util.NoSuchElementException;
 
-public class ReadTestH2 extends ReadTest {
+public class H2ReadTest extends com.psddev.dari.test.ReadTest {
 
     @Override
     @Test

@@ -1,8 +1,9 @@
-package com.psddev.dari.test;
+package com.psddev.dari.h2;
 
+import com.psddev.dari.test.SearchIndexTest;
 import org.junit.Test;
 
-public class SearchIndexTestH2 extends SearchIndexTest {
+public class H2SearchIndexTest extends SearchIndexTest {
 
     // _any is not operational in H2
     @Override

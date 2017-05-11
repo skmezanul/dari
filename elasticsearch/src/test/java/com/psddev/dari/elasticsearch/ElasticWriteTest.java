@@ -1,6 +1,8 @@
-package com.psddev.dari.test;
+package com.psddev.dari.elasticsearch;
 
 import com.psddev.dari.db.Query;
+import com.psddev.dari.test.AbstractTest;
+import com.psddev.dari.test.WriteModel;
 import org.junit.After;
 import org.junit.AssumptionViolatedException;
 import org.junit.Rule;
@@ -17,7 +19,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertThat;
 
-public class WriteTestElastic extends AbstractTest {
+public class ElasticWriteTest extends AbstractTest {
 
     @Rule
     public ExpectedException thrown = ExpectedException.none();

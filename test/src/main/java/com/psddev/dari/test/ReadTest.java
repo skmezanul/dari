@@ -116,7 +116,7 @@ public class ReadTest extends AbstractTest {
                 isIn(models));
     }
 
-    void iterable(boolean disableByIdIterator, int fetchSize, boolean isOption) {
+    protected void iterable(boolean disableByIdIterator, int fetchSize, boolean isOption) {
         Set<ReadModel> result = new HashSet<>();
 
         if (isOption) {
@@ -153,7 +153,7 @@ public class ReadTest extends AbstractTest {
         iterable(true, 1, false);
     }
 
-    void iterableNext(boolean disableByIdIterator, boolean isOption) {
+    protected void iterableNext(boolean disableByIdIterator, boolean isOption) {
         Iterator<ReadModel> i;
         if (isOption) {
             i = Query
@@ -185,7 +185,7 @@ public class ReadTest extends AbstractTest {
         iterableNext(true, false);
     }
 
-    void iterableRemove(boolean disableByIdIterator, boolean isOption) {
+    protected void iterableRemove(boolean disableByIdIterator, boolean isOption) {
         if (isOption) {
             Query.from(ReadModel.class)
                     .option(AbstractSqlDatabase.DISABLE_BY_ID_ITERATOR_OPTION, disableByIdIterator)

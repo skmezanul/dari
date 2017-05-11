@@ -1,8 +1,9 @@
-package com.psddev.dari.test;
+package com.psddev.dari.h2;
 
+import com.psddev.dari.test.RegionLocationTest;
 import org.junit.Test;
 
-public class RegionLocationTestH2 extends RegionLocationTest {
+public class H2RegionLocationTest extends RegionLocationTest {
 
     @Override
     @Test(expected = IllegalArgumentException.class)

@@ -1,9 +1,10 @@
-package com.psddev.dari.test;
+package com.psddev.dari.h2;
 
 import com.psddev.dari.db.Region;
+import com.psddev.dari.test.LocationIndexTest;
 import org.junit.Test;
 
-public class LocationIndexTestH2 extends LocationIndexTest {
+public class H2LocationIndexTest extends LocationIndexTest {
 
     // H2 bug 5.5 degrees is only 611km, from 0,0 to 5,5 is 750km
     @Override

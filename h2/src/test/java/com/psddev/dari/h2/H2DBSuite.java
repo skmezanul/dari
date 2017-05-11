@@ -1,19 +1,8 @@
 package com.psddev.dari.h2;
 
-import com.psddev.dari.test.LocationIndexTestH2;
-import com.psddev.dari.test.ModificationDenormalizedTestH2;
-import com.psddev.dari.test.ModificationEmbeddedTestH2;
-import com.psddev.dari.test.NumberIndexTestH2;
-import com.psddev.dari.test.ReadTestH2;
-import com.psddev.dari.test.RegionIndexTestH2;
-import com.psddev.dari.test.RegionLocationTestH2;
-import com.psddev.dari.test.SearchArticleIndexTestH2;
-import com.psddev.dari.test.SearchIndexTestH2;
 import com.psddev.dari.test.SingletonTest;
 import com.psddev.dari.test.StateIndexTest;
-import com.psddev.dari.test.StringIndexTestH2;
 import com.psddev.dari.test.TypeIndexTest;
-import com.psddev.dari.test.UuidIndexTestH2;
 import com.psddev.dari.test.WriteTest;
 import com.psddev.dari.util.Settings;
 import com.zaxxer.hikari.HikariDataSource;
@@ -55,21 +44,21 @@ public class H2DBSuite {
             H2SetupDatabase();
             TestSuite suite = new TestSuite();
             suite.addTest(new JUnit4TestAdapter(H2InitializationTest.class));
-            suite.addTest(new JUnit4TestAdapter(LocationIndexTestH2.class));
-            suite.addTest(new JUnit4TestAdapter(ModificationDenormalizedTestH2.class));
-            suite.addTest(new JUnit4TestAdapter(ModificationEmbeddedTestH2.class));
-            suite.addTest(new JUnit4TestAdapter(NumberIndexTestH2.class));
-            suite.addTest(new JUnit4TestAdapter(ReadTestH2.class));
+            suite.addTest(new JUnit4TestAdapter(H2LocationIndexTest.class));
+            suite.addTest(new JUnit4TestAdapter(H2ModificationDenormalizedTest.class));
+            suite.addTest(new JUnit4TestAdapter(H2ModificationEmbeddedTest.class));
+            suite.addTest(new JUnit4TestAdapter(H2NumberIndexTest.class));
+            suite.addTest(new JUnit4TestAdapter(H2ReadTest.class));
             //suite.addTest(new JUnit4TestAdapter(RegionCircleIndexTest.class));  this needs work in H2
-            suite.addTest(new JUnit4TestAdapter(RegionIndexTestH2.class));
-            suite.addTest(new JUnit4TestAdapter(RegionLocationTestH2.class));
-            suite.addTest(new JUnit4TestAdapter(SearchArticleIndexTestH2.class));
-            suite.addTest(new JUnit4TestAdapter(SearchIndexTestH2.class));
+            suite.addTest(new JUnit4TestAdapter(H2RegionIndexTest.class));
+            suite.addTest(new JUnit4TestAdapter(H2RegionLocationTest.class));
+            suite.addTest(new JUnit4TestAdapter(H2SearchArticleIndexTest.class));
+            suite.addTest(new JUnit4TestAdapter(H2SearchIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(SingletonTest.class));
             suite.addTest(new JUnit4TestAdapter(StateIndexTest.class));
-            suite.addTest(new JUnit4TestAdapter(StringIndexTestH2.class));
+            suite.addTest(new JUnit4TestAdapter(H2StringIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(TypeIndexTest.class));
-            suite.addTest(new JUnit4TestAdapter(UuidIndexTestH2.class));
+            suite.addTest(new JUnit4TestAdapter(H2UuidIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(WriteTest.class));
             return suite;
         }

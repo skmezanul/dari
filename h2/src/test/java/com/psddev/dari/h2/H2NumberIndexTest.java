@@ -1,13 +1,13 @@
-package com.psddev.dari.test;
+package com.psddev.dari.h2;
 
+import com.psddev.dari.test.NumberIndexTest;
 import org.junit.Test;
 
-public class UuidIndexTestH2 extends UuidIndexTest {
+public class H2NumberIndexTest extends NumberIndexTest {
 
     @Override
     @Test
     public void sortAscendingReferenceOneOne() {
         super.sortAscendingReferenceOneOne();
     }
-
 }

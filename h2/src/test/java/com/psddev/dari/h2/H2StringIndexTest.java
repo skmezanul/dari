@@ -1,8 +1,9 @@
-package com.psddev.dari.test;
+package com.psddev.dari.h2;
 
+import com.psddev.dari.test.StringIndexTest;
 import org.junit.Test;
 
-public class StringIndexTestH2 extends StringIndexTest {
+public class H2StringIndexTest extends StringIndexTest {
 
     @Override
     @Test

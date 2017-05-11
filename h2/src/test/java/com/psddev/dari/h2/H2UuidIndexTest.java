@@ -1,8 +1,9 @@
-package com.psddev.dari.test;
+package com.psddev.dari.h2;
 
+import com.psddev.dari.test.UuidIndexTest;
 import org.junit.Test;
 
-public class SearchArticleIndexTestH2 extends SearchArticleIndexTest {
+public class H2UuidIndexTest extends UuidIndexTest {
 
     @Override
     @Test

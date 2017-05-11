@@ -1,8 +1,9 @@
-package com.psddev.dari.test;
+package com.psddev.dari.h2;
 
+import com.psddev.dari.test.RegionIndexTest;
 import org.junit.Test;
 
-public class RegionIndexTestH2 extends RegionIndexTest {
+public class H2RegionIndexTest extends RegionIndexTest {
 
     @Override
     @Test
