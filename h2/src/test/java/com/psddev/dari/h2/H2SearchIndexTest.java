@@ -168,6 +168,11 @@ public class H2SearchIndexTest extends SearchIndexTest {
     public void testComplexTaggedIndexMethodWords() {
     }
 
+    @Override
+    @Test
+    public void testSortString() {
+    }
+
     // some issue with _any on H2
     @Override
     @Test
