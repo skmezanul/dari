@@ -277,8 +277,8 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
             },
             "search_match_analyzer": {
               "filter": [
-                "search_delimiter",
                 "lowercase",
+                "search_delimiter",
                 "asciifolding",
                 "text_stemmer"
               ],
@@ -312,8 +312,8 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
             },
             "search_suggest_analyzer": {
               "filter": [
-                "suggest_delimiter",
                 "lowercase",
+                "suggest_delimiter",
                 "asciifolding",
                 "truncate_suggest_filter"
               ],
@@ -324,8 +324,8 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
             },
             "search_any_analyzer": {
               "filter": [
-                "search_delimiter",
                 "lowercase",
+                "search_delimiter",
                 "asciifolding",
                 "text_stemmer"
               ],

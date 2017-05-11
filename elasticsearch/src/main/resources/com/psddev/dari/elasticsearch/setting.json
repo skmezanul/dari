@@ -36,7 +36,7 @@
       "search_match_analyzer": {
         "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
-        "filter" : [ "search_delimiter", "lowercase", "asciifolding", "text_stemmer" ]
+        "filter" : [ "lowercase", "search_delimiter", "asciifolding", "text_stemmer" ]
       },
       "any_analyzer": {
           "char_filter": [ "html_strip" ],
@@ -46,7 +46,7 @@
       "search_any_analyzer": {
         "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
-        "filter" : [ "search_delimiter", "lowercase", "asciifolding", "text_stemmer" ]
+        "filter" : [ "lowercase", "search_delimiter", "asciifolding", "text_stemmer" ]
       },
       "suggest_analyzer": {
         "char_filter": [ "html_strip" ],
@@ -56,7 +56,7 @@
       "search_suggest_analyzer": {
         "char_filter": [ "html_strip" ],
         "tokenizer": "whitespace",
-        "filter" : [ "suggest_delimiter", "lowercase", "asciifolding", "truncate_suggest_filter" ]
+        "filter" : [ "lowercase", "suggest_delimiter", "asciifolding", "truncate_suggest_filter" ]
       }
     },
     "filter" : {

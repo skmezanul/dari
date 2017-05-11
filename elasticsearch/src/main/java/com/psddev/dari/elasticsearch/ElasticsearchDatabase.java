@@ -68,6 +68,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsRejectedExecutionException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.GeoShapeQueryBuilder;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
@@ -2152,9 +2153,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
+                            : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v, true)).toLowerCase())
                             : checkField != null ? QueryBuilders.prefixQuery(Static.addRawCI(key), String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
-                            : QueryBuilders.prefixQuery(Static.addRawCI(key), Static.escapeSpaceValue(String.valueOf(v).toLowerCase())));
+                            : QueryBuilders.prefixQuery(Static.addRawCI(key), Static.escapeSpaceValue(Static.caseInsensitive(v))));
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
@@ -2209,7 +2210,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         ? QueryBuilders.boolQuery().must(
                                                 equalsAnyQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
                                         : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
-                                          ? QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false)))
+                                        ? QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
+                                                 .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f))
                                           : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::should, v ->
@@ -2217,7 +2219,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 : "*".equals(v)
                                 ? QueryBuilders.matchAllQuery()
                                 : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
-                                          ? QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false)))
+                                        ? QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
+                                                 .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f))
                                           : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)));
                     }
 
@@ -2267,15 +2270,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         : (v instanceof Region
                                         ? QueryBuilders.boolQuery().must(
                                         equalsAnyQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))))));
-                                        //: QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)))));
+                                        : QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
+                                            .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f)))));
                     } else {
                         return combine(operator, values, BoolQueryBuilder::must, v ->
                                 v == null ? QueryBuilders.matchAllQuery()
                                         : "*".equals(v)
                                         ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))));
-                                        //: QueryBuilders.queryStringQuery(String.valueOf(Static.matchesAnyUUID(operator, key, v))).field(matchesAnalyzer(operator, key, typeIds)));
+                                        : QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
+                                            .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f)));
                     }
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
@@ -3399,11 +3402,15 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
          * @param value If {@code null}, returns {@code null}.
          */
         public static String escapeValue(Object value) {
-            return value != null ? ESCAPE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
+            return value != null ? ESCAPE_PATTERN.matcher(String.valueOf(value)).replaceAll("\\\\$1") : null;
         }
 
         public static String escapeSpaceValue(Object value) {
-            return value != null ? ESCAPE_SAFE_PATTERN.matcher(value.toString()).replaceAll("\\\\$1") : null;
+            return value != null ? ESCAPE_SAFE_PATTERN.matcher(String.valueOf(value)).replaceAll("\\\\$1") : null;
+        }
+
+        public static String caseInsensitive(Object value) {
+            return value != null ? String.valueOf(value).toLowerCase() : null;
         }
 
         /**
@@ -3589,19 +3596,24 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
          * For "_Any" and Matches, switch UUID for value to uuidWord, also going into query_string so need escaping
          */
         private static Object matchesAnyUUID(String operator, String key, Object value, boolean isEscape) {
-            if (operator.equals(PredicateParser.STARTS_WITH_OPERATOR) || operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
-                if (key.equals(ANY_FIELD)) {
-                    UUID valueUuid = ObjectUtils.to(UUID.class, value);
-                    if (valueUuid != null) {
-                        return Static.uuidToWord(valueUuid);
+            if (value != null) {
+                if (operator.equals(PredicateParser.STARTS_WITH_OPERATOR) || operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) {
+                    if (key.equals(ANY_FIELD)) {
+                        UUID valueUuid = ObjectUtils.to(UUID.class, value);
+                        if (valueUuid != null) {
+                            return Static.uuidToWord(valueUuid);
+                        }
                     }
+                } else {
+                    value = Static.caseInsensitive(value);
                 }
-            }
-            if (isEscape) {
-                return Static.escapeSpaceValue(value);
-            } else {
+                if (isEscape) {
+                    value = Static.escapeSpaceValue(value);
+                }
                 return value;
             }
+
+            return null;
         }
 
         /**
@@ -3717,6 +3729,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         error);
             }
             return null;
+        }
+
+        /**
+         * For contains, add * for within strings. This is not the best performance on large fields. Use matches on larger fields.
+         */
+        private static Object matchesWildcard(String operator, Object value) {
+            if ((operator.equals(PredicateParser.MATCHES_ALL_OPERATOR) || operator.equals(PredicateParser.MATCHES_ANY_OPERATOR)) && (value instanceof String)) {
+                return value + "*";
+            }
+            return value;
         }
 
         /**

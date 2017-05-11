@@ -152,7 +152,7 @@ public class ElasticInitializationTest {
         }
 
         Float score = ObjectUtils.to(Float.class, fooResult.get(0).getExtra(ElasticsearchDatabase.SCORE_EXTRA));
-        assertThat(score, Matchers.is(lessThan(.3f)));
+        assertThat(score, Matchers.is(lessThan(.4f)));
 
         Float normalizedScore =  ObjectUtils.to(Float.class, fooResult.get(0).getExtra(ElasticsearchDatabase.NORMALIZED_SCORE_EXTRA));
         assertThat(normalizedScore, Matchers.is (1.0f));

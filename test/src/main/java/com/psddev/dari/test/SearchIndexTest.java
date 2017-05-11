@@ -52,6 +52,7 @@ public class SearchIndexTest extends AbstractTest {
             Query.from(SearchOverlapModel.class).deleteAllImmediately();
         }
         Query.from(PersonIndexModel.class).deleteAllImmediately();
+        Query.from(MethodComplexModel.class).deleteAllImmediately();
     }
 
     @Test
@@ -244,8 +245,8 @@ public class SearchIndexTest extends AbstractTest {
             model.save();
         });
 
-        assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "f*").count(), equalTo(1L));
-        assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "fo*").count(), equalTo(1L));
+        assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "f*").count(), equalTo(3L));
+        assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "fo*").count(), equalTo(2L));
         assertThat(Query.from(SearchIndexModel.class).where("one matches ?", "foo*").count(), equalTo(1L));
     }
 
@@ -971,7 +972,7 @@ public class SearchIndexTest extends AbstractTest {
         model.save();
 
         List<SearchIndexModel> s = Query.from(SearchIndexModel.class)
-                .where("one matchesany ?", "manAge")
+                .where("one matchesany ?", "manage")
                 .selectAll();
         assertThat(s, hasSize(1));
 
@@ -1404,12 +1405,12 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check matchesall sem5", sem5, hasSize(1));
 
         List<String> many3 = new ArrayList<>();
-        many3.add("t");
+        many3.add("head");
         many3.add("story");
         List<SearchIndexModel> sem6 = Query.from(SearchIndexModel.class).where("one matchesany ?", many3).selectAll();
         assertThat("check matchesany sem6", sem6, hasSize(2));
         List<SearchIndexModel> sem7 = Query.from(SearchIndexModel.class).where("one matchesall ?", many3).selectAll();
-        assertThat("check matchesall sem7", sem7, hasSize(0));
+        assertThat("check matchesall sem7", sem7, hasSize(1));
     }
 
     // Same in SOLR and Elastic since they are to be escaped in Lucene
@@ -1484,7 +1485,7 @@ public class SearchIndexTest extends AbstractTest {
             assertThat("total2a", total2a, hasSize(count));
             List<SearchIndexModel> total2b = Query.from(SearchIndexModel.class).where("one matchesany ?", "te" + specialEscaped + "st").selectAll();
             // This one has to do with St from Story
-            assertThat("total2b", total2b, hasSize(count));
+            assertThat("total2b", total2b, hasSize(count / 2));
             List<SearchIndexModel> total2c = Query.from(SearchIndexModel.class).where("one matchesany ?", "story" + specialEscaped).selectAll();
             assertThat("total2c", total2c, hasSize(count));
 
@@ -1660,6 +1661,27 @@ public class SearchIndexTest extends AbstractTest {
         assertThat("check tagged matches", tagSet2, hasSize(1));
     }
 
+    // H2 does not match all case
+    @Test
+    public void testComplexTaggedIndexMethodWords() {
+        MethodComplexModel model1 = new MethodComplexModel();
+        model1.setGivenName("Mickey Jr");
+        model1.setSurname("Mouse");
+        model1.save();
+
+        List<MethodComplexModel> tagList = Query.from(MethodComplexModel.class).where("taggable.getNames = ?", "Mickey Jr").selectAll();
+        assertThat("check tagged Mickey", tagList, hasSize(1));
+
+        List<MethodComplexModel> tagList2 = Query.from(MethodComplexModel.class).where("taggable.getNames matches ?", "MiCkEy Jr").selectAll();
+        assertThat("check tagged Mickey", tagList2, hasSize(1));
+
+        List<MethodComplexModel> tagSet = Query.from(MethodComplexModel.class).where("taggable.getSetNames = ?", "Mickey Jr").selectAll();
+        assertThat("check taggedSet Mickey", tagSet, hasSize(1));
+
+        List<MethodComplexModel> tagSet2 = Query.from(MethodComplexModel.class).where("taggable.getSetNames matches ?", "mickey jr").selectAll();
+        assertThat("check tagged matches", tagSet2, hasSize(1));
+    }
+
     // some issue with _any on H2
     @Test
     public void testDenormalizedTags() {
@@ -1742,7 +1764,7 @@ public class SearchIndexTest extends AbstractTest {
                 .from(SearchIndexModel.class)
                 .where("_any matches ?", "tou")
                 .selectAll();
-        assertThat(fooAnyA, hasSize(0));
+        assertThat(fooAnyA, hasSize(1));
 
         List<SearchIndexModel> fooAny2 = Query
                 .from(SearchIndexModel.class)
