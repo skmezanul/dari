@@ -34,8 +34,8 @@
         }
       },
       {
-        "date_type": {
-          "match": "_date",
+        "long_type": {
+          "match": "_long",
           "mapping": {
             "type": "long",
             "norms": false
@@ -43,8 +43,8 @@
         }
       },
       {
-        "number_type": {
-          "match": "_number",
+        "double_type": {
+          "match": "_double",
           "mapping": {
             "type": "double",
             "norms": false

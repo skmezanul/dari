@@ -373,21 +373,21 @@ curl -XPUT "http://IP_ADDRESS:9200/_template/bright_1" -H 'Content-Type: applica
             }
           },
           {
-            "date_type": {
+            "long_type": {
               "mapping": {
                 "norms": false,
                 "type": "long"
               },
-              "match": "_date"
+              "match": "_long"
             }
           },
           {
-            "number_type": {
+            "double_type": {
               "mapping": {
                 "norms": false,
                 "type": "double"
               },
-              "match": "_number"
+              "match": "_double"
             }
           },
           {

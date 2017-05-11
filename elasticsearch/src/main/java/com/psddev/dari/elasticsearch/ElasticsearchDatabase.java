@@ -312,8 +312,8 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String LOCATION_FIELD = "_location";
     public static final String BOOLEAN_FIELD = "_boolean";
     public static final String STRING_FIELD = "_string";
-    public static final String DATE_FIELD = "_date";
-    public static final String NUMBER_FIELD = "_number";
+    public static final String LONG_FIELD = "_long";
+    public static final String DOUBLE_FIELD = "_double";
     public static final String REGION_FIELD = "_polygon";
     public static final String RAW_FIELD = STRING_FIELD + ".raw";   // UUID, String not text, StartsWith, and RECORD
     public static final String RAWCI_FIELD = STRING_FIELD + ".rawci";
@@ -3810,10 +3810,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 key = key.substring(0, key.length() - ("." + REGION_FIELD).length());
             } else if (key.endsWith("." + BOOLEAN_FIELD)) {
                 key = key.substring(0, key.length() - ("." + BOOLEAN_FIELD).length());
-            } else if (key.endsWith("." + DATE_FIELD)) {
-                key = key.substring(0, key.length() - ("." + DATE_FIELD).length());
-            } else if (key.endsWith("." + NUMBER_FIELD)) {
-                key = key.substring(0, key.length() - ("." + NUMBER_FIELD).length());
+            } else if (key.endsWith("." + LONG_FIELD)) {
+                key = key.substring(0, key.length() - ("." + LONG_FIELD).length());
+            } else if (key.endsWith("." + DOUBLE_FIELD)) {
+                key = key.substring(0, key.length() - ("." + DOUBLE_FIELD).length());
             } else if (key.endsWith("." + STRING_FIELD)) {
                 key = key.substring(0, key.length() - ("." + STRING_FIELD).length());
             }
@@ -3858,16 +3858,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         return key + "." + BOOLEAN_FIELD;
                     }
                 } else if (ObjectField.DATE_TYPE.equals(internalType)) {
-                    if (key.endsWith("." + DATE_FIELD)) {
+                    if (key.endsWith("." + LONG_FIELD)) {
                         return key;
                     } else {
-                        return key + "." + DATE_FIELD;
+                        return key + "." + LONG_FIELD;
                     }
                 } else if (ObjectField.NUMBER_TYPE.equals(internalType)) {
-                    if (key.endsWith("." + NUMBER_FIELD)) {
+                    if (key.endsWith("." + DOUBLE_FIELD)) {
                         return key;
                     } else {
-                        return key + "." + NUMBER_FIELD;
+                        return key + "." + DOUBLE_FIELD;
                     }
                 } else {
                     return key + "." + STRING_FIELD;
@@ -3894,16 +3894,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             return key + "." + BOOLEAN_FIELD;
                         }
                     } else if (value instanceof Date) {
-                        if (key.endsWith("." + DATE_FIELD)) {
+                        if (key.endsWith("." + LONG_FIELD)) {
                             return key;
                         } else {
-                            return key + "." + DATE_FIELD;
+                            return key + "." + LONG_FIELD;
                         }
                     } else if (value instanceof Number) {
-                        if (key.endsWith("." + NUMBER_FIELD)) {
+                        if (key.endsWith("." + DOUBLE_FIELD)) {
                             return key;
                         } else {
-                            return key + "." + NUMBER_FIELD;
+                            return key + "." + DOUBLE_FIELD;
                         }
                     } else {
                         if (key.endsWith("." + STRING_FIELD)) {
@@ -3948,16 +3948,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         return key + "." + BOOLEAN_FIELD;
                     }
                 } else if (ObjectField.DATE_TYPE.equals(internalType)) {
-                    if (key.endsWith("." + DATE_FIELD)) {
+                    if (key.endsWith("." + LONG_FIELD)) {
                         return key;
                     } else {
-                        return key + "." + DATE_FIELD;
+                        return key + "." + LONG_FIELD;
                     }
                 } else if (ObjectField.NUMBER_TYPE.equals(internalType)) {
-                    if (key.endsWith("." + NUMBER_FIELD)) {
+                    if (key.endsWith("." + DOUBLE_FIELD)) {
                         return key;
                     } else {
-                        return key + "." + NUMBER_FIELD;
+                        return key + "." + DOUBLE_FIELD;
                     }
                 } else {
                     if (key.endsWith("." + STRING_FIELD)) {
