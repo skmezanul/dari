@@ -1645,7 +1645,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             String internalType = mappedKey.getInternalType();
             if (internalType != null) {
                 if (ObjectField.TEXT_TYPE.equals(internalType) || ObjectField.UUID_TYPE.equals(internalType)) {
-                    elasticField = Static.addRaw(queryKey);
+                    elasticField = Static.addRawCI(queryKey);
                 } else if (ObjectField.LOCATION_TYPE.equals(internalType)) {
                     elasticField = queryKey + "." + LOCATION_FIELD;
                     // not sure what to do with lat,long and sort?
@@ -2153,7 +2153,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     }
                     return combine(operator, values, BoolQueryBuilder::should, v ->
                             v == null ? QueryBuilders.matchAllQuery()
-                            : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v, true)).toLowerCase())
+                            : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
                             : checkField != null ? QueryBuilders.prefixQuery(Static.addRawCI(key), String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
                             : QueryBuilders.prefixQuery(Static.addRawCI(key), Static.escapeSpaceValue(Static.caseInsensitive(v))));
 
@@ -2629,7 +2629,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         if (s == null || s.length() == 0) {
             return "";
         }
-        return Arrays.stream(s.toLowerCase().split(" "))
+        return Arrays.stream(s.toLowerCase(Locale.ENGLISH).split(" "))
                 .distinct()
                 .collect(Collectors.joining(" "));
     }
@@ -3410,7 +3410,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         public static String caseInsensitive(Object value) {
-            return value != null ? String.valueOf(value).toLowerCase() : null;
+            return value != null ? String.valueOf(value).toLowerCase(Locale.ENGLISH) : null;
         }
 
         /**

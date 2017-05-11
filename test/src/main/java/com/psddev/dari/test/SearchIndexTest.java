@@ -295,10 +295,10 @@ public class SearchIndexTest extends AbstractTest {
     @Test
     public void testSortString() throws Exception {
 
-        Stream.of(FOO, "bar", "qux").forEach(string -> {
+        Stream.of("FOO", "BAR", "QUX", "foo", "bar", "qux").forEach(string -> {
             SearchIndexModel model = new SearchIndexModel();
             model.one = string;
-            model.set.add(FOO);
+            model.set.add("foo");
             model.save();
         });
 
@@ -307,9 +307,13 @@ public class SearchIndexTest extends AbstractTest {
                 .sortAscending("one")
                 .selectAll();
 
-        assertThat("check size", fooResult, hasSize(3));
-        assertThat("check 0 and 1 order", fooResult.get(0).one, lessThan(fooResult.get(1).one));
-        assertThat("check 1 and 2 order", fooResult.get(1).one, lessThan(fooResult.get(2).one));
+        assertThat("check size", fooResult, hasSize(6));
+        assertThat("Order 1", fooResult.get(0).one, is("BAR"));
+        assertThat("Order 2", fooResult.get(1).one, is("bar"));
+        assertThat("Order 3", fooResult.get(2).one, is("FOO"));
+        assertThat("Order 3", fooResult.get(3).one, is("foo"));
+        assertThat("Order 3", fooResult.get(4).one, is("QUX"));
+        assertThat("Order 3", fooResult.get(5).one, is("qux"));
     }
 
     @Test
