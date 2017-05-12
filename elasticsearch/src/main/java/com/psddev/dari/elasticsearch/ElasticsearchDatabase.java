@@ -2046,7 +2046,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGteType, key, true)).gte(v)))));
     }
 
-
     /**
      *  Returns QueryBuilder for PredicateParser.STARTS_WITH_OPERATOR
      */
