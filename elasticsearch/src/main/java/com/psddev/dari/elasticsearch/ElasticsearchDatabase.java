@@ -1881,6 +1881,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return false;
     }
 
+    /**
+     *  Returns QueryBuilder for PredicateParser.EQUALS_ANY_OPERATOR and PredicateParser.NOT_EQUALS_ALL_OPERATOR
+     */
     private QueryBuilder equalsOperator(Query query, String operator, String simpleKey, String key, List<Object> values, String finalElasticPostFieldExact) {
         if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
             return combine(operator, values, BoolQueryBuilder::should, v ->
@@ -1895,6 +1898,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     *  Returns QueryBuilder for PredicateParser.LESS_THAN_OPERATOR
+     */
     private QueryBuilder lessThanOperator(Query query, String operator, String key, List<Object> values) {
         String internalType = null;
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
@@ -1929,6 +1935,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     }
 
+    /**
+     *  Returns QueryBuilder for PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR
+     */
     private QueryBuilder lessThanOrEqualsOperator(Query query, String operator, String key, List<Object> values) {
 
         String internalType = null;
@@ -1963,6 +1972,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intLteType, key, true)).lte(v)))));
     }
 
+    /**
+     *  Returns QueryBuilder for PredicateParser.GREATER_THAN_OPERATOR
+     */
     private QueryBuilder greaterThanOperator(SearchRequestBuilder srb, Query query, String operator, String key, List<Object> values) {
 
         Map<String, Object> options = query.getOptions();
@@ -1998,6 +2010,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGtType, key, true)).gt(v)))));
     }
 
+    /**
+     *  Returns QueryBuilder for PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR
+     */
     private QueryBuilder greaterThanOrEqualsOperator(Query query, String operator, String key, List<Object> values) {
 
         String internalType = null;
@@ -2031,6 +2046,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGteType, key, true)).gte(v)))));
     }
 
+
+    /**
+     *  Returns QueryBuilder for PredicateParser.STARTS_WITH_OPERATOR
+     */
     private QueryBuilder startsWithOperator(Query query, String operator, String key, List<Object> values) {
         String internalType = null;
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
@@ -2065,6 +2084,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         : QueryBuilders.prefixQuery(Static.addRawCI(key), Static.escapeSpaceValue(Static.caseInsensitive(v))));
     }
 
+    /**
+     * This returns the Elastic QueryBuilder for PredicateParser.MATCHES_ANY_OPERATOR and PredicateParser.CONTAINS_OPERATOR
+     */
     private QueryBuilder matchesAnyContainsOperator(Query query, String operator, Set<UUID> typeIds, String simpleKey, String key, List<Object> values) {
 
         String internalType = null;
@@ -2134,6 +2156,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
     }
 
+    /**
+     * This returns the Elastic QueryBuilder for PredicateParser.MATCHES_ALL_OPERATOR
+     */
     private QueryBuilder matchesAllOperator(Query query, String operator, Set<UUID> typeIds, String simpleKey, String key, List<Object> values) {
 
         String internalType = null;
@@ -2192,7 +2217,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f)));
         }
     }
-
 
     /**
      * This is the main method for querying Elastic. Converts predicate and query into QueryBuilder
