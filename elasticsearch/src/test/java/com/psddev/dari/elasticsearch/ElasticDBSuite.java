@@ -149,12 +149,7 @@ public class ElasticDBSuite {
         public static TestSuite suite() throws Exception {
             LOGGER.info("Starting Elastic test");
             ElasticSetupDatabase();
-            Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    EmbeddedElasticsearchServer.shutdown();
-                }
-            }));
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> EmbeddedElasticsearchServer.shutdown()));
             TestSuite suite = new TestSuite();
             suite.addTest(new JUnit4TestAdapter(SearchIteratorTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticDatabaseConnectionTest.class));

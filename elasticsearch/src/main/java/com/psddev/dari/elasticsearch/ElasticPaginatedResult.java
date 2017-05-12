@@ -113,7 +113,7 @@ public class ElasticPaginatedResult<E> extends PaginatedResult<E> implements Htm
      * Field Terms Facet
      */
     public List<DariFacetField> getFacetedFields() {
-        List<DariFacetField> fields = new ArrayList<DariFacetField>();
+        List<DariFacetField> fields = new ArrayList<>();
         if (this.facetedFields != null) {
             for (int i = 0; i < this.facetedFields.size(); i++) {
                 Terms field = this.facetedFields.get(i);
@@ -129,7 +129,7 @@ public class ElasticPaginatedResult<E> extends PaginatedResult<E> implements Htm
      * Range Facet
      */
     public List<DariRangeFacet> getRangeFacets() {
-        List<DariRangeFacet> ranges = new ArrayList<DariRangeFacet>();
+        List<DariRangeFacet> ranges = new ArrayList<>();
         if (this.rangeFacets != null) {
             for (int i = 0; i < this.rangeFacets.size(); i++) {
                 Range rangeFacet = this.rangeFacets.get(i);
@@ -248,7 +248,7 @@ public class ElasticPaginatedResult<E> extends PaginatedResult<E> implements Htm
          */
         public <T> List<T> getObjects() {
             Map<String, Long> index = new HashMap<>();
-            List<String> ids = new ArrayList<String>();
+            List<String> ids = new ArrayList<>();
 
             for (Terms.Bucket entry : this.field.getBuckets()) {
                 String key = entry.getKeyAsString();    // Term

@@ -680,12 +680,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
     public class ElasticFacet {
         Filter filter = null;
-        List<Terms> terms = new ArrayList<>();
-        List<String> fieldNames = new ArrayList<>();
-        List<String> aggsTermsNames = new ArrayList<>();
-        List<Range> ranges = new ArrayList<>();
-        List<String> rangeNames = new ArrayList<>();
-        List<String> aggsRangeNames = new ArrayList<>();
+        final List<Terms> terms = new ArrayList<>();
+        final List<String> fieldNames = new ArrayList<>();
+        final List<String> aggsTermsNames = new ArrayList<>();
+        final List<Range> ranges = new ArrayList<>();
+        final List<String> rangeNames = new ArrayList<>();
+        final List<String> aggsRangeNames = new ArrayList<>();
     }
 
     /**
@@ -1881,6 +1881,319 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return false;
     }
 
+    private QueryBuilder equalsOperator(Query query, String operator, String simpleKey, String key, List<Object> values, String finalElasticPostFieldExact) {
+        if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
+            return combine(operator, values, BoolQueryBuilder::should, v ->
+                    v == null ? QueryBuilders.matchAllQuery()
+                            : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(finalElasticPostFieldExact)
+                            : equalsAnyQuery(simpleKey, key, key, query, v, ShapeRelation.WITHIN));
+        } else {
+            return combine(operator, values, BoolQueryBuilder::mustNot, v ->
+                    v == null ? QueryBuilders.matchAllQuery()
+                            : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(finalElasticPostFieldExact)
+                            : equalsAnyQuery(simpleKey, key, key, query, v, ShapeRelation.WITHIN));
+        }
+    }
+
+    private QueryBuilder lessThanOperator(Query query, String operator, String key, List<Object> values) {
+        String internalType = null;
+        Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+        String checkField = specialRangeFields.get(mappedKey);
+        if (checkField == null) {
+            internalType = mappedKey.getInternalType();
+        }
+
+        for (Object v : values) {
+            if (v instanceof Boolean) {
+                throw new IllegalArgumentException(operator + " cannot be boolean");
+            }
+            if (v != null && Query.MISSING_VALUE.equals(v)) {
+                throw new IllegalArgumentException(operator + " missing not allowed");
+            }
+            if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
+                throw new IllegalArgumentException(operator + " cannot be location");
+            }
+            if (v != null && (internalType != null && ObjectField.REGION_TYPE.equals(internalType))) {
+                throw new IllegalArgumentException(operator + " cannot be region");
+            }
+
+        }
+
+        final String intLtType = internalType;
+        return combine(operator, values, BoolQueryBuilder::must, v ->
+                v == null ? QueryBuilders.matchAllQuery()
+                        : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).lt(v))
+                        : (v instanceof Location ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
+                        .filter(QueryBuilders.rangeQuery(key + ".y").lt(((Location) v).getY()))
+                        : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intLtType, key, true)).lt(v)))));
+
+    }
+
+    private QueryBuilder lessThanOrEqualsOperator(Query query, String operator, String key, List<Object> values) {
+
+        String internalType = null;
+        Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+        String checkField = specialRangeFields.get(mappedKey);
+        if (checkField == null) {
+            internalType = mappedKey.getInternalType();
+        }
+
+        for (Object v : values) {
+            if (v instanceof Boolean) {
+                throw new IllegalArgumentException(operator + " cannot be boolean");
+            }
+            if (v != null && Query.MISSING_VALUE.equals(v)) {
+                throw new IllegalArgumentException(operator + " missing not allowed");
+            }
+            if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
+                throw new IllegalArgumentException(operator + " cannot be location");
+            }
+            if (v != null && internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
+                throw new IllegalArgumentException(operator + " cannot be region");
+            }
+        }
+
+        final String intLteType = internalType;
+        return combine(operator, values, BoolQueryBuilder::must, v ->
+                v == null ? QueryBuilders.matchAllQuery()
+                        : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).lte(v))
+                        : (v instanceof Location
+                        ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").lte(((Location) v).getX()))
+                        .filter(QueryBuilders.rangeQuery(key + ".y").lte(((Location) v).getY()))
+                        : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intLteType, key, true)).lte(v)))));
+    }
+
+    private QueryBuilder greaterThanOperator(SearchRequestBuilder srb, Query query, String operator, String key, List<Object> values) {
+
+        Map<String, Object> options = query.getOptions();
+
+        String internalType = null;
+        Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+        String checkField = specialRangeFields.get(mappedKey);
+        if (checkField == null) {
+            internalType = mappedKey.getInternalType();
+        }
+        for (Object v : values) {
+            if (v instanceof Boolean) {
+                throw new IllegalArgumentException(operator + " cannot be boolean");
+            }
+            if (v != null && Query.MISSING_VALUE.equals(v)) {
+                throw new IllegalArgumentException(operator + " missing not allowed");
+            }
+            if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
+                throw new IllegalArgumentException(operator + " cannot be location");
+            }
+            if (v != null && (internalType != null && ObjectField.REGION_TYPE.equals(internalType))) {
+                throw new IllegalArgumentException(operator + " cannot be region");
+            }
+        }
+
+        final String intGtType = internalType;
+        return combine(operator, values, BoolQueryBuilder::must, v ->
+                v == null ? QueryBuilders.matchAllQuery()
+                        : (Static.isUUID(v) ? (iteratorOption(srb, query, options, v) ? QueryBuilders.matchAllQuery() : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).gt(v)))
+                        : (v instanceof Location
+                        ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
+                        .filter(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
+                        : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGtType, key, true)).gt(v)))));
+    }
+
+    private QueryBuilder greaterThanOrEqualsOperator(Query query, String operator, String key, List<Object> values) {
+
+        String internalType = null;
+        Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+        String checkField = specialRangeFields.get(mappedKey);
+        if (checkField == null) {
+            internalType = mappedKey.getInternalType();
+        }
+        for (Object v : values) {
+            if (v != null && v instanceof Boolean) {
+                throw new IllegalArgumentException(operator + " cannot be boolean");
+            }
+            if (v != null && Query.MISSING_VALUE.equals(v)) {
+                throw new IllegalArgumentException(operator + " missing not allowed");
+            }
+            if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
+                throw new IllegalArgumentException(operator + " cannot be location");
+            }
+            if (v != null && internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
+                throw new IllegalArgumentException(key + " cannot be region");
+            }
+        }
+
+        final String intGteType = internalType;
+        return combine(operator, values, BoolQueryBuilder::must, v ->
+                v == null ? QueryBuilders.matchAllQuery()
+                        : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).gte(v))
+                        : (v instanceof Location
+                        ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").gte(((Location) v).getX()))
+                        .filter(QueryBuilders.rangeQuery(key + ".y").gte(((Location) v).getY()))
+                        : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGteType, key, true)).gte(v)))));
+    }
+
+    private QueryBuilder startsWithOperator(Query query, String operator, String key, List<Object> values) {
+        String internalType = null;
+        Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
+        String checkField = specialRangeFields.get(mappedKey);
+        if (checkField == null) {
+            internalType = mappedKey.getInternalType();
+        }
+
+        for (Object v : values) {
+            if (internalType != null && ObjectField.NUMBER_TYPE.equals(internalType)) {
+                throw new IllegalArgumentException(operator + " number not allowed");
+            }
+            if (v != null && Query.MISSING_VALUE.equals(v)) {
+                throw new IllegalArgumentException(operator + " missing not allowed");
+            }
+            if (internalType != null && ObjectField.UUID_TYPE.equals(internalType)) {
+                if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
+                    throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
+                }
+            }
+            if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
+                throw new IllegalArgumentException(operator + " location not allowed");
+            }
+            if (v != null && v instanceof Region) {
+                throw new IllegalArgumentException(operator + " region not allowed");
+            }
+        }
+        return combine(operator, values, BoolQueryBuilder::should, v ->
+                v == null ? QueryBuilders.matchAllQuery()
+                        : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
+                        : checkField != null ? QueryBuilders.prefixQuery(Static.addRawCI(key), String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
+                        : QueryBuilders.prefixQuery(Static.addRawCI(key), Static.escapeSpaceValue(Static.caseInsensitive(v))));
+    }
+
+    private QueryBuilder matchesAnyContainsOperator(Query query, String operator, Set<UUID> typeIds, String simpleKey, String key, List<Object> values) {
+
+        String internalType = null;
+        Query.MappedKey mappedKey;
+        if (!ANY_FIELD.equals(key)) {
+            mappedKey = mapFullyDenormalizedKey(query, key);
+            String checkField = specialFields.get(mappedKey);
+            if (checkField == null) {
+                internalType = mappedKey.getInternalType();
+            }
+        }
+        if (ANY_FIELD.equals(key) && PredicateParser.CONTAINS_OPERATOR.equals(operator)) {
+            throw new IllegalArgumentException(operator + " CONTAINS not allowed on " + ANY_FIELD + " field");
+        }
+
+        for (Object v : values) {
+            if (internalType != null && ObjectField.NUMBER_TYPE.equals(internalType)) {
+                throw new IllegalArgumentException(operator + " number not allowed");
+            }
+            if (v != null && Query.MISSING_VALUE.equals(v)) {
+                throw new IllegalArgumentException(operator + " missing not allowed");
+            }
+            if (v != null && v instanceof Boolean) {
+                if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
+                    throw new IllegalArgumentException(operator + " region with boolean not allowed");
+                }
+            }
+            if (internalType != null && ObjectField.UUID_TYPE.equals(internalType)) {
+                if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
+                    throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
+                } else {
+                    throw new IllegalArgumentException(operator + " UUID does not allow");
+                }
+            }
+            if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
+                if ((internalType == null) || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
+                    throw new IllegalArgumentException(operator + " location not allowed");
+                } else if (!ObjectField.REGION_TYPE.equals(internalType) && !ObjectField.LOCATION_TYPE.equals(internalType)) {
+                    throw new IllegalArgumentException(operator + " location not allowed except for region/location");
+                }
+            }
+        }
+
+        if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
+            return combine(operator, values, BoolQueryBuilder::should, v ->
+                    v == null ? QueryBuilders.matchAllQuery()
+                            : "*".equals(v)
+                            ? QueryBuilders.matchAllQuery()
+                            : (v instanceof Location
+                            ? QueryBuilders.boolQuery().must(Static.geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
+                            : (v instanceof Region
+                            ? QueryBuilders.boolQuery().must(
+                            equalsAnyQuery(simpleKey, key, key, query, v, ShapeRelation.CONTAINS))
+                            : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
+                            ? QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
+                            .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f))
+                            : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)))));
+        } else {
+            return combine(operator, values, BoolQueryBuilder::should, v ->
+                    v == null ? QueryBuilders.matchAllQuery()
+                            : "*".equals(v)
+                            ? QueryBuilders.matchAllQuery()
+                            : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
+                            ? QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
+                            .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f))
+                            : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)));
+        }
+    }
+
+    private QueryBuilder matchesAllOperator(Query query, String operator, Set<UUID> typeIds, String simpleKey, String key, List<Object> values) {
+
+        String internalType = null;
+        Query.MappedKey mappedKey;
+        if (!ANY_FIELD.equals(key)) {
+            mappedKey = mapFullyDenormalizedKey(query, key);
+            String checkField = specialFields.get(mappedKey);
+            if (checkField == null) {
+                internalType = mappedKey.getInternalType();
+            }
+        }
+
+        for (Object v : values) {
+            if (v != null && Query.MISSING_VALUE.equals(v)) {
+                throw new IllegalArgumentException(operator + " missing not allowed");
+            }
+            if (v != null && v instanceof Boolean) {
+                if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
+                    throw new IllegalArgumentException(operator + " region with boolean not allowed");
+                }
+            }
+            if (internalType != null && ObjectField.UUID_TYPE.equals(internalType)) {
+                if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
+                    throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
+                } else {
+                    throw new IllegalArgumentException(operator + " UUID does not allow");
+                }
+            }
+            if (v != null && v instanceof Location) {
+                if ((internalType == null) || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
+                    throw new IllegalArgumentException(operator + " location not allowed");
+                } else if (!ObjectField.REGION_TYPE.equals(internalType) && !ObjectField.LOCATION_TYPE.equals(internalType)) {
+                    throw new IllegalArgumentException(operator + " location not allowed except for region/location");
+                }
+            }
+        }
+
+        if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
+            return combine(operator, values, BoolQueryBuilder::must, v ->
+                    v == null ? QueryBuilders.matchAllQuery()
+                            : "*".equals(v)
+                            ? QueryBuilders.matchAllQuery()
+                            : (v instanceof Location
+                            ? QueryBuilders.boolQuery().must(Static.geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
+                            : (v instanceof Region
+                            ? QueryBuilders.boolQuery().must(
+                            equalsAnyQuery(simpleKey, key, key, query, v, ShapeRelation.CONTAINS))
+                            : QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
+                            .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f)))));
+        } else {
+            return combine(operator, values, BoolQueryBuilder::must, v ->
+                    v == null ? QueryBuilders.matchAllQuery()
+                            : "*".equals(v)
+                            ? QueryBuilders.matchAllQuery()
+                            : QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
+                            .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f)));
+        }
+    }
+
+
     /**
      * This is the main method for querying Elastic. Converts predicate and query into QueryBuilder
      */
@@ -1982,304 +2295,32 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 }
             }
 
-            String internalType = null;
-
             switch (operator) {
                 case PredicateParser.EQUALS_ANY_OPERATOR:
                 case PredicateParser.NOT_EQUALS_ALL_OPERATOR:
-
-                    String finalSimpleKey = simpleKey;
-                    if (operator.equals(PredicateParser.EQUALS_ANY_OPERATOR)) {
-                        return combine(operator, values, BoolQueryBuilder::should, v ->
-                                v == null ? QueryBuilders.matchAllQuery()
-                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(finalElasticPostFieldExact)
-                                    : equalsAnyQuery(finalSimpleKey, key, key, query, v, ShapeRelation.WITHIN));
-                    } else {
-                        return combine(operator, values, BoolQueryBuilder::mustNot, v ->
-                                v == null ? QueryBuilders.matchAllQuery()
-                                : Query.MISSING_VALUE.equals(v) ? QueryBuilders.existsQuery(finalElasticPostFieldExact)
-                                    : equalsAnyQuery(finalSimpleKey, key, key, query, v, ShapeRelation.WITHIN));
-                    }
+                    return equalsOperator(query, operator, simpleKey, key, values, finalElasticPostFieldExact);
 
                 case PredicateParser.LESS_THAN_OPERATOR :
-                    mappedKey = mapFullyDenormalizedKey(query, key);
-                    String checkField = specialRangeFields.get(mappedKey);
-                    if (checkField == null) {
-                        internalType = mappedKey.getInternalType();
-                    }
-
-                    for (Object v : values) {
-                        if (v instanceof Boolean) {
-                            throw new IllegalArgumentException(operator + " cannot be boolean");
-                        }
-                        if (v != null && Query.MISSING_VALUE.equals(v)) {
-                            throw new IllegalArgumentException(operator + " missing not allowed");
-                        }
-                        if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
-                            throw new IllegalArgumentException(operator + " cannot be location");
-                        }
-                        if (v != null && (internalType != null && ObjectField.REGION_TYPE.equals(internalType))) {
-                            throw new IllegalArgumentException(operator + " cannot be region");
-                        }
-                    }
-
-                    final String intLtType = internalType;
-                    return combine(operator, values, BoolQueryBuilder::must, v ->
-                                    v == null ? QueryBuilders.matchAllQuery()
-                                    : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).lt(v))
-                                    : (v instanceof Location ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").lt(((Location) v).getX()))
-                                        .filter(QueryBuilders.rangeQuery(key + ".y").lt(((Location) v).getY()))
-                                    : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intLtType, key, true)).lt(v)))));
+                    return lessThanOperator(query, operator, key, values);
 
                 case PredicateParser.LESS_THAN_OR_EQUALS_OPERATOR :
-                    mappedKey = mapFullyDenormalizedKey(query, key);
-                    checkField = specialRangeFields.get(mappedKey);
-                    if (checkField == null) {
-                        internalType = mappedKey.getInternalType();
-                    }
-
-                    for (Object v : values) {
-                        if (v instanceof Boolean) {
-                            throw new IllegalArgumentException(operator + " cannot be boolean");
-                        }
-                        if (v != null && Query.MISSING_VALUE.equals(v)) {
-                            throw new IllegalArgumentException(operator + " missing not allowed");
-                        }
-                        if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
-                            throw new IllegalArgumentException(operator + " cannot be location");
-                        }
-                        if (v != null && internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
-                            throw new IllegalArgumentException(operator + " cannot be region");
-                        }
-                    }
-
-                    final String intLteType = internalType;
-                    return combine(operator, values, BoolQueryBuilder::must, v ->
-                            v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).lte(v))
-                            : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").lte(((Location) v).getX()))
-                                    .filter(QueryBuilders.rangeQuery(key + ".y").lte(((Location) v).getY()))
-                                    : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intLteType, key, true)).lte(v)))));
+                    return lessThanOrEqualsOperator(query, operator, key, values);
 
                 case PredicateParser.GREATER_THAN_OPERATOR :
-                    Map<String, Object> options = query.getOptions();
-
-                    mappedKey = mapFullyDenormalizedKey(query, key);
-                    checkField = specialRangeFields.get(mappedKey);
-                    if (checkField == null) {
-                        internalType = mappedKey.getInternalType();
-                    }
-                    for (Object v : values) {
-                        if (v instanceof Boolean) {
-                            throw new IllegalArgumentException(operator + " cannot be boolean");
-                        }
-                        if (v != null && Query.MISSING_VALUE.equals(v)) {
-                            throw new IllegalArgumentException(operator + " missing not allowed");
-                        }
-                        if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
-                            throw new IllegalArgumentException(operator + " cannot be location");
-                        }
-                        if (v != null && (internalType != null && ObjectField.REGION_TYPE.equals(internalType))) {
-                            throw new IllegalArgumentException(operator + " cannot be region");
-                        }
-                    }
-
-                    final String intGtType = internalType;
-                    return combine(operator, values, BoolQueryBuilder::must, v ->
-                            v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? (iteratorOption(srb, query, options, v) ? QueryBuilders.matchAllQuery() : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).gt(v)))
-                            : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").gt(((Location) v).getX()))
-                                    .filter(QueryBuilders.rangeQuery(key + ".y").gt(((Location) v).getY()))
-                                    : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGtType, key, true)).gt(v)))));
+                    return greaterThanOperator(srb, query, operator, key, values);
 
                 case PredicateParser.GREATER_THAN_OR_EQUALS_OPERATOR :
-
-                    mappedKey = mapFullyDenormalizedKey(query, key);
-                    checkField = specialRangeFields.get(mappedKey);
-                    if (checkField == null) {
-                        internalType = mappedKey.getInternalType();
-                    }
-                    for (Object v : values) {
-                        if (v != null && v instanceof Boolean) {
-                            throw new IllegalArgumentException(operator + " cannot be boolean");
-                        }
-                        if (v != null && Query.MISSING_VALUE.equals(v)) {
-                            throw new IllegalArgumentException(operator + " missing not allowed");
-                        }
-                        if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
-                            throw new IllegalArgumentException(operator + " cannot be location");
-                        }
-                        if (v != null && internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
-                            throw new IllegalArgumentException(key + " cannot be region");
-                        }
-                    }
-
-                    final String intGteType = internalType;
-                    return combine(operator, values, BoolQueryBuilder::must, v ->
-                            v == null ? QueryBuilders.matchAllQuery()
-                            : (Static.isUUID(v) ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addRaw(key)).gte(v))
-                            : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(key + ".x").gte(((Location) v).getX()))
-                                    .filter(QueryBuilders.rangeQuery(key + ".y").gte(((Location) v).getY()))
-                                    : QueryBuilders.boolQuery().filter(QueryBuilders.rangeQuery(Static.addQueryFieldType(intGteType, key, true)).gte(v)))));
+                    return greaterThanOrEqualsOperator(query, operator, key, values);
 
                 case PredicateParser.STARTS_WITH_OPERATOR :
-                    mappedKey = mapFullyDenormalizedKey(query, key);
-                    checkField = specialRangeFields.get(mappedKey);
-                    if (checkField == null) {
-                        internalType = mappedKey.getInternalType();
-                    }
-
-                    for (Object v : values) {
-                        if (internalType != null && ObjectField.NUMBER_TYPE.equals(internalType)) {
-                            throw new IllegalArgumentException(operator + " number not allowed");
-                        }
-                        if (v != null && Query.MISSING_VALUE.equals(v)) {
-                            throw new IllegalArgumentException(operator + " missing not allowed");
-                        }
-                        if (internalType != null && ObjectField.UUID_TYPE.equals(internalType)) {
-                            if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
-                                throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
-                            }
-                        }
-                        if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
-                            throw new IllegalArgumentException(operator + " location not allowed");
-                        }
-                        if (v != null && v instanceof Region) {
-                            throw new IllegalArgumentException(operator + " region not allowed");
-                        }
-                    }
-                    return combine(operator, values, BoolQueryBuilder::should, v ->
-                            v == null ? QueryBuilders.matchAllQuery()
-                            : (key.equals(ANY_FIELD) || key.equals(Query.LABEL_KEY)) ? QueryBuilders.prefixQuery(key, String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
-                            : checkField != null ? QueryBuilders.prefixQuery(Static.addRawCI(key), String.valueOf(Static.matchesAnyUUID(operator, key, v, true)))
-                            : QueryBuilders.prefixQuery(Static.addRawCI(key), Static.escapeSpaceValue(Static.caseInsensitive(v))));
+                    return startsWithOperator(query, operator, key, values);
 
                 case PredicateParser.CONTAINS_OPERATOR :
                 case PredicateParser.MATCHES_ANY_OPERATOR :
-                    if (!ANY_FIELD.equals(key)) {
-                        mappedKey = mapFullyDenormalizedKey(query, key);
-                        checkField = specialFields.get(mappedKey);
-                        if (checkField == null) {
-                            internalType = mappedKey.getInternalType();
-                        }
-                    }
-                    if (ANY_FIELD.equals(key) && PredicateParser.CONTAINS_OPERATOR.equals(operator)) {
-                        throw new IllegalArgumentException(operator + " CONTAINS not allowed on " + ANY_FIELD + " field");
-                    }
-
-                    for (Object v : values) {
-                        if (internalType != null && ObjectField.NUMBER_TYPE.equals(internalType)) {
-                            throw new IllegalArgumentException(operator + " number not allowed");
-                        }
-                        if (v != null && Query.MISSING_VALUE.equals(v)) {
-                            throw new IllegalArgumentException(operator + " missing not allowed");
-                        }
-                        if (v != null && v instanceof Boolean) {
-                            if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
-                                throw new IllegalArgumentException(operator + " region with boolean not allowed");
-                            }
-                        }
-                        if (internalType != null && ObjectField.UUID_TYPE.equals(internalType)) {
-                            if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
-                                throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
-                            } else {
-                                throw new IllegalArgumentException(operator + " UUID does not allow");
-                            }
-                        }
-                        if (v instanceof Location || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
-                            if ((internalType == null) || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
-                                throw new IllegalArgumentException(operator + " location not allowed");
-                            } else if (!ObjectField.REGION_TYPE.equals(internalType) && !ObjectField.LOCATION_TYPE.equals(internalType)) {
-                                throw new IllegalArgumentException(operator + " location not allowed except for region/location");
-                            }
-                        }
-                    }
-
-                    String finalSimpleKey1 = simpleKey;
-                    if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
-                        return combine(operator, values, BoolQueryBuilder::should, v ->
-                                v == null ? QueryBuilders.matchAllQuery()
-                                : "*".equals(v)
-                                ? QueryBuilders.matchAllQuery()
-                                : (v instanceof Location
-                                    ? QueryBuilders.boolQuery().must(Static.geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
-                                    : (v instanceof Region
-                                        ? QueryBuilders.boolQuery().must(
-                                                equalsAnyQuery(finalSimpleKey1, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
-                                        ? QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
-                                                 .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f))
-                                          : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)))));
-                    } else {
-                        return combine(operator, values, BoolQueryBuilder::should, v ->
-                                v == null ? QueryBuilders.matchAllQuery()
-                                : "*".equals(v)
-                                ? QueryBuilders.matchAllQuery()
-                                : (PredicateParser.MATCHES_ANY_OPERATOR.equals(operator))
-                                        ? QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
-                                                 .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f))
-                                          : QueryBuilders.queryStringQuery(String.valueOf(Static.containsWildcard(operator, Static.matchesAnyUUID(operator, key, v, true)))).field(matchesAnalyzer(operator, key, typeIds)));
-                    }
+                    return matchesAnyContainsOperator(query, operator, typeIds, simpleKey, key, values);
 
                 case PredicateParser.MATCHES_ALL_OPERATOR :
-
-                    if (!ANY_FIELD.equals(key)) {
-                        mappedKey = mapFullyDenormalizedKey(query, key);
-                        checkField = specialFields.get(mappedKey);
-                        if (checkField == null) {
-                            internalType = mappedKey.getInternalType();
-                        }
-                    }
-
-                    for (Object v : values) {
-                        if (v != null && Query.MISSING_VALUE.equals(v)) {
-                            throw new IllegalArgumentException(operator + " missing not allowed");
-                        }
-                        if (v != null && v instanceof Boolean) {
-                            if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
-                                throw new IllegalArgumentException(operator + " region with boolean not allowed");
-                            }
-                        }
-                        if (internalType != null && ObjectField.UUID_TYPE.equals(internalType)) {
-                            if (v == null || (v != null && v.equals(new UUID(0, 0)))) {
-                                throw new IllegalArgumentException(operator + " UUID of null/0 not allowed");
-                            } else {
-                                throw new IllegalArgumentException(operator + " UUID does not allow");
-                            }
-                        }
-                        if (v != null && v instanceof Location) {
-                            if ((internalType == null) || (internalType != null && ObjectField.LOCATION_TYPE.equals(internalType))) {
-                                throw new IllegalArgumentException(operator + " location not allowed");
-                            } else if (!ObjectField.REGION_TYPE.equals(internalType) && !ObjectField.LOCATION_TYPE.equals(internalType)) {
-                                throw new IllegalArgumentException(operator + " location not allowed except for region/location");
-                            }
-                        }
-                    }
-
-                    String finalSimpleKey2 = simpleKey;
-                    if (internalType != null && ObjectField.REGION_TYPE.equals(internalType)) {
-                        return combine(operator, values, BoolQueryBuilder::must, v ->
-                                v == null ? QueryBuilders.matchAllQuery()
-                                        : "*".equals(v)
-                                        ? QueryBuilders.matchAllQuery()
-                                        : (v instanceof Location
-                                        ? QueryBuilders.boolQuery().must(Static.geoShapeIntersects(key + "." + REGION_FIELD, ((Location) v).getX(), ((Location) v).getY()))
-                                        : (v instanceof Region
-                                        ? QueryBuilders.boolQuery().must(
-                                        equalsAnyQuery(finalSimpleKey2, key, key, query, v, ShapeRelation.CONTAINS))
-                                        : QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
-                                            .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f)))));
-                    } else {
-                        return combine(operator, values, BoolQueryBuilder::must, v ->
-                                v == null ? QueryBuilders.matchAllQuery()
-                                        : "*".equals(v)
-                                        ? QueryBuilders.matchAllQuery()
-                                        : QueryBuilders.boolQuery().should(QueryBuilders.matchQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesAnyUUID(operator, key, v, false))).operator(Operator.AND))
-                                            .should(QueryBuilders.wildcardQuery(matchesAnalyzer(operator, key, typeIds), String.valueOf(Static.matchesWildcard(operator, Static.matchesAnyUUID(operator, key, v, false)))).boost(0.1f)));
-                    }
+                    return matchesAllOperator(query, operator, typeIds, simpleKey, key, values);
 
                 case PredicateParser.MATCHES_EXACT_ANY_OPERATOR :
                 case PredicateParser.MATCHES_EXACT_ALL_OPERATOR :
@@ -2297,7 +2338,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * @see #predicateToQueryBuilder(SearchRequestBuilder, Predicate, Query)
      */
     @SuppressWarnings("unchecked")
-    private <T> QueryBuilder combine(String operatorType,
+    private static <T> QueryBuilder combine(String operatorType,
                                      Collection<T> items,
                                      BiFunction<BoolQueryBuilder, QueryBuilder, BoolQueryBuilder> operator,
                                      Function<T, QueryBuilder> itemFunction) {
