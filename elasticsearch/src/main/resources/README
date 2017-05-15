@@ -72,20 +72,26 @@ public class Code {
 
 5. After setting up AggregateDatabase and Bulk loading. Run this to verify:
 
-        Database source =  Database.Static.getFirst(SqlDatabase.class);
-        Database elastic =  Database.Static.getFirst(ElasticsearchDatabase.class);
+        import com.psddev.dari.elasticsearch.*;
 
-        Set<ObjectType> dbTypes = source.getEnvironment().getTypes();
-        List<String> diff = new ArrayList<>();
-        for (ObjectType o : dbTypes) {
-	   		UUID id = o.getId();
-            long count = Query.fromAll().timeout(50000d).using(elastic).where("_type = ?", id).count();
-            long count2 = Query.fromAll().timeout(50000d).using(source).where("_type = ?", id).count();
-            if (count != count2) {
-                diff.add("_typeId = " + id + " elastic/mysql: " + count + "/" + count2);
+        public class Code {
+            public static Object main() throws Throwable {
+                Database source =  Database.Static.getFirst(SqlDatabase.class);
+                Database elastic =  Database.Static.getFirst(ElasticsearchDatabase.class);
+
+                Set<ObjectType> dbTypes = source.getEnvironment().getTypes();
+                List<String> diff = new ArrayList<>();
+                for (ObjectType o : dbTypes) {
+        	   		UUID id = o.getId();
+                    long count = Query.fromAll().timeout(50000d).using(elastic).where("_type = ?", id).count();
+                    long count2 = Query.fromAll().timeout(50000d).using(source).where("_type = ?", id).count();
+                    if (count != count2) {
+                        diff.add("_typeId = " + id + " elastic/mysql: " + count + "/" + count2);
+                    }
+                }
+                return diff;
             }
         }
-        return diff;
 
 6. If you deploy a new version, and it has a new template, you need to delete the old template by running the following and restarting Brightspot
 
