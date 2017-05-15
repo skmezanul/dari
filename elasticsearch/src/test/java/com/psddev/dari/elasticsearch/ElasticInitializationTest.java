@@ -16,6 +16,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -425,6 +426,21 @@ public class ElasticInitializationTest {
                 .where("_any matches ?", "Indexed")
                 .selectAll();
         assertThat(fooResult3, hasSize(0));
+    }
+
+    @Test
+    public void deDupe() {
+        String val = ElasticsearchDatabase.deDup("There cat true true true west is cat is cat is cat is cat west west", 2L);
+        String[] v = val.split(" ");
+        Arrays.sort(v);
+        assertThat("val0", v[0], is("cat"));
+        assertThat("val1", v[1], is("cat"));
+        assertThat("val2", v[2], is("is"));
+        assertThat("val3", v[3], is("is"));
+        assertThat("val4", v[4], is("there"));
+        assertThat("val5", v[5], is("true"));
+        assertThat("val6", v[6], is("west"));
+        assertThat("val7", v[7], is("west"));
     }
 
     @Test

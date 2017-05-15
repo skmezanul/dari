@@ -151,9 +151,10 @@ public class ElasticDBSuite {
             ElasticSetupDatabase();
             Runtime.getRuntime().addShutdownHook(new Thread(() -> EmbeddedElasticsearchServer.shutdown()));
             TestSuite suite = new TestSuite();
-            suite.addTest(new JUnit4TestAdapter(SearchIteratorTest.class));
-            suite.addTest(new JUnit4TestAdapter(ElasticDatabaseConnectionTest.class));
+/*            suite.addTest(new JUnit4TestAdapter(SearchIteratorTest.class));
+            suite.addTest(new JUnit4TestAdapter(ElasticDatabaseConnectionTest.class));*/
             suite.addTest(new JUnit4TestAdapter(ElasticInitializationTest.class));
+/*
             suite.addTest(new JUnit4TestAdapter(LocationIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(ModificationDenormalizedTest.class));
             suite.addTest(new JUnit4TestAdapter(ModificationEmbeddedTest.class));
@@ -171,6 +172,7 @@ public class ElasticDBSuite {
             suite.addTest(new JUnit4TestAdapter(UuidIndexTest.class));
             suite.addTest(new JUnit4TestAdapter(WriteTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticWriteTest.class));
+*/
 
             return suite;
         }

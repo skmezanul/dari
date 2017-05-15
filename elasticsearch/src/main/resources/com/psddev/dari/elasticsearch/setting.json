@@ -41,7 +41,7 @@
       "any_analyzer": {
           "char_filter": [ "html_strip" ],
           "tokenizer": "whitespace",
-          "filter" : [ "text_delimiter", "lowercase", "asciifolding", "text_stemmer", "unique_words" ]
+          "filter" : [ "text_delimiter", "lowercase", "asciifolding", "text_stemmer" ]
       },
       "search_any_analyzer": {
         "char_filter": [ "html_strip" ],

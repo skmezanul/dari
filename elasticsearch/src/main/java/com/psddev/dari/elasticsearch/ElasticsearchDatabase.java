@@ -176,6 +176,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final int FACET_MAX_ROWS = 100;
     public static final int CACHE_TIMEOUT_MIN = 120;
     public static final int CACHE_MAX_INDEX_SIZE = 7500;
+    public static final Long MAX_TERMS_ANY = 4L;
     private static final long MILLISECONDS_IN_5YEAR = 1000L * 60L * 60L * 24L * 365L * 5L;
     private static final Pattern UUID_PATTERN = Pattern.compile("([A-Fa-f0-9]{8})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{4})-([A-Fa-f0-9]{12})");
     public static final String SCORE_EXTRA = "elastic.score";
@@ -2687,15 +2688,35 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     // --- ExcludeFromAnyProcessor  ---
 
     /**
-     * Remove duplicate terms before storing
+     * Remove duplicate terms before storing. Keep at most numTerms, and only 1 true and 1 false
      */
-    public String deDup(String s) {
+    public static String deDup(String s, Long numTerms) {
         if (s == null || s.length() == 0) {
             return "";
         }
-        return Arrays.stream(s.toLowerCase(Locale.ENGLISH).split(" "))
-                .distinct()
-                .collect(Collectors.joining(" "));
+
+        List<String> items = Arrays.asList(s.toLowerCase().split(" "));
+        Map<String, Long> wordFreq = items.stream()
+                .collect(
+                        Collectors.groupingBy(
+                                Function.identity(), Collectors.counting()));
+
+        StringBuilder doc = new StringBuilder();
+        for (Map.Entry<String, Long> entry : wordFreq.entrySet()) {
+            String key = entry.getKey();
+            Long value = entry.getValue();
+            Long max = value;
+            if (key.equals("true") || key.equals("false") || key.startsWith("com.psddev.dari")) {
+                max = 1L;
+            } else if (max > numTerms) {
+                max = numTerms;
+            }
+            for (int i = 0; i < max; i++) {
+               doc.append(key + " ");
+            }
+        }
+
+        return doc.toString().trim();
     }
 
     /**
@@ -3225,7 +3246,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.remove("_type");
                             t.put(UPDATEDATE_FIELD, this.now());
                             t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
-                            t.put(ANY_FIELD, deDup(allBuilder.toString()));
+                            t.put(ANY_FIELD, deDup(allBuilder.toString(), MAX_TERMS_ANY));
 
                             LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
                                     newIndexname, documentType, documentId, t.toString());
@@ -3360,7 +3381,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                             t.remove("_type");
                             t.put(UPDATEDATE_FIELD,  this.now());
                             t.put(IDS_FIELD, documentId);
-                            t.put(ANY_FIELD, deDup(allBuilder.toString()));
+                            t.put(ANY_FIELD, deDup(allBuilder.toString(), MAX_TERMS_ANY));
 
                             // if you move TypeId you need to add the whole document and remove old
                             if (!oldTypeId.equals(documentTypeUUID) || !oldId.equals(documentUUID)) {
