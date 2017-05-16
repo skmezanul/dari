@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 class ElasticsearchDatabaseConnection {
     private static final Map<String, TransportClient> CLIENT_CONNECTIONS = new ConcurrentHashMap<>();
-    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabase.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchDatabaseConnection.class);
 
     /**
      * Check nodes are not empty and isAlive

@@ -55,18 +55,18 @@ public class ElasticInitializationTest {
     @Test
     public void embeddedElastic() {
         String nodeHost = "http://localhost:9200/";
-        assertThat(ElasticsearchDatabase.Static.checkAlive(nodeHost), is(true));
+        assertThat(ElasticsearchDatabase.checkAlive(nodeHost), is(true));
 
-        String elasticCluster = ElasticsearchDatabase.Static.getClusterName(nodeHost);
+        String elasticCluster = ElasticsearchDatabase.getClusterName(nodeHost);
         assertThat(elasticCluster, is(notNullValue()));
         if (ElasticDBSuite.ElasticTests.getIsEmbedded()) {
             Node node = EmbeddedElasticsearchServer.getNode();
             assertThat(node, is(notNullValue()));
         }
 
-        Settings.setOverride(ElasticsearchDatabase.DEFAULT_DATABASE_NAME, ElasticsearchDatabase.DATABASE_NAME);
+        Settings.setOverride(ElasticDBSuite.ElasticTests.DEFAULT_DATABASE_NAME, ElasticDBSuite.ElasticTests.DATABASE_NAME);
 
-        put(ElasticsearchDatabase.DEFAULT_DATABASE_NAME, ElasticsearchDatabase.DATABASE_NAME);
+        put(ElasticDBSuite.ElasticTests.DEFAULT_DATABASE_NAME, ElasticDBSuite.ElasticTests.DATABASE_NAME);
         put(ElasticsearchDatabase.INDEX_NAME_SUB_SETTING + "class", ElasticsearchDatabase.class.getName());
         put(ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, elasticCluster);
         put(ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
@@ -93,7 +93,7 @@ public class ElasticInitializationTest {
     @Test
     public void testReadAllAt2() throws Exception {
 
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "searchMaxRows", "2");
+        Settings.setOverride(ElasticDBSuite.ElasticTests.SETTING_KEY_PREFIX + "searchMaxRows", "2");
 
         for (int i = 0; i < 50; i++) {
             SearchIndexModel model = new SearchIndexModel();
@@ -108,7 +108,7 @@ public class ElasticInitializationTest {
 
         assertThat("check size", fooResult, hasSize(50));
 
-        Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "searchMaxRows", "1000");
+        Settings.setOverride(ElasticDBSuite.ElasticTests.SETTING_KEY_PREFIX + "searchMaxRows", "1000");
     }
 
     @Test
@@ -148,7 +148,7 @@ public class ElasticInitializationTest {
 
         assertThat(fooResult, hasSize(1));
 
-        if (Database.Static.getDefault().getName().equals(ElasticsearchDatabase.DATABASE_NAME)) {
+        if (Database.Static.getDefault().getName().equals(ElasticDBSuite.ElasticTests.DATABASE_NAME)) {
             assertThat(fooResult.get(0).getState().getExtras().size(), Matchers.is(4));
         }
 

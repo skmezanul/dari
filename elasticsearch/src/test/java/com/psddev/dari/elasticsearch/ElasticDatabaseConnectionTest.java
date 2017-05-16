@@ -18,7 +18,7 @@ public class ElasticDatabaseConnectionTest {
     @Test
     public void testMultipleConnections() {
         String nodeHost = "http://localhost:" + ELASTICRESTPORT + "/";
-        String elasticCluster = ElasticsearchDatabase.Static.getClusterName(nodeHost);
+        String elasticCluster = ElasticsearchDatabase.getClusterName(nodeHost);
 
         org.elasticsearch.common.settings.Settings nodeSettings;
         List<ElasticsearchNode> nodes = new ArrayList<>();

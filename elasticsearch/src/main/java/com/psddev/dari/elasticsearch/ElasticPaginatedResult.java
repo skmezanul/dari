@@ -187,7 +187,7 @@ public class ElasticPaginatedResult<E> extends PaginatedResult<E> implements Htm
 
         writer.writeStart("ol");
             for (Object item : this.getItems()) {
-                writer.writeStart("li").writeObject(item).writeHtml(" Elastic Score: " + ElasticsearchDatabase.Static.getScore(item)).writeEnd();
+                writer.writeStart("li").writeObject(item).writeHtml(" Elastic Score: " + ElasticsearchDatabase.getScore(item)).writeEnd();
             }
         writer.writeEnd();
     }
@@ -255,7 +255,7 @@ public class ElasticPaginatedResult<E> extends PaginatedResult<E> implements Htm
                 long docCount = entry.getDocCount();    // Doc count
                 LOGGER.debug("key [{}], doc_count [{}]", key, docCount);
                 index.put(key, docCount);
-                if (ElasticsearchDatabase.Static.isUUID(key)) {
+                if (ElasticsearchDatabase.isUUID(key)) {
                     ids.add(key);
                 }
             }

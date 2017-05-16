@@ -44,6 +44,9 @@ public class ElasticDBSuite {
 
         private static final Logger LOGGER = LoggerFactory.getLogger(ElasticTests.class);
         private static boolean isEmbedded = false;
+        static final String DEFAULT_DATABASE_NAME = "dari/defaultDatabase";
+        static final String DATABASE_NAME = "elasticsearch";
+        static final String SETTING_KEY_PREFIX = "dari/database/" + DATABASE_NAME + "/";
 
         public static boolean getIsEmbedded() {
             return isEmbedded;
@@ -115,23 +118,23 @@ public class ElasticDBSuite {
 
             String clusterName = "elasticsearch_a";
 
-            Settings.setOverride(ElasticsearchDatabase.DEFAULT_DATABASE_NAME, ElasticsearchDatabase.DATABASE_NAME);
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "class", ElasticsearchDatabase.class.getName());
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SHARDS_MAX_SETTING, "1000");
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.PREFERFILTERS_SETTING, "true");
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.DFS_QUERY_THEN_FETCH_SETTING, "true");
-            //Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.DEFAULT_DATAFIELD_TYPE_SETTING, ElasticsearchDatabase.RAW_DATAFIELD_TYPE);
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.DEFAULT_DATAFIELD_TYPE_SETTING, ElasticsearchDatabase.JSON_DATAFIELD_TYPE);
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.DATA_TYPE_RAW_SETTING, "-* +com.psddev.dari.test.WriteModel ");
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "9300");
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.CLUSTER_REST_PORT_SUB_SETTING, "9200");
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, "1000");
+            Settings.setOverride(DEFAULT_DATABASE_NAME, DATABASE_NAME);
+            Settings.setOverride(SETTING_KEY_PREFIX + "class", ElasticsearchDatabase.class.getName());
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, clusterName);
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING, "index1");
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.SHARDS_MAX_SETTING, "1000");
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.PREFERFILTERS_SETTING, "true");
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.DFS_QUERY_THEN_FETCH_SETTING, "true");
+            //Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.DEFAULT_DATAFIELD_TYPE_SETTING, ElasticsearchDatabase.RAW_DATAFIELD_TYPE);
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.DEFAULT_DATAFIELD_TYPE_SETTING, ElasticsearchDatabase.JSON_DATAFIELD_TYPE);
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.DATA_TYPE_RAW_SETTING, "-* +com.psddev.dari.test.WriteModel ");
+            Settings.setOverride(SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.CLUSTER_PORT_SUB_SETTING, "9300");
+            Settings.setOverride(SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.CLUSTER_REST_PORT_SUB_SETTING, "9200");
+            Settings.setOverride(SETTING_KEY_PREFIX + "1/" + ElasticsearchDatabase.HOSTNAME_SUB_SETTING, "localhost");
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.SUBQUERY_RESOLVE_LIMIT_SETTING, "1000");
 
-            String nodeHost = ElasticsearchDatabase.Static.getNodeHost("localhost", "9200");
-            if (!ElasticsearchDatabase.Static.checkAlive(nodeHost)) {
+            String nodeHost = ElasticsearchDatabase.getNodeHost("localhost", "9200");
+            if (!ElasticsearchDatabase.checkAlive(nodeHost)) {
                 LOGGER.info("Starting Embedded");
                 // ok create embedded since it is not already running for test
                 isEmbedded = true;
@@ -140,9 +143,9 @@ public class ElasticDBSuite {
             } else {
                 LOGGER.info("Already running");
             }
-            String verifyClusterName = ElasticsearchDatabase.Static.getClusterName(nodeHost);
-            Settings.setOverride(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, verifyClusterName);
-            deleteIndex(Settings.get(ElasticsearchDatabase.SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING) + "*", nodeHost);
+            String verifyClusterName = ElasticsearchDatabase.getClusterName(nodeHost);
+            Settings.setOverride(SETTING_KEY_PREFIX + ElasticsearchDatabase.CLUSTER_NAME_SUB_SETTING, verifyClusterName);
+            deleteIndex(Settings.get(SETTING_KEY_PREFIX + ElasticsearchDatabase.INDEX_NAME_SUB_SETTING) + "*", nodeHost);
             deleteTemplate(nodeHost);
         }
 
