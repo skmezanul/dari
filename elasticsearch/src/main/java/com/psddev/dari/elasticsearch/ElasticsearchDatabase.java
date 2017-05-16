@@ -150,6 +150,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static final String INDEX_NAME_SUB_SETTING = "indexName";
     public static final String SHARDS_MAX_SETTING = "shardsMax";
     public static final String PREFERFILTERS_SETTING = "preferFilters";
+    public static final String CLIENT_TRANSPORT_SNIFF_SETTING = "clientTransportSniff";
     public static final String DFS_QUERY_THEN_FETCH_SETTING = "dfsQueryThenFetch";
     public static final String SEARCH_TIMEOUT_SETTING = "searchTimeout";
     public static final String SUBQUERY_RESOLVE_LIMIT_SETTING = "subQueryResolveLimit";
@@ -329,6 +330,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private String indexName;
     private int searchTimeout = TIMEOUT;
     private String defaultDataFieldType = JSON_DATAFIELD_TYPE;
+    private boolean clientTransportSniff = false;
     private String dataTypesRaw = null;
     private SparseSet dataTypesRawSparseSet = null;
     private int subQueryResolveLimit = SUBQUERY_MAX_ROWS;
@@ -476,6 +478,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         Preconditions.checkNotNull(indexName);
 
+        String clientTransportSniff = ObjectUtils.to(String.class, settings.get(CLIENT_TRANSPORT_SNIFF_SETTING));
+
+        if (clientTransportSniff != null) {
+            this.clientTransportSniff = Boolean.parseBoolean(clientTransportSniff);
+        }
+
         String subQueryResolveLimit = ObjectUtils.to(String.class, settings.get(SUBQUERY_RESOLVE_LIMIT_SETTING));
 
         if (subQueryResolveLimit == null) {
@@ -569,7 +577,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         this.nodeSettings = org.elasticsearch.common.settings.Settings.builder()
                 .put("cluster.name", this.clusterName)
-                .put("client.transport.sniff", true).build();
+                .put("client.transport.sniff", this.clientTransportSniff)
+                .put("transport.tcp.compress", false)
+                .put("transport.tcp_no_delay", true).build();
 
         this.painlessModule = this.isModuleInstalled("lang-painless", "org.elasticsearch.painless.PainlessPlugin");
 

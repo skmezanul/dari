@@ -25,7 +25,7 @@ public class ElasticDatabaseConnectionTest {
 
         nodeSettings = org.elasticsearch.common.settings.Settings.builder()
                 .put("cluster.name", elasticCluster)
-                .put("client.transport.sniff", true).build();
+                .put("client.transport.sniff", false).build();
 
         ElasticsearchNode n = new ElasticsearchNode();
         n.setPort(ELASTICPORT);
@@ -41,7 +41,7 @@ public class ElasticDatabaseConnectionTest {
 
         nodeSettings = org.elasticsearch.common.settings.Settings.builder()
                 .put("cluster.name", "newcluster")
-                .put("client.transport.sniff", true).build();
+                .put("client.transport.sniff", false).build();
 
         TransportClient newConn = ElasticsearchDatabaseConnection.getClient(nodeSettings, nodes);
         assertThat(hash, is(not(newConn.hashCode())));

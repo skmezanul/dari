@@ -20,6 +20,7 @@ Example as AggregateDatabase:
     <Environment name="dari/database/project/delegate/elasticsearch/class"                type="java.lang.String" value="com.psddev.dari.elasticsearch.ElasticsearchDatabase" />
     <Environment name="dari/database/project/delegate/elasticsearch/clusterName"          type="java.lang.String" value="elasticsearch" />
     <Environment name="dari/database/project/delegate/elasticsearch/preferFilters"        type="java.lang.String" value="true" />
+    <Environment name="dari/database/project/delegate/elasticsearch/clientTransportSniff" type="java.lang.String" value="false" />
     <Environment name="dari/database/project/delegate/elasticsearch/dfsQueryThenFetch"    type="java.lang.String" value="false" />
     <Environment name="dari/database/project/delegate/elasticsearch/indexName"            type="java.lang.String" value="index1" />
     <Environment name="dari/database/project/delegate/elasticsearch/shardsMax"            type="java.lang.String" value="5000" />
@@ -42,6 +43,7 @@ Some explanation:
 
 - preferFilters - when not sorting, prefer filters since that Caches better - performance is better when set to true (default). Set to false to prefer queries for legacy operation.
 - dfsQueryThenFetch - Queries are more accurate but might slow down depending on size of results and # of shards. Only use if results are not accurate.
+- clientTransportSniff - setting the TransportClient client.transport.sniff setting (default is false)
 
 2. Here is a sample query specific to ElasticsearchDatabase.
 

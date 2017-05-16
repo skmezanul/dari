@@ -82,7 +82,7 @@ class ElasticsearchDatabaseConnection {
         if (nodeSettings == null || nodes.size() == 0) {
             LOGGER.warn("Elasticsearch openConnection missing nodeSettings/nodes");
             nodeSettings = Settings.builder()
-                    .put("client.transport.sniff", true)
+                    .put("client.transport.sniff", false)
                     .put("transport.tcp.compress", false)
                     .put("transport.tcp_no_delay", true)
                     .build();
