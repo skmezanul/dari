@@ -436,8 +436,12 @@ public interface StorageItem extends SettingsBackedObject {
                 return null;
             }
 
+            if (ObjectUtils.isBlank(storage)) {
+                storage = Settings.get(String.class, DEFAULT_STORAGE_SETTING);
+            }
+
             StorageItem item = resources
-                    .get(storage != null ? storage : "")
+                    .get(storage)
                     .get(servletContext)
                     .get(servletPath);
 
