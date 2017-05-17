@@ -26,6 +26,7 @@ import com.psddev.dari.db.State;
 import com.psddev.dari.db.StateSerializer;
 import com.psddev.dari.db.UnsupportedIndexException;
 import com.psddev.dari.db.UnsupportedPredicateException;
+import com.psddev.dari.db.UpdateNotifier;
 import com.psddev.dari.util.IoUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
@@ -2615,6 +2616,17 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             }
         }
         return newValueMap;
+    }
+
+    /**
+     * Required for CMS or will get UnsupportedOperationException
+     */
+    @Override
+    public void addUpdateNotifier(UpdateNotifier<?> notifier) {
+    }
+
+    @Override
+    public void removeUpdateNotifier(UpdateNotifier<?> notifier) {
     }
 
     // --- TypeAheadFieldsProcessor ---
