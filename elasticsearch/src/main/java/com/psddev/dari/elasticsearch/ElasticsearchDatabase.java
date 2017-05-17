@@ -350,7 +350,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         return defaultDataFieldType;
     }
 
-
     public boolean isClientTransportSniff() {
         return clientTransportSniff;
     }
@@ -3529,22 +3528,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * Check String for UUID
      */
     static boolean isUUID(Object obj) {
-        if (ObjectUtils.to(UUID.class, obj) != null) {
-            return true;
-        } else {
-            return false;
-        }
-/*        try {
-            if (obj instanceof UUID) {
-                return true;
-            } else if (obj instanceof String) {
-                //noinspection ResultOfMethodCallIgnored
-                UUID.fromString((String) obj);
-                return true;
-            }
-        } catch (IllegalArgumentException exception) {
-            return false;
-        }*/
+        return ObjectUtils.to(UUID.class, obj) != null;
     }
 
     /**
