@@ -1222,7 +1222,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             LOGGER.debug("Elasticsearch srb index ["
                     + (indexIdStrings.length == 0 ? getAllElasticIndexName() :  String.join(",", indexIdStrings))
                     + "] typeIds ["
-                    + (typeIdStrings.length == 0 ? "" :  String.join(",", typeIdStrings))
+                    + (typeIdStrings.length == 0 ? "" : String.join(",", typeIdStrings))
                     + "] - [" + srb.toString() + "]");
 
             Stats.Timer timer = STATS.startTimer();
@@ -1232,7 +1232,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             } finally {
                 double duration = timer.stop(QUERY_STATS_OPERATION);
                 Profiler.Static.stopThreadEvent("GET " + (indexIdStrings.length == 0 ? getAllElasticIndexName() : String.join(",", indexIdStrings))
-                        + "/" + (typeIdStrings.length == 0 ? "" : String.join(",", typeIdStrings)) + "/_search " + srb.toString());
+                        + (typeIdStrings.length == 0 ? "" : "/" + String.join(",", typeIdStrings)) + "/_search " + srb.toString());
             }
 
             SearchHits hits = response.getHits();
