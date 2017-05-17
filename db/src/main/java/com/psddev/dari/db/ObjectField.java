@@ -1019,6 +1019,7 @@ public class ObjectField extends Record {
         // Simple translation like String to text.
         if (javaType instanceof Class) {
             Class<?> javaTypeClass = (Class<?>) javaType;
+            setPrimitive(javaTypeClass.isPrimitive());
 
             if (javaTypeClass.equals(Object.class)) {
                 return ANY_TYPE;
