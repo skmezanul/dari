@@ -832,7 +832,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 ? new String[]{}
                 : typeIds.stream().map(UUID::toString).toArray(String[]::new);
 
-        List<String> indexNames = new ArrayList<>();
+        Set<String> indexNames = new HashSet<>();
         for (UUID u : typeIds) {
             indexNames.add(getIndexName() + getElasticIndexName(u));
         }
@@ -988,7 +988,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 ? new String[]{}
                 : typeIds.stream().map(UUID::toString).toArray(String[]::new);
 
-        List<String> indexNames = new ArrayList<>();
+        Set<String> indexNames = new HashSet<>();
         for (UUID u : typeIds) {
             indexNames.add(getIndexName() + getElasticIndexName(u));
         }
@@ -1173,7 +1173,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 ? new String[]{}
                 : typeIds.stream().map(UUID::toString).toArray(String[]::new);
 
-        List<String> indexNames = new ArrayList<>();
+        Set<String> indexNames = new HashSet<>();
         for (UUID u : typeIds) {
             indexNames.add(getIndexName() + getElasticIndexName(u));
         }
