@@ -4,7 +4,7 @@ import com.google.common.base.MoreObjects;
 
 import java.util.List;
 
-class IndexKey {
+class CreateIndexKey {
     private String indexName;
     private String indexId;
     private int shardsMax;
@@ -69,7 +69,7 @@ class IndexKey {
             return false;
         }
 
-        IndexKey indexKey = (IndexKey) o;
+        CreateIndexKey indexKey = (CreateIndexKey) o;
 
         return indexName.equals(indexKey.indexName);
     }

@@ -29,7 +29,9 @@ import com.psddev.dari.db.UnsupportedPredicateException;
 import com.psddev.dari.util.IoUtils;
 import com.psddev.dari.util.ObjectUtils;
 import com.psddev.dari.util.PaginatedResult;
+import com.psddev.dari.util.Profiler;
 import com.psddev.dari.util.SparseSet;
+import com.psddev.dari.util.Stats;
 import com.psddev.dari.util.StringUtils;
 import com.psddev.dari.util.UuidUtils;
 import org.apache.http.HttpEntity;
@@ -137,6 +139,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     static final String ELASTIC_VERSION = "5.3.2";
     static final String PREFIX_TEMPLATE_NAME = "bright_";
     static final String TEMPLATE_NAME = PREFIX_TEMPLATE_NAME + "1";   // bright_version increment
+
     public static final String CLUSTER_NAME_SUB_SETTING = "clusterName";
     public static final String CLUSTER_PORT_SUB_SETTING = "clusterPort";
     public static final String CLUSTER_REST_PORT_SUB_SETTING = "clusterRestPort";
@@ -159,6 +162,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     static final String UID_FIELD = "_uid";      // special for aggregations/sort
     static final String TYPE_ID_FIELD = "_type";
     static final String DEFAULT_SUGGEST_FIELD = "suggestField";
+
+    private static final String SHORT_NAME = "Elasticsearch";
+    private static final Stats STATS = new Stats(SHORT_NAME);
+    private static final String ADD_STATS_OPERATION = "Add";
+    private static final String COMMIT_STATS_OPERATION = "Commit";
+    private static final String DELETE_STATS_OPERATION = "Delete";
+    private static final String QUERY_STATS_OPERATION = "Query";
+    private static final String ADD_PROFILER_EVENT = SHORT_NAME + " " + ADD_STATS_OPERATION;
+    private static final String COMMIT_PROFILER_EVENT = SHORT_NAME + " " + COMMIT_STATS_OPERATION;
+    private static final String DELETE_PROFILER_EVENT = SHORT_NAME + " " + DELETE_STATS_OPERATION;
+    private static final String QUERY_PROFILER_EVENT = SHORT_NAME + " " + QUERY_STATS_OPERATION;
+
     // note that _any has special features, it indexes even non indexed fields so it must be stored for reindexing
     // elastic has _all but not enough control for ExcludeFromAny, etc. So not using that.
     static final String ANY_FIELD = "_any";
@@ -184,14 +199,14 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      * The shardsMax is at the Cluster level, and the Elastic template is for all indexes
      * The key for the cache is indexName as defined in the Settings
      */
-    private static final LoadingCache<IndexKey, String> CREATE_INDEX_CACHE =
+    private static final LoadingCache<CreateIndexKey, String> CREATE_INDEX_CACHE =
             CacheBuilder.newBuilder()
                     .maximumSize(CACHE_MAX_INDEX_SIZE)
                     .expireAfterAccess(CACHE_TIMEOUT_MIN, TimeUnit.MINUTES)
-                    .build(new CacheLoader<IndexKey, String>() {
+                    .build(new CacheLoader<CreateIndexKey, String>() {
 
                         @Override
-                        public String load(IndexKey index) throws Exception {
+                        public String load(CreateIndexKey index) throws Exception {
                             TransportClient client = ElasticsearchDatabaseConnection.getClient(index.getNodeSettings(), index.getClusterNodes());
                             setTemplate(client, index.getIndexName(), index.getIndexId(), false);
                             checkShards(client, index.getShardsMax());
@@ -202,26 +217,37 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * INDEXTYPEID_CACHE indicates if the TypeId requires the index to be unique due to rules around RAW_DATAFIELD_TYPE
      */
-    private static final LoadingCache<UUID, String> INDEXTYPEID_CACHE =
+    private static final LoadingCache<IndexTypeIdKey, String> INDEXTYPEID_CACHE =
             CacheBuilder.newBuilder()
                     .maximumSize(CACHE_MAX_INDEX_SIZE)
                     .expireAfterAccess(CACHE_TIMEOUT_MIN, TimeUnit.MINUTES)
-                    .build(new CacheLoader<UUID, String>() {
+                    .build(new CacheLoader<IndexTypeIdKey, String>() {
 
                         @Override
-                        public String load(UUID index) throws Exception {
+                        public String load(IndexTypeIdKey index) throws Exception {
                             String indexName = JSONINDEX_SUB_NAME;
-                            ElasticsearchDatabase db = Database.Static.getFirst(ElasticsearchDatabase.class);
-                            if (db != null) {
-                                ObjectType type = db.getEnvironment().getTypeById(index);
+                            ElasticsearchDatabase database = null;
+                            List<ElasticsearchDatabase> databases = Database.Static.getByClass(ElasticsearchDatabase.class);
+                            for (ElasticsearchDatabase db : databases) {
+                                if (db.getName().equals(index.getName())) {
+                                    database = db;
+                                    break;
+                                }
+                            }
+                            if (database == null) {
+                                database = Database.Static.getFirst(ElasticsearchDatabase.class);
+                            }
+
+                            if (database != null) {
+                                ObjectType type = database.getEnvironment().getTypeById(index.getIndexTypeId());
                                 if (type != null) {
-                                    if (db.isJsonGroup(type.getGroups())) {
+                                    if (database.isJsonGroup(type.getGroups())) {
                                         indexName = JSONINDEX_SUB_NAME;
                                     } else {
-                                        indexName = replaceDash(index.toString());
+                                        indexName = replaceDash(index.getIndexTypeId().toString());
                                     }
-                                } else if (db.defaultDataFieldType.equals(RAW_DATAFIELD_TYPE)) {
-                                    indexName = replaceDash(index.toString());
+                                } else if (database.defaultDataFieldType.equals(RAW_DATAFIELD_TYPE)) {
+                                    indexName = replaceDash(index.getIndexTypeId().toString());
                                 }
                             }
                             return indexName;
@@ -922,6 +948,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 srb.addAggregation(ab);
             }
             LOGGER.debug("Elasticsearch readPartialGrouped typeIds [{}] - [{}]", (typeIdStrings.length == 0 ? "" : typeIdStrings), srb.toString());
+
             response = srb.execute().actionGet();
             SearchHits hits = response.getHits();
 
@@ -1022,7 +1049,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         }
 
         try {
-            return INDEXTYPEID_CACHE.get(typeId);
+            IndexTypeIdKey index = new IndexTypeIdKey();
+            index.setIndexTypeId(typeId);
+            index.setName(this.getName());
+            return INDEXTYPEID_CACHE.get(index);
         } catch (Exception error) {
             LOGGER.warn(
                     String.format("Elasticsearch getElasticIndexName Exception [%s: %s]",
@@ -1041,7 +1071,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         try {
             // Note must have at least 1
             for (String newIndexname : indexNames) {
-                IndexKey index = new IndexKey();
+                CreateIndexKey index = new CreateIndexKey();
                 index.setNodeSettings(this.nodeSettings);
                 index.setClusterNodes(this.clusterNodes);
                 index.setIndexId(newIndexname);
@@ -1194,7 +1224,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     + "] typeIds ["
                     + (typeIdStrings.length == 0 ? "" : Arrays.toString(typeIdStrings))
                     + "] - [" + srb.toString() + "]");
-            response = srb.execute().actionGet();
+
+            Stats.Timer timer = STATS.startTimer();
+            Profiler.Static.startThreadEvent(QUERY_PROFILER_EVENT);
+            try {
+                response = srb.execute().actionGet();
+            } finally {
+                double duration = timer.stop(QUERY_STATS_OPERATION);
+                Profiler.Static.stopThreadEvent(srb.toString());
+            }
+
             SearchHits hits = response.getHits();
             Float maxScore = hits.getMaxScore();
             if (maxScore.equals(Float.NaN)) {
@@ -2397,11 +2436,20 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     public static void refresh(TransportClient client, boolean isImmediate, boolean isDurable) {
         if (client != null) {
             LOGGER.debug("Committing isImmediate {} isDurable {}", isImmediate, isDurable);
-            if (isImmediate) {
-                client.admin().indices().prepareRefresh().get();
-            }
-            if (isDurable) {
-                client.admin().indices().prepareFlush().get();
+
+            Stats.Timer timer = STATS.startTimer();
+            Profiler.Static.startThreadEvent(COMMIT_PROFILER_EVENT);
+
+            try {
+                if (isImmediate) {
+                    client.admin().indices().prepareRefresh().get();
+                }
+                if (isDurable) {
+                    client.admin().indices().prepareFlush().get();
+                }
+            } finally {
+                double duration = timer.stop(COMMIT_STATS_OPERATION);
+                Profiler.Static.stopThreadEvent();
             }
         }
     }
@@ -3123,99 +3171,49 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 // "groups" are set in context.xml are aggregate and limit the saves
                 LOGGER.debug("doWrites saves:" + saves.size());
                 Set<String> databaseGroups = getGroups();
-                Iterator<State> iterator = saves.iterator();
-                while (iterator.hasNext()) {
-                    State state = iterator.next();
 
-                    try {
-                        if (hasGroup) {
-                            ObjectType type = state.getType();
+                Stats.Timer timer = STATS.startTimer();
+                Profiler.Static.startThreadEvent(ADD_PROFILER_EVENT, saves.size());
+                try {
+                    Iterator<State> iterator = saves.iterator();
+                    while (iterator.hasNext()) {
+                        State state = iterator.next();
 
-                            if (type != null) {
-                                boolean savable = false;
+                        try {
+                            if (hasGroup) {
+                                ObjectType type = state.getType();
 
-                                for (String typeGroup : type.getGroups()) {
-                                    if (databaseGroups.contains(typeGroup)) {
-                                        savable = true;
-                                        break;
+                                if (type != null) {
+                                    boolean savable = false;
+
+                                    for (String typeGroup : type.getGroups()) {
+                                        if (databaseGroups.contains(typeGroup)) {
+                                            savable = true;
+                                            break;
+                                        }
                                     }
-                                }
 
-                                if (!savable) {
+                                    if (!savable) {
+                                        continue;
+                                    }
+                                } else {
                                     continue;
                                 }
-                            } else {
-                                continue;
-                            }
-                        }
-
-                        boolean isNew = state.isNew();
-                        UUID documentUUID = state.getId();
-                        String documentId = documentUUID.toString();
-
-                        UUID documentTypeUUID = state.getVisibilityAwareTypeId();
-                        String documentType = documentTypeUUID.toString();
-
-                        String newIndexname = indexName + getElasticIndexName(documentTypeUUID);
-                        List<AtomicOperation> atomicOperations = state.getAtomicOperations();
-                        StringBuilder allBuilder = new StringBuilder();
-
-                        Object oldObject = null;
-                        if (!(isNew || atomicOperations.isEmpty())) {
-                            oldObject = Query
-                                    .from(Object.class)
-                                    .where("_id = ?", documentId)
-                                    .using(this)
-                                    .master()
-                                    .noCache()
-                                    .first();
-
-                            if (oldObject == null) {
-                                isNew = true;
-                            }
-                        }
-
-                        if (isNew || atomicOperations.isEmpty()) {
-                            LOGGER.debug("doWrites isNew or not atomic");
-                            Map<String, Object> t = new HashMap<>();
-                            if (isJsonState(state)) {
-                                t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
-                            } else {
-                                t.put(DATA_FIELD, state.getSimpleValues());
                             }
 
-                            Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
-                            Map<String, Object> extraLabel = addLabel(state);
-                            Map<String, Object> extraTypeAhead = addTypeAhead(state);
-                            Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
+                            boolean isNew = state.isNew();
+                            UUID documentUUID = state.getId();
+                            String documentId = documentUUID.toString();
 
-                            if (extraFields.size() > 0) {
-                                extraFields.forEach((s, obj) -> t.put(s, obj));
-                            }
-                            if (extraLabel.size() > 0) {
-                                extraLabel.forEach((s, obj) -> t.put(s, obj));
-                            }
-                            if (extraTypeAhead.size() > 0) {
-                                extraTypeAhead.forEach((s, obj) -> t.put(s, obj));
-                            }
-                            if (extraIndex.size() > 0) {
-                                extraIndex.forEach((s, obj) -> t.put(s, obj));
-                            }
-                            t.remove("_id");
-                            t.remove("_type");
-                            t.put(UPDATEDATE_FIELD, this.now());
-                            t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
-                            t.put(ANY_FIELD, deDup(allBuilder.toString(), MAX_TERMS_ANY));
+                            UUID documentTypeUUID = state.getVisibilityAwareTypeId();
+                            String documentType = documentTypeUUID.toString();
 
-                            LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
-                                    newIndexname, documentType, documentId, t.toString());
-                            bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
+                            String newIndexname = indexName + getElasticIndexName(documentTypeUUID);
+                            List<AtomicOperation> atomicOperations = state.getAtomicOperations();
+                            StringBuilder allBuilder = new StringBuilder();
 
-                        } else {
-                            LOGGER.debug("doWrites update or atomic");
-                            // there is no getting around it, must grab query to get old value and set it
-                            boolean sendFullUpdate = false;
-                            if (oldObject == null) {
+                            Object oldObject = null;
+                            if (!(isNew || atomicOperations.isEmpty())) {
                                 oldObject = Query
                                         .from(Object.class)
                                         .where("_id = ?", documentId)
@@ -3223,178 +3221,244 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                         .master()
                                         .noCache()
                                         .first();
-                            }
 
-                            if (oldObject == null) {
-                                LOGGER.warn("doWrites: Cannot update object");
-                                continue;
-                            }
-
-                            // Restore the data from the old object.
-                            State oldState = State.getInstance(oldObject);
-                            UUID oldTypeId = oldState.getVisibilityAwareTypeId();
-                            UUID oldId = oldState.getId();
-
-                            state.setValues(oldState.getValues());
-
-                            if (!this.painlessModule) {
-                                LOGGER.info("doWrites: Painless module is not installed");
-                                sendFullUpdate = true;
-                            }
-
-                            if (isJsonState(state)) {
-                                sendFullUpdate = true;
-                            }
-
-                            // Reset to old First
-                            for (AtomicOperation operation : atomicOperations) {
-                                String field = operation.getField();
-                                state.putByPath(field, oldState.getByPath(field));
-                                if (field.indexOf('/') != -1) {
-                                    sendFullUpdate = true;
+                                if (oldObject == null) {
+                                    isNew = true;
                                 }
                             }
 
-                            for (AtomicOperation operation : atomicOperations) {
-                                operation.execute(state); // sets state
-                                if (!sendFullUpdate) {
-                                    String field = operation.getField().trim();
-                                    if (operation instanceof AtomicOperation.Increment) {
-                                        double newVal = ((AtomicOperation.Increment) operation).getValue();
-                                        Map<String, Object> params = new HashMap<>();
-                                        params.put("val", newVal);
-                                        bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + " += params.val;", params))
-                                                .setDetectNoop(false));
-                                    } else if (operation instanceof AtomicOperation.Add) {
-                                        Object newVal = ((AtomicOperation.Add) operation).getValue();
-                                        Map<String, Object> params = new HashMap<>();
-                                        params.put("val", newVal);
-                                        bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + ".add(params.val);", params))
-                                                .setDetectNoop(false));
-                                    } else if (operation instanceof AtomicOperation.Remove) {
-                                        Object newVal = ((AtomicOperation.Remove) operation).getValue();
-                                        Map<String, Object> params = new HashMap<>();
-                                        params.put("val", newVal);
-                                        bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + ".remove(ctx._source." + DATA_FIELD + "." + field + ".indexOf(params.val));", params))
-                                                .setDetectNoop(false));
-                                    } else if (operation instanceof AtomicOperation.Put) {
-                                        Object newVal = ((AtomicOperation.Put) operation).getValue();
-                                        Map<String, Object> params = new HashMap<>();
-                                        params.put("val", newVal);
-                                        bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + "= params.val;", params))
-                                                .setDetectNoop(false));
-                                    } else if (operation instanceof AtomicOperation.Replace) {
-                                        Object oldVal = ((AtomicOperation.Replace) operation).getOldValue();
-                                        Object newVal = ((AtomicOperation.Replace) operation).getNewValue();
-                                        Map<String, Object> params = new HashMap<>();
-                                        params.put("oval", oldVal);
-                                        params.put("nval", newVal);
-                                        bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
-                                                .setScript(new Script(ScriptType.INLINE, "painless", "if (ctx._source." + DATA_FIELD + "." + field + " == params.oval) ctx._source." + DATA_FIELD + "." + field + "= params.nval;", params))
-                                                .setDetectNoop(false));
-                                    } else {
+                            if (isNew || atomicOperations.isEmpty()) {
+                                LOGGER.debug("doWrites isNew or not atomic");
+                                Map<String, Object> t = new HashMap<>();
+                                if (isJsonState(state)) {
+                                    t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
+                                } else {
+                                    t.put(DATA_FIELD, state.getSimpleValues());
+                                }
+
+                                Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
+                                Map<String, Object> extraLabel = addLabel(state);
+                                Map<String, Object> extraTypeAhead = addTypeAhead(state);
+                                Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
+
+                                if (extraFields.size() > 0) {
+                                    extraFields.forEach((s, obj) -> t.put(s, obj));
+                                }
+                                if (extraLabel.size() > 0) {
+                                    extraLabel.forEach((s, obj) -> t.put(s, obj));
+                                }
+                                if (extraTypeAhead.size() > 0) {
+                                    extraTypeAhead.forEach((s, obj) -> t.put(s, obj));
+                                }
+                                if (extraIndex.size() > 0) {
+                                    extraIndex.forEach((s, obj) -> t.put(s, obj));
+                                }
+                                t.remove("_id");
+                                t.remove("_type");
+                                t.put(UPDATEDATE_FIELD, this.now());
+                                t.put(IDS_FIELD, documentId); // Elastic range for iterator default _id will not work
+                                t.put(ANY_FIELD, deDup(allBuilder.toString(), MAX_TERMS_ANY));
+
+                                LOGGER.debug("Elasticsearch doWrites saving index [{}] and _type [{}] and _id [{}] = [{}]",
+                                        newIndexname, documentType, documentId, t.toString());
+                                bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
+
+                            } else {
+                                LOGGER.debug("doWrites update or atomic");
+                                // there is no getting around it, must grab query to get old value and set it
+                                boolean sendFullUpdate = false;
+                                if (oldObject == null) {
+                                    oldObject = Query
+                                            .from(Object.class)
+                                            .where("_id = ?", documentId)
+                                            .using(this)
+                                            .master()
+                                            .noCache()
+                                            .first();
+                                }
+
+                                if (oldObject == null) {
+                                    LOGGER.warn("doWrites: Cannot update object");
+                                    continue;
+                                }
+
+                                // Restore the data from the old object.
+                                State oldState = State.getInstance(oldObject);
+                                UUID oldTypeId = oldState.getVisibilityAwareTypeId();
+                                UUID oldId = oldState.getId();
+
+                                state.setValues(oldState.getValues());
+
+                                if (!this.painlessModule) {
+                                    LOGGER.info("doWrites: Painless module is not installed");
+                                    sendFullUpdate = true;
+                                }
+
+                                if (isJsonState(state)) {
+                                    sendFullUpdate = true;
+                                }
+
+                                // Reset to old First
+                                for (AtomicOperation operation : atomicOperations) {
+                                    String field = operation.getField();
+                                    state.putByPath(field, oldState.getByPath(field));
+                                    if (field.indexOf('/') != -1) {
                                         sendFullUpdate = true;
                                     }
                                 }
-                                // other ones can be done with normal update() since merge should work.
-                            }
 
-                            boolean sendExtraUpdate = false;
-                            Map<String, Object> t = new HashMap<>();
-                            if (isJsonState(state)) {
-                                t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
-                            } else {
-                                t.put(DATA_FIELD, state.getSimpleValues());
-                            }
-                            Map<String, Object> extra = new HashMap<>();
-                            Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
-                            Map<String, Object> extraLabel = addLabel(state);
-                            Map<String, Object> extraTypeAhead = addTypeAhead(state);
-                            Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
+                                for (AtomicOperation operation : atomicOperations) {
+                                    operation.execute(state); // sets state
+                                    if (!sendFullUpdate) {
+                                        String field = operation.getField().trim();
+                                        if (operation instanceof AtomicOperation.Increment) {
+                                            double newVal = ((AtomicOperation.Increment) operation).getValue();
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("val", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + " += params.val;", params))
+                                                    .setDetectNoop(false));
+                                        } else if (operation instanceof AtomicOperation.Add) {
+                                            Object newVal = ((AtomicOperation.Add) operation).getValue();
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("val", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + ".add(params.val);", params))
+                                                    .setDetectNoop(false));
+                                        } else if (operation instanceof AtomicOperation.Remove) {
+                                            Object newVal = ((AtomicOperation.Remove) operation).getValue();
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("val", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + ".remove(ctx._source." + DATA_FIELD + "." + field + ".indexOf(params.val));", params))
+                                                    .setDetectNoop(false));
+                                        } else if (operation instanceof AtomicOperation.Put) {
+                                            Object newVal = ((AtomicOperation.Put) operation).getValue();
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("val", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "ctx._source." + DATA_FIELD + "." + field + "= params.val;", params))
+                                                    .setDetectNoop(false));
+                                        } else if (operation instanceof AtomicOperation.Replace) {
+                                            Object oldVal = ((AtomicOperation.Replace) operation).getOldValue();
+                                            Object newVal = ((AtomicOperation.Replace) operation).getNewValue();
+                                            Map<String, Object> params = new HashMap<>();
+                                            params.put("oval", oldVal);
+                                            params.put("nval", newVal);
+                                            bulk.add(client.prepareUpdate(newIndexname, documentType, documentId)
+                                                    .setScript(new Script(ScriptType.INLINE, "painless", "if (ctx._source." + DATA_FIELD + "." + field + " == params.oval) ctx._source." + DATA_FIELD + "." + field + "= params.nval;", params))
+                                                    .setDetectNoop(false));
+                                        } else {
+                                            sendFullUpdate = true;
+                                        }
+                                    }
+                                    // other ones can be done with normal update() since merge should work.
+                                }
 
-                            if (extraFields.size() > 0) {
-                                sendExtraUpdate = true;
-                                extraFields.forEach((s, obj) -> t.put(s, obj));
-                                extraFields.forEach((s, obj) -> extra.put(s, obj));
-                            }
-                            if (extraLabel.size() > 0) {
-                                sendExtraUpdate = true;
-                                extraLabel.forEach((s, obj) -> t.put(s, obj));
-                                extraLabel.forEach((s, obj) -> extra.put(s, obj));
-                            }
-                            if (extraTypeAhead.size() > 0) {
-                                sendExtraUpdate = true;
-                                extraTypeAhead.forEach((s, obj) -> t.put(s, obj));
-                                extraTypeAhead.forEach((s, obj) -> extra.put(s, obj));
-                            }
-                            if (extraIndex.size() > 0) {
-                                sendExtraUpdate = true;
-                                extraIndex.forEach((s, obj) -> t.put(s, obj));
-                                extraIndex.forEach((s, obj) -> extra.put(s, obj));
-                            }
-                            t.remove("_id");
-                            t.remove("_type");
-                            t.put(UPDATEDATE_FIELD,  this.now());
-                            t.put(IDS_FIELD, documentId);
-                            t.put(ANY_FIELD, deDup(allBuilder.toString(), MAX_TERMS_ANY));
+                                boolean sendExtraUpdate = false;
+                                Map<String, Object> t = new HashMap<>();
+                                if (isJsonState(state)) {
+                                    t.put(DATA_FIELD, ObjectUtils.toJson(state.getSimpleValues()));
+                                } else {
+                                    t.put(DATA_FIELD, state.getSimpleValues());
+                                }
+                                Map<String, Object> extra = new HashMap<>();
+                                Map<String, Object> extraFields = addIndexedFields(state, allBuilder);
+                                Map<String, Object> extraLabel = addLabel(state);
+                                Map<String, Object> extraTypeAhead = addTypeAhead(state);
+                                Map<String, Object> extraIndex = addIndexedMethods(state, allBuilder);
 
-                            // if you move TypeId you need to add the whole document and remove old
-                            if (!oldTypeId.equals(documentTypeUUID) || !oldId.equals(documentUUID)) {
-                                String oldDocumentType = oldTypeId.toString();
-                                String oldDocumentId = oldId.toString();
-                                String oldIndexname = indexName + replaceDash(oldDocumentType);
-                                bulk.add(client.prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
-                                LOGGER.debug("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
-                                        new Object[] {newIndexname, documentType, documentId, t.toString()});
-                                bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
-                            } else if (sendFullUpdate) {
-                                LOGGER.debug("Elasticsearch doWrites sendFullUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
-                                        new Object[] {newIndexname, documentType, documentId, t.toString()});
-                                bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(t));
-                            } else if (sendExtraUpdate) {
-                                LOGGER.debug("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
-                                        new Object[] {newIndexname, documentType, documentId, extra.toString()});
-                                bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(extra));
-                            } else {
-                                LOGGER.debug("Elasticsearch doWrites regular overwrit index [{}] and _type [{}] and _id [{}] = [{}]",
-                                        new Object[] {newIndexname, documentType, documentId, extra.toString()});
-                                bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
+                                if (extraFields.size() > 0) {
+                                    sendExtraUpdate = true;
+                                    extraFields.forEach((s, obj) -> t.put(s, obj));
+                                    extraFields.forEach((s, obj) -> extra.put(s, obj));
+                                }
+                                if (extraLabel.size() > 0) {
+                                    sendExtraUpdate = true;
+                                    extraLabel.forEach((s, obj) -> t.put(s, obj));
+                                    extraLabel.forEach((s, obj) -> extra.put(s, obj));
+                                }
+                                if (extraTypeAhead.size() > 0) {
+                                    sendExtraUpdate = true;
+                                    extraTypeAhead.forEach((s, obj) -> t.put(s, obj));
+                                    extraTypeAhead.forEach((s, obj) -> extra.put(s, obj));
+                                }
+                                if (extraIndex.size() > 0) {
+                                    sendExtraUpdate = true;
+                                    extraIndex.forEach((s, obj) -> t.put(s, obj));
+                                    extraIndex.forEach((s, obj) -> extra.put(s, obj));
+                                }
+                                t.remove("_id");
+                                t.remove("_type");
+                                t.put(UPDATEDATE_FIELD, this.now());
+                                t.put(IDS_FIELD, documentId);
+                                t.put(ANY_FIELD, deDup(allBuilder.toString(), MAX_TERMS_ANY));
+
+                                // if you move TypeId you need to add the whole document and remove old
+                                if (!oldTypeId.equals(documentTypeUUID) || !oldId.equals(documentUUID)) {
+                                    String oldDocumentType = oldTypeId.toString();
+                                    String oldDocumentId = oldId.toString();
+                                    String oldIndexname = indexName + replaceDash(oldDocumentType);
+                                    bulk.add(client.prepareDelete(oldIndexname, oldDocumentType, oldDocumentId));
+                                    LOGGER.debug("Elasticsearch doWrites moved typeId/Id atomic add index [{}] and _type [{}] and _id [{}] = [{}]",
+                                            new Object[]{newIndexname, documentType, documentId, t.toString()});
+                                    bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
+                                } else if (sendFullUpdate) {
+                                    LOGGER.debug("Elasticsearch doWrites sendFullUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
+                                            new Object[]{newIndexname, documentType, documentId, t.toString()});
+                                    bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(t));
+                                } else if (sendExtraUpdate) {
+                                    LOGGER.debug("Elasticsearch doWrites sendExtraUpdate atomic updating index [{}] and _type [{}] and _id [{}] = [{}]",
+                                            new Object[]{newIndexname, documentType, documentId, extra.toString()});
+                                    bulk.add(client.prepareUpdate(newIndexname, documentType, documentId).setDoc(extra));
+                                } else {
+                                    LOGGER.debug("Elasticsearch doWrites regular overwrit index [{}] and _type [{}] and _id [{}] = [{}]",
+                                            new Object[]{newIndexname, documentType, documentId, extra.toString()});
+                                    bulk.add(client.prepareIndex(newIndexname, documentType, documentId).setSource(t));
+                                }
                             }
+                        } catch (Exception error) {
+                            LOGGER.warn(
+                                    String.format("Elasticsearch doWrites saves Exception [%s: %s]",
+                                            error.getClass().getName(),
+                                            error.getMessage()),
+                                    error);
+                            throw error;
                         }
-                    } catch (Exception error) {
-                        LOGGER.warn(
-                                String.format("Elasticsearch doWrites saves Exception [%s: %s]",
-                                        error.getClass().getName(),
-                                        error.getMessage()),
-                                error);
-                        throw error;
                     }
+                } finally {
+                    double duration = timer.stop(ADD_STATS_OPERATION);
+                    Profiler.Static.stopThreadEvent();
                 }
             }
 
             if (deletes != null) {
-                for (State state : deletes) {
-                    String documentType = state.getTypeId().toString();
-                    String documentId = state.getId().toString();
-                    String newIndexname = indexName + getElasticIndexName(state.getTypeId());
+                Stats.Timer timer = STATS.startTimer();
+                Profiler.Static.startThreadEvent(DELETE_PROFILER_EVENT, deletes.size());
+                try {
 
-                    LOGGER.debug("Elasticsearch doWrites deleting index [{}] and _type [{}] and _id [{}]",
-                            new Object[]{newIndexname, documentType, documentId});
-                    try {
-                        bulk.add(client
-                                .prepareDelete(newIndexname, state.getTypeId().toString(), state.getId().toString()));
-                    } catch (Exception error) {
-                        LOGGER.warn(
-                                String.format("Elasticsearch doWrites deletes Exception [%s: %s]",
-                                        error.getClass().getName(),
-                                        error.getMessage()),
-                                error);
-                        throw error;
+                    for (State state : deletes) {
+                        String documentType = state.getTypeId().toString();
+                        String documentId = state.getId().toString();
+                        String newIndexname = indexName + getElasticIndexName(state.getTypeId());
+
+                        LOGGER.debug("Elasticsearch doWrites deleting index [{}] and _type [{}] and _id [{}]",
+                                new Object[]{newIndexname, documentType, documentId});
+                        try {
+                            bulk.add(client
+                                    .prepareDelete(newIndexname, state.getTypeId().toString(), state.getId().toString()));
+                        } catch (Exception error) {
+                            LOGGER.warn(
+                                    String.format("Elasticsearch doWrites deletes Exception [%s: %s]",
+                                            error.getClass().getName(),
+                                            error.getMessage()),
+                                    error);
+                            throw error;
+                        }
                     }
+                } finally {
+                    double duration = timer.stop(DELETE_STATS_OPERATION);
+                    Profiler.Static.stopThreadEvent();
                 }
             }
 
