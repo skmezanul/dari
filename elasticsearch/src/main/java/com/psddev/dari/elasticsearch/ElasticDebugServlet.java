@@ -13,6 +13,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.json.JSONObject;
 
 import javax.servlet.ServletException;
@@ -161,7 +162,11 @@ public class ElasticDebugServlet extends DebugServlet {
                     if (!StringUtils.isBlank(sort)) {
                         for (String sortField : sort.split(",")) {
                             String[] parameters = sortField.split(" ");
-                            srb.addSort(new FieldSortBuilder(parameters[0]).order(parameters[1].toLowerCase().equals("asc") ? ASC : DESC));
+                            if (parameters[0].toLowerCase().equals("_score")) {
+                                srb.addSort(new ScoreSortBuilder());
+                            } else {
+                                srb.addSort(new FieldSortBuilder(parameters[0]).order(parameters[1].toLowerCase().equals("asc") ? ASC : DESC));
+                            }
                         }
                     }
                     srb.setExplain(true);
