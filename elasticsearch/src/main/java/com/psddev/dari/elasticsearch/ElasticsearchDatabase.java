@@ -1030,7 +1030,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     /**
      * Get All Elastic Index name for Querying.
      */
-    private String getAllElasticIndexName() {
+    String getAllElasticIndexName() {
 
         if ((this.dataTypesRaw == null || ObjectUtils.isBlank(this.dataTypesRaw)) && this.defaultDataFieldType.equals(JSON_DATAFIELD_TYPE)) {
             return getIndexName() + JSONINDEX_SUB_NAME;
