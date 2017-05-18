@@ -177,11 +177,15 @@ public class ElasticDebugServlet extends DebugServlet {
                                             writeObject(document.type());
                                         writeEnd();
                                         writeStart("td");
-                                            writeObject(document.getSource());
+                                            writeStart("pre");
+                                                write(document.getSource().toString());
+                                            writeEnd();
                                         writeEnd();
                                         writeStart("td");
-                                            write(document.getScore() + "<br>" + srb.toString() + "<br>"
-                                                  + document.getExplanation().getDetails().toString());
+                                            writeStart("pre");
+                                                write(document.getScore() + "<br>" + srb.toString() + "<br>"
+                                                        + document.getExplanation().toString().replaceAll("\n", "<br>").replaceAll(" ", "&nbsp;"));
+                                            writeEnd();
                                         writeEnd();
                                     writeEnd();
                                 }
