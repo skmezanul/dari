@@ -865,14 +865,19 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             if (typeIds.size() > 0) {
                 srb = client.prepareSearch(indexIdStrings)
-                        .setFetchSource(!query.isReferenceOnly())
                         .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
                 srb.setTypes(typeIdStrings);
             } else {
                 srb = client.prepareSearch(getAllElasticIndexName())
-                        .setFetchSource(!query.isReferenceOnly())
                         .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
             }
+
+            if (query.isReferenceOnly()) {
+                srb.setFetchSource(false);
+            } else {
+                srb.setFetchSource(DATA_FIELD, null);
+            }
+
             srb.setQuery(qb)
                     .setFrom(0)
                     .setSize(0);
@@ -905,13 +910,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         } else {
             if (typeIds.size() > 0) {
                 srb = client.prepareSearch(indexIdStrings)
-                        .setFetchSource(!query.isReferenceOnly())
                         .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
                 srb.setTypes(typeIdStrings);
             } else {
                 srb = client.prepareSearch(getAllElasticIndexName())
-                        .setFetchSource(!query.isReferenceOnly())
                         .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
+            }
+            if (query.isReferenceOnly()) {
+                srb.setFetchSource(false);
+            } else {
+                srb.setFetchSource(DATA_FIELD, null);
             }
 
             srb.setQuery(qb)
@@ -1001,13 +1009,16 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (typeIds.size() > 0) {
             srb = client.prepareSearch(indexIdStrings)
-                    .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
             srb.setTypes(typeIdStrings);
         } else {
             srb = client.prepareSearch(getAllElasticIndexName())
-                    .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
+        }
+        if (query.isReferenceOnly()) {
+            srb.setFetchSource(false);
+        } else {
+            srb.setFetchSource(DATA_FIELD, null);
         }
 
         srb.setQuery(qb)
@@ -1185,16 +1196,18 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         if (typeIds.size() > 0) {
             srb = client.prepareSearch(indexIdStrings)
-                    .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
             srb.setTypes(typeIdStrings);
         } else {
             srb = client.prepareSearch(getAllElasticIndexName())
-                    .setFetchSource(!query.isReferenceOnly())
                     .setTimeout(query.getTimeout() != null && query.getTimeout() > 0 ? TimeValue.timeValueMillis(query.getTimeout().longValue()) : TimeValue.timeValueMillis(this.searchTimeout));
         }
 
-        srb.setFetchSource(DATA_FIELD, null);
+        if (query.isReferenceOnly()) {
+            srb.setFetchSource(false);
+        } else {
+            srb.setFetchSource(DATA_FIELD, null);
+        }
 
         // if no sort, then we can use filtered is setting preferFilters is set to true (default)
         // else leave the query alone
