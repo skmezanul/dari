@@ -13,6 +13,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.json.JSONObject;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -20,6 +21,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.elasticsearch.search.sort.SortOrder.ASC;
 import static org.elasticsearch.search.sort.SortOrder.DESC;
@@ -176,14 +178,22 @@ public class ElasticDebugServlet extends DebugServlet {
                                         writeStart("td");
                                             writeObject(document.type());
                                         writeEnd();
-                                        writeStart("td");
+                                        writeStart("td", "width", "450");
                                             writeStart("pre");
-                                                write(document.getSource().toString());
+                                                Map<String, Object> m = document.getSource();
+                                                if (m.get(ElasticsearchDatabase.DATA_FIELD) != null) {
+                                                    String data = (String) m.get(ElasticsearchDatabase.DATA_FIELD);
+                                                    Map<String, Object> values = (Map<String, Object>) ObjectUtils.fromJson(data);
+                                                    m.remove(ElasticsearchDatabase.DATA_FIELD);
+                                                    m.put(ElasticsearchDatabase.DATA_FIELD, values);
+                                                }
+                                                JSONObject json = new JSONObject(m);
+                                                write(json.toString(4));
                                             writeEnd();
                                         writeEnd();
                                         writeStart("td");
                                             writeStart("pre");
-                                                write(document.getScore() + "<br>" + srb.toString() + "<br>"
+                                                write(document.getScore() + "<br>"
                                                         + document.getExplanation().toString().replaceAll("\n", "<br>").replaceAll(" ", "&nbsp;"));
                                             writeEnd();
                                         writeEnd();
