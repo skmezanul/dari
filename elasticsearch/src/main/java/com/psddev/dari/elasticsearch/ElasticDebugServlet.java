@@ -66,6 +66,8 @@ public class ElasticDebugServlet extends DebugServlet {
                 String sort = page.param(String.class, "sort");
                 String index = page.param(String.class, "index");
                 String type = page.param(String.class, "type");
+                String from = page.param(String.class, "from");
+                String size = page.param(String.class, "size");
 
                 writeStart("h2").writeHtml("Query").writeEnd();
                 writeStart("form", "action", page.url(null), "class", "form-inline", "method", "post");
@@ -83,18 +85,9 @@ public class ElasticDebugServlet extends DebugServlet {
 
                     writeStart("textarea",
                             "class", "span6",
-                            "name", "query",
-                            "placeholder", "Query",
-                            "rows", 4,
-                            "style", "font-family:monospace; margin: 4px 0; width: 100%;");
-                        writeHtml(query);
-                    writeEnd();
-
-                    writeStart("textarea",
-                            "class", "span6",
                             "name", "index",
-                            "placeholder", "Index",
-                            "rows", 4,
+                            "placeholder", "Index (can be blank)",
+                            "rows", 2,
                             "style", "font-family:monospace; margin: 4px 0; width: 100%;");
                     writeHtml(index);
                     writeEnd();
@@ -102,17 +95,44 @@ public class ElasticDebugServlet extends DebugServlet {
                     writeStart("textarea",
                             "class", "span6",
                             "name", "type",
-                            "placeholder", "Type",
-                            "rows", 4,
+                            "placeholder", "Type (can be blank)",
+                            "rows", 2,
                             "style", "font-family:monospace; margin: 4px 0; width: 100%;");
                     writeHtml(type);
+                    writeEnd();
+
+                    writeStart("textarea",
+                            "class", "span6",
+                            "name", "from",
+                            "placeholder", "From (0)",
+                            "rows", 1,
+                            "style", "font-family:monospace; margin: 4px 0; width: 100%;");
+                    writeHtml(query);
+                    writeEnd();
+
+                    writeStart("textarea",
+                            "class", "span6",
+                            "name", "size",
+                            "placeholder", "Size (10)",
+                            "rows", 1,
+                            "style", "font-family:monospace; margin: 4px 0; width: 100%;");
+                    writeHtml(query);
+                    writeEnd();
+
+                    writeStart("textarea",
+                            "class", "span6",
+                            "name", "query",
+                            "placeholder", "Query (without 'query:')",
+                            "rows", 4,
+                            "style", "font-family:monospace; margin: 4px 0; width: 100%;");
+                    writeHtml(query);
                     writeEnd();
 
                     writeStart("h3").writeHtml("Sort").writeEnd();
                     writeStart("textarea",
                             "class", "span6",
                             "name", "sort",
-                            "placeholder", "Sort",
+                            "placeholder", "Sort (field asc|desc)",
                             "rows", 2,
                             "style", "font-family:monospace; margin: 4px 0; width: 100%;");
                         writeHtml(sort);
@@ -134,16 +154,27 @@ public class ElasticDebugServlet extends DebugServlet {
                         String[] typeIdStrings = type.split(",");
                         srb.setTypes(typeIdStrings);
                     }
-                    srb.setFetchSource(ElasticsearchDatabase.DATA_FIELD, null);
+                    //srb.setFetchSource(ElasticsearchDatabase.DATA_FIELD, null);
                     srb.setQuery(QueryBuilders.wrapperQuery(query));
+                    srb.setTrackScores(true);
 
                     if (!StringUtils.isBlank(sort)) {
                         for (String sortField : sort.split(",")) {
                             String[] parameters = sortField.split(" ");
-                            srb.addSort(new FieldSortBuilder(parameters[0]).order(parameters[1].equals("ASC") ? ASC : DESC));
+                            srb.addSort(new FieldSortBuilder(parameters[0]).order(parameters[1].toLowerCase().equals("asc") ? ASC : DESC));
                         }
                     }
                     srb.setExplain(true);
+                    if (ObjectUtils.isBlank(from)) {
+                        srb.setFrom(0);
+                    } else {
+                        srb.setFrom(Integer.parseInt(from));
+                    }
+                    if (ObjectUtils.isBlank(size)) {
+                        srb.setSize(10);
+                    } else {
+                        srb.setSize(Integer.parseInt(size));
+                    }
 
                     Throwable error = null;
 
@@ -202,8 +233,6 @@ public class ElasticDebugServlet extends DebugServlet {
                             writeEnd();
                         writeEnd();
 
-                    } catch (IOException e) {
-                        error = e;
                     } catch (Exception e) {
                         error = e;
                     }
