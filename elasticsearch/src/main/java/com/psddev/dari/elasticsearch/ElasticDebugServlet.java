@@ -108,7 +108,7 @@ public class ElasticDebugServlet extends DebugServlet {
                             "placeholder", "From (0)",
                             "rows", 1,
                             "style", "font-family:monospace; margin: 4px 0; width: 100%;");
-                    writeHtml(query);
+                    writeHtml(from);
                     writeEnd();
 
                     writeStart("textarea",
@@ -117,7 +117,7 @@ public class ElasticDebugServlet extends DebugServlet {
                             "placeholder", "Size (10)",
                             "rows", 1,
                             "style", "font-family:monospace; margin: 4px 0; width: 100%;");
-                    writeHtml(query);
+                    writeHtml(size);
                     writeEnd();
 
                     writeStart("textarea",
