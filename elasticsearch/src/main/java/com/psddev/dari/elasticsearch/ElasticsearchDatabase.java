@@ -622,11 +622,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultRequestConfig(config).build();
 
             String nodes = getNodeHost() + "_nodes";
-            //CloseableHttpClient httpClient = HttpClients.createDefault();
             HttpGet get = new HttpGet(nodes);
             get.addHeader("accept", "application/json");
-            CloseableHttpResponse response = httpClient.execute(get);
-            try {
+            try (CloseableHttpResponse response = httpClient.execute(get)) {
                 HttpEntity entity = response.getEntity();
                 String json = EntityUtils.toString(entity);
                 EntityUtils.consume(entity);
@@ -662,8 +660,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         }
                     }
                 }
-            } finally {
-                response.close();
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -3613,8 +3609,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
-            CloseableHttpResponse response = httpClient.execute(getRequest);
-            try {
+            try (CloseableHttpResponse response = httpClient.execute(getRequest)) {
                 HttpEntity entity = response.getEntity();
                 String json = EntityUtils.toString(entity);
                 EntityUtils.consume(entity);
@@ -3629,8 +3624,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                         return version;
                     }
                 }
-            } finally {
-                response.close();
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -3656,11 +3649,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setSocketTimeout(timeout * 1000).build();
             CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultRequestConfig(config).build();
 
-            //CloseableHttpClient httpClient = HttpClients.createDefault();
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
-            CloseableHttpResponse response = httpClient.execute(getRequest);
-            try {
+            try (CloseableHttpResponse response = httpClient.execute(getRequest)) {
                 HttpEntity entity = response.getEntity();
                 String json = EntityUtils.toString(entity);
                 EntityUtils.consume(entity);
@@ -3668,8 +3659,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 if (j.get("cluster_name") != null) {
                     return j.getString("cluster_name");
                 }
-            } finally {
-                response.close();
             }
         } catch (Exception error) {
             LOGGER.warn(
@@ -3695,11 +3684,9 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setSocketTimeout(timeout * 1000).build();
             CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultRequestConfig(config).build();
 
-            //CloseableHttpClient httpClient = HttpClients.createDefault();
             HttpGet getRequest = new HttpGet(nodeHost);
             getRequest.addHeader("accept", "application/json");
-            CloseableHttpResponse response = httpClient.execute(getRequest);
-            try {
+            try (CloseableHttpResponse response = httpClient.execute(getRequest)) {
                 HttpEntity entity = response.getEntity();
                 String json = EntityUtils.toString(entity);
                 EntityUtils.consume(entity);
@@ -3707,8 +3694,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 if (j.get("cluster_name") != null) {
                     return true;
                 }
-            } finally {
-                response.close();
             }
         } catch (Exception e) {
             LOGGER.warn("Warning: Elasticsearch is not already running");

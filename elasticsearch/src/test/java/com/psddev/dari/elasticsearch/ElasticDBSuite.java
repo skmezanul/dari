@@ -21,9 +21,11 @@ import com.psddev.dari.util.Settings;
 import junit.framework.JUnit4TestAdapter;
 import junit.framework.TestSuite;
 import org.apache.http.HttpEntity;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.junit.runner.RunWith;
@@ -62,17 +64,20 @@ public class ElasticDBSuite {
         public static void deleteTemplate(String nodeHost) throws IOException {
             LOGGER.info("Deleting Template " + TEMPLATE_NAME);
             try {
-                CloseableHttpClient httpClient = HttpClients.createDefault();
+                int timeout = 10;
+                RequestConfig config = RequestConfig.custom()
+                        .setConnectTimeout(timeout * 1000)
+                        .setConnectionRequestTimeout(timeout * 1000)
+                        .setSocketTimeout(timeout * 1000).build();
+                CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultRequestConfig(config).build();
+
                 HttpDelete delete = new HttpDelete(nodeHost + "_template/" + TEMPLATE_NAME);
                 delete.addHeader("accept", "application/json");
-                CloseableHttpResponse response = httpClient.execute(delete);
-                try {
+                try (CloseableHttpResponse response = httpClient.execute(delete)) {
                     HttpEntity entity = response.getEntity();
                     String res = EntityUtils.toString(entity);
                     EntityUtils.consume(entity);
                     LOGGER.info("Deleted Template {} [{}] {}", TEMPLATE_NAME, res, response.getStatusLine().getStatusCode());
-                } finally {
-                    response.close();
                 }
             } catch (Exception error) {
                 LOGGER.warn(
@@ -90,17 +95,20 @@ public class ElasticDBSuite {
         public static void deleteIndex(String index, String nodeHost) throws IOException {
             LOGGER.info("Deleting Index " + index);
             try {
-                CloseableHttpClient httpClient = HttpClients.createDefault();
+                int timeout = 10;
+                RequestConfig config = RequestConfig.custom()
+                        .setConnectTimeout(timeout * 1000)
+                        .setConnectionRequestTimeout(timeout * 1000)
+                        .setSocketTimeout(timeout * 1000).build();
+                CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultRequestConfig(config).build();
+
                 HttpDelete delete = new HttpDelete(nodeHost + index);
                 delete.addHeader("accept", "application/json");
-                CloseableHttpResponse response = httpClient.execute(delete);
-                try {
+                try (CloseableHttpResponse response = httpClient.execute(delete)) {
                     HttpEntity entity = response.getEntity();
                     String res = EntityUtils.toString(entity);
                     EntityUtils.consume(entity);
                     LOGGER.info("Deleted Index {} [{}] {}", index, res, response.getStatusLine().getStatusCode());
-                } finally {
-                    response.close();
                 }
             } catch (Exception error) {
                 LOGGER.warn(
@@ -152,7 +160,7 @@ public class ElasticDBSuite {
         public static TestSuite suite() throws Exception {
             LOGGER.info("Starting Elastic test");
             ElasticSetupDatabase();
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> EmbeddedElasticsearchServer.shutdown()));
+            Runtime.getRuntime().addShutdownHook(new Thread(EmbeddedElasticsearchServer::shutdown));
             TestSuite suite = new TestSuite();
             suite.addTest(new JUnit4TestAdapter(SearchIteratorTest.class));
             suite.addTest(new JUnit4TestAdapter(ElasticDatabaseConnectionTest.class));
