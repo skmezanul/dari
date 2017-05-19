@@ -150,12 +150,11 @@ public class ElasticDebugServlet extends DebugServlet {
 
                     String[] indexIdStrings = ObjectUtils.isBlank(index) ? new String[] { database.getAllElasticIndexName() } : index.split(",");
                     srb = client.prepareSearch(indexIdStrings)
-                            .setTimeout(TimeValue.timeValueMillis(30000L));
+                            .setTimeout(TimeValue.timeValueMillis(ElasticsearchDatabase.TIMEOUT));
                     if (!ObjectUtils.isBlank(type)) {
                         String[] typeIdStrings = type.split(",");
                         srb.setTypes(typeIdStrings);
                     }
-                    //srb.setFetchSource(ElasticsearchDatabase.DATA_FIELD, null);
                     srb.setQuery(QueryBuilders.wrapperQuery(query));
                     srb.setTrackScores(true);
 
