@@ -19,6 +19,10 @@ import java.util.List;
 public class EmbeddedElasticsearchServer {
 
     private static final String DEFAULT_DATA_DIRECTORY = "elasticsearch-data";
+    private static final int BULK_QUEUE_SIZE = 500;
+    private static final int BULK_SIZE = 1;
+    private static final int SEARCH_QUEUE_SIZE = 1000;
+    private static final int SEARCH_SIZE = 1;
     private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddedElasticsearchServer.class);
     private static Node node = null;
     private static boolean initialized = false;
@@ -72,10 +76,10 @@ public class EmbeddedElasticsearchServer {
                             .put("cluster.name", clusterName)
                             .put("http.enabled", "true")
                             .put("path.home", DEFAULT_DATA_DIRECTORY)
-                            .put("thread_pool.bulk.size", 1)
-                            .put("thread_pool.bulk.queue_size", 500)
-                            .put("thread_pool.search.size", 1)
-                            .put("thread_pool.search.queue_size", 1000)
+                            .put("thread_pool.bulk.size", BULK_SIZE)
+                            .put("thread_pool.bulk.queue_size", BULK_QUEUE_SIZE)
+                            .put("thread_pool.search.size", SEARCH_SIZE)
+                            .put("thread_pool.search.queue_size", SEARCH_QUEUE_SIZE)
                             .build(),
                     plugins);
 

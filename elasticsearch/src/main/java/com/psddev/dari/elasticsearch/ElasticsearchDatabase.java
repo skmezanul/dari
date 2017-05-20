@@ -181,6 +181,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     static final String UPDATEDATE_FIELD = "updateDate";
     static final String JSONINDEX_SUB_NAME = "json";
     static final int INITIAL_FETCH_SIZE = 1000;
+    static final int FACET_TERMS_MAX = 200;
     static final int SUBQUERY_MAX_ROWS = 5000;   // dari/subQueryResolveLimit
     static final int TIMEOUT = 30000;            // 30 seconds
     static final int MAX_BINARY_FIELD_LENGTH = 1024;
@@ -759,7 +760,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     facet.aggsTermsNames.add(aggField);
                     facet.fieldNames.add(field);
                     TermsAggregationBuilder ab = AggregationBuilders.terms(aggField).field(elasticField)
-                            .size(200);
+                            .size(FACET_TERMS_MAX);
                     ab.minDocCount(1);
                     srb.addAggregation(ab);
                 }
@@ -775,6 +776,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             for (Map.Entry<String, Object> entry : facetedRanges.entrySet()) {
                 String field = entry.getKey();
                 if (entry.getValue() instanceof Map) {
+                    @SuppressWarnings("unchecked")
                     Map<String, Object> facetedRangeMap = (Map) entry.getValue();
                     Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, field);
                     if (mappedKey == null) {
@@ -923,7 +925,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     .setSize(0);
 
             Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, fields[0]);
-            String elasticField = specialSortFields.get(mappedKey);
+            String elasticField = specialFields.get(mappedKey);
             if (elasticField == null) {
                 if (mappedKey != null) {
                     String internalType = mappedKey.getInternalType();
@@ -1330,27 +1332,6 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     }
 
     /**
-     * Check special fields for Elastic - sorting
-     */
-    private final Map<Query.MappedKey, String> specialSortFields; {
-        Map<Query.MappedKey, String> m = new HashMap<>();
-        m.put(Query.MappedKey.ID, IDS_FIELD);
-        m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
-        m.put(Query.MappedKey.ANY, ANY_FIELD);
-        m.put(Query.MappedKey.LABEL, Query.LABEL_KEY);
-        specialSortFields = m;
-    }
-
-    private final Map<Query.MappedKey, String> specialRangeFields; {
-        Map<Query.MappedKey, String> m = new HashMap<>();
-        m.put(Query.MappedKey.ID, IDS_FIELD);
-        m.put(Query.MappedKey.TYPE, TYPE_ID_FIELD);
-        m.put(Query.MappedKey.ANY, ANY_FIELD);
-        m.put(Query.MappedKey.LABEL, Query.LABEL_KEY);
-        specialRangeFields = m;
-    }
-
-    /**
      * Check special fields for Elastic - non sorting
      */
     private final Map<Query.MappedKey, String> specialFields; {
@@ -1392,7 +1373,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         key = getField(key);
 
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-        String elasticField = specialSortFields.get(mappedKey);
+        String elasticField = specialFields.get(mappedKey);
 
         if (elasticField == null) {
             if (mappedKey != null) {
@@ -1436,10 +1417,10 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     String queryKey = (String) sorter.getOptions().get(0);
 
                     Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
-                    String elasticField = specialSortFields.get(mappedKey);
+                    String elasticField = specialFields.get(mappedKey);
 
                     Query.MappedKey mappedAggKey = mapFullyDenormalizedKey(query, aggKey);
-                    String elasticAggField = specialSortFields.get(mappedAggKey);
+                    String elasticAggField = specialFields.get(mappedAggKey);
 
                     if (elasticField == null && mappedKey != null) {
                         elasticField = mappedKey.getIndexKey(null);
@@ -1499,7 +1480,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                     boolean isOldest = Sorter.OLDEST_OPERATOR.equals(operator);
                     String queryKey = (String) sorter.getOptions().get(1);
                     Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, queryKey);
-                    String elasticField = specialSortFields.get(mappedKey);
+                    String elasticField = specialFields.get(mappedKey);
 
                     if (elasticField == null && mappedKey != null) {
                         queryKey = mappedKey.getIndexKey(null);
@@ -1647,7 +1628,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             throw new IllegalArgumentException(queryKey + " cannot sort subQuery (create denormalized fields) on Ascending/Descending");
         }
 
-        elasticField = specialSortFields.get(mappedKey);
+        elasticField = specialFields.get(mappedKey);
 
         /* skip for special */
         if (elasticField == null) {
@@ -1689,7 +1670,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
             throw new Query.NoFieldException(query.getGroup(), queryKey + " cannot sort subQuery (create denormalized fields) on Nearest/Farthest");
         }
 
-        elasticField = specialSortFields.get(mappedKey);
+        elasticField = specialFields.get(mappedKey);
         if (elasticField == null) {
             if (mappedKey != null) {
                 elasticField = mappedKey.getIndexKey(null);
@@ -1923,7 +1904,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private QueryBuilder lessThanOperator(Query query, String operator, String key, List<Object> values) {
         String internalType = null;
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-        String checkField = specialRangeFields.get(mappedKey);
+        String checkField = specialFields.get(mappedKey);
         if (checkField == null) {
             if (mappedKey == null) {
                 throw new IllegalArgumentException(key + ": failed getInternalType()");
@@ -1964,7 +1945,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         String internalType = null;
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-        String checkField = specialRangeFields.get(mappedKey);
+        String checkField = specialFields.get(mappedKey);
         if (checkField == null) {
             if (mappedKey == null) {
                 throw new IllegalArgumentException(key + ": failed getInternalType()");
@@ -2002,11 +1983,12 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
      */
     private QueryBuilder greaterThanOperator(SearchRequestBuilder srb, Query query, String operator, String key, List<Object> values) {
 
+        @SuppressWarnings("unchecked")
         Map<String, Object> options = query.getOptions();
 
         String internalType = null;
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-        String checkField = specialRangeFields.get(mappedKey);
+        String checkField = specialFields.get(mappedKey);
         if (checkField == null) {
             if (mappedKey == null) {
                 throw new IllegalArgumentException(key + ": failed getInternalType()");
@@ -2045,7 +2027,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
 
         String internalType = null;
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-        String checkField = specialRangeFields.get(mappedKey);
+        String checkField = specialFields.get(mappedKey);
         if (checkField == null) {
             if (mappedKey == null) {
                 throw new IllegalArgumentException(key + ": failed getInternalType()");
@@ -2083,7 +2065,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
     private QueryBuilder startsWithOperator(Query query, String operator, String key, List<Object> values) {
         String internalType = null;
         Query.MappedKey mappedKey = mapFullyDenormalizedKey(query, key);
-        String checkField = specialRangeFields.get(mappedKey);
+        String checkField = specialFields.get(mappedKey);
         if (checkField == null) {
             if (mappedKey == null) {
                 throw new IllegalArgumentException(key + ": failed getInternalType()");
@@ -2297,7 +2279,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                 || operator.equals(PredicateParser.NOT_EQUALS_ALL_OPERATOR)) {
                 elasticField = specialFields.get(mappedKey);
             } else {
-                elasticField = specialRangeFields.get(mappedKey);
+                elasticField = specialFields.get(mappedKey);
             }
 
             String elasticPostFieldExact = null;
@@ -2750,8 +2732,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
         StringBuilder doc = new StringBuilder();
         for (Map.Entry<String, Long> entry : wordFreq.entrySet()) {
             String key = entry.getKey();
-            Long value = entry.getValue();
-            Long max = value;
+            Long max = entry.getValue();
             if (key.equals("true") || key.equals("false") || key.startsWith("com.psddev.dari")) {
                 max = 1L;
             } else if (max > numTerms) {
@@ -3045,6 +3026,7 @@ public class ElasticsearchDatabase extends AbstractDatabase<TransportClient> {
                                 String uniqueName = field.getUniqueName() + "." + SUGGEST_FIELD;
                                 List<String> n;
                                 if (m.get(uniqueName) != null && m.get(uniqueName) instanceof List) {
+                                    //noinspection unchecked
                                     n = (List) m.get(uniqueName);
                                     n.add(value);
                                 } else {

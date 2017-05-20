@@ -144,107 +144,110 @@ public class ElasticDebugServlet extends DebugServlet {
 
                 if (!ObjectUtils.isBlank(query)) {
                     writeStart("h2").writeHtml("Result").writeEnd();
-                    TransportClient client = database.openConnection();
-                    SearchResponse response;
-                    SearchRequestBuilder srb;
+                    if (database != null) {
+                        TransportClient client = database.openConnection();
+                        SearchResponse response;
+                        SearchRequestBuilder srb;
 
-                    String[] indexIdStrings = ObjectUtils.isBlank(index) ? new String[] { database.getAllElasticIndexName() } : index.split(",");
-                    srb = client.prepareSearch(indexIdStrings)
-                            .setTimeout(TimeValue.timeValueMillis(ElasticsearchDatabase.TIMEOUT));
-                    if (!ObjectUtils.isBlank(type)) {
-                        String[] typeIdStrings = type.split(",");
-                        srb.setTypes(typeIdStrings);
-                    }
-                    srb.setQuery(QueryBuilders.wrapperQuery(query));
-                    srb.setTrackScores(true);
+                        String[] indexIdStrings = ObjectUtils.isBlank(index) ? new String[]{database.getAllElasticIndexName()} : index.split(",");
+                        srb = client.prepareSearch(indexIdStrings)
+                                .setTimeout(TimeValue.timeValueMillis(ElasticsearchDatabase.TIMEOUT));
+                        if (!ObjectUtils.isBlank(type)) {
+                            String[] typeIdStrings = type.split(",");
+                            srb.setTypes(typeIdStrings);
+                        }
+                        srb.setQuery(QueryBuilders.wrapperQuery(query));
+                        srb.setTrackScores(true);
 
-                    if (!StringUtils.isBlank(sort)) {
-                        for (String sortField : sort.split(",")) {
-                            String[] parameters = sortField.split(" ");
-                            if (parameters[0].toLowerCase().equals("_score")) {
-                                srb.addSort(new ScoreSortBuilder());
-                            } else {
-                                srb.addSort(new FieldSortBuilder(parameters[0]).order(parameters[1].toLowerCase().equals("asc") ? ASC : DESC));
+                        if (!StringUtils.isBlank(sort)) {
+                            for (String sortField : sort.split(",")) {
+                                String[] parameters = sortField.split(" ");
+                                if (parameters[0].toLowerCase().equals("_score")) {
+                                    srb.addSort(new ScoreSortBuilder());
+                                } else {
+                                    srb.addSort(new FieldSortBuilder(parameters[0]).order(parameters[1].toLowerCase().equals("asc") ? ASC : DESC));
+                                }
                             }
                         }
-                    }
-                    srb.setExplain(true);
-                    if (ObjectUtils.isBlank(from)) {
-                        srb.setFrom(0);
-                    } else {
-                        srb.setFrom(Integer.parseInt(from));
-                    }
-                    if (ObjectUtils.isBlank(size)) {
-                        srb.setSize(10);
-                    } else {
-                        srb.setSize(Integer.parseInt(size));
-                    }
+                        srb.setExplain(true);
+                        if (ObjectUtils.isBlank(from)) {
+                            srb.setFrom(0);
+                        } else {
+                            srb.setFrom(Integer.parseInt(from));
+                        }
+                        if (ObjectUtils.isBlank(size)) {
+                            srb.setSize(10);
+                        } else {
+                            srb.setSize(Integer.parseInt(size));
+                        }
 
-                    Throwable error = null;
+                        Throwable error = null;
 
-                    try {
-                        long startTime = System.nanoTime();
-                        response = srb.execute().actionGet();
-                        SearchHits hits = response.getHits();
+                        try {
+                            long startTime = System.nanoTime();
+                            response = srb.execute().actionGet();
+                            SearchHits hits = response.getHits();
 
-                        writeStart("p");
+                            writeStart("p");
                             writeHtml("Took ");
                             writeStart("strong").writeObject((System.nanoTime() - startTime) / 1e6).writeEnd();
                             writeHtml(" milliseconds to find ");
                             writeStart("strong").writeObject(hits.getTotalHits()).writeEnd();
                             writeHtml(" documents.");
-                        writeEnd();
+                            writeEnd();
 
-                        writeStart("table", "class", "table table-condensed");
+                            writeStart("table", "class", "table table-condensed");
                             writeStart("thead");
-                                writeStart("tr");
-                                    writeStart("th").writeHtml("id").writeEnd();
-                                    writeStart("th").writeHtml("typeId").writeEnd();
-                                    writeStart("th").writeHtml("object").writeEnd();
-                                    writeStart("th").writeHtml("score").writeEnd();
-                                writeEnd();
+                            writeStart("tr");
+                            writeStart("th").writeHtml("id").writeEnd();
+                            writeStart("th").writeHtml("typeId").writeEnd();
+                            writeStart("th").writeHtml("object").writeEnd();
+                            writeStart("th").writeHtml("score").writeEnd();
+                            writeEnd();
                             writeEnd();
                             writeStart("tbody");
-                                for (SearchHit document : hits.getHits()) {
-                                    writeStart("tr");
-                                        writeStart("td");
-                                            writeObject(document.id());
-                                        writeEnd();
-                                        writeStart("td");
-                                            writeObject(document.type());
-                                        writeEnd();
-                                        writeStart("td", "width", "450");
-                                            writeStart("pre");
-                                                Map<String, Object> m = document.getSource();
-                                                if (m.get(ElasticsearchDatabase.DATA_FIELD) != null) {
-                                                    String data = (String) m.get(ElasticsearchDatabase.DATA_FIELD);
-                                                    Map<String, Object> values = (Map<String, Object>) ObjectUtils.fromJson(data);
-                                                    m.remove(ElasticsearchDatabase.DATA_FIELD);
-                                                    m.put(ElasticsearchDatabase.DATA_FIELD, values);
-                                                }
-                                                JSONObject json = new JSONObject(m);
-                                                write(json.toString(4));
-                                            writeEnd();
-                                        writeEnd();
-                                        writeStart("td");
-                                            writeStart("pre");
-                                                write(document.getScore() + "<br>"
-                                                        + document.getExplanation().toString().replaceAll("\n", "<br>").replaceAll(" ", "&nbsp;"));
-                                            writeEnd();
-                                        writeEnd();
-                                    writeEnd();
+                            for (SearchHit document : hits.getHits()) {
+                                writeStart("tr");
+                                writeStart("td");
+                                writeObject(document.id());
+                                writeEnd();
+                                writeStart("td");
+                                writeObject(document.type());
+                                writeEnd();
+                                writeStart("td", "width", "450");
+                                writeStart("pre");
+                                Map<String, Object> m = document.getSource();
+                                if (m.get(ElasticsearchDatabase.DATA_FIELD) != null) {
+                                    String data = (String) m.get(ElasticsearchDatabase.DATA_FIELD);
+                                    @SuppressWarnings("unchecked")
+                                    Map<String, Object> values = (Map<String, Object>) ObjectUtils.fromJson(data);
+                                    m.remove(ElasticsearchDatabase.DATA_FIELD);
+                                    m.put(ElasticsearchDatabase.DATA_FIELD, values);
                                 }
+                                JSONObject json = new JSONObject(m);
+                                write(json.toString(4));
+                                writeEnd();
+                                writeEnd();
+                                writeStart("td");
+                                writeStart("pre");
+                                write(document.getScore() + "<br>"
+                                        + document.getExplanation().toString().replaceAll("\n", "<br>").replaceAll(" ", "&nbsp;"));
+                                writeEnd();
+                                writeEnd();
+                                writeEnd();
+                            }
                             writeEnd();
-                        writeEnd();
+                            writeEnd();
 
-                    } catch (Exception e) {
-                        error = e;
-                    }
+                        } catch (Exception e) {
+                            error = e;
+                        }
 
-                    if (error != null) {
-                        writeStart("div", "class", "alert alert-error");
+                        if (error != null) {
+                            writeStart("div", "class", "alert alert-error");
                             write(srb.toString() + "<br>" + error);
-                        writeEnd();
+                            writeEnd();
+                        }
                     }
                 }
 
