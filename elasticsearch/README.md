@@ -2,14 +2,60 @@
 
 ## Installation
 
+See src/main/resources/SETUP for further details
+
 Make sure you install Elasticsearch 5.4.1 and Kibana 5.4.1. Kibana is optional.
 
-This works on Brightspot 3.3
+This works on Brightspot 3.3-SNAPSHOT
 
 ```
 brew install elasticsearch
 brew install kibana
 mvn clean install
+```
+
+Install Oracle Java JDK 1.8.0_73 or later (Vagrant boxes need to be upgraded). Lucene has an issue with Java JDK < 1.8.0_73
+
+```
+In /etc/sysctl.conf
+echo "vm.max_map_count = 262144" >> /etc/sysctl.conf
+echo "vm.swappiness = 1" >> /etc/sysctl.conf
+echo "net.core.somaxconn = 65535" >> /etc/sysctl.conf
+echo "fs.file-max = 518144" >> /etc/sysctl.conf
+
+sysctl -p
+```
+
+Setup memory for Elastic
+
+```
+Set memory edit /etc/elasticsearch/jvm.options file: set half of memory - "/etc/init.d/solr stop" to save mem since you are using elastic now.
+-Xms1900m
+-Xmx1900m
+
+Also lower to 70%.
+
+-XX:CMSInitiatingOccupancyFraction=70
+
+Comment out HeapDumpOnOutOfMemoryError and add ExitOnOutOfMemoryError for Java 8 over v92
+#-XX:+HeapDumpOnOutOfMemoryError
+-XX:+ExitOnOutOfMemoryError
+```
+
+Set limits
+
+```
+/etc/security/limits.conf - Need to give root and elasticsearch user more open files, and nproc for threads.
+root    -   nofile 100000
+root	-	nproc  5000
+elasticsearch   soft  nofile  65535
+elasticsearch   hard  nofile  65535
+elasticsearch   soft  memlock unlimited
+elasticsearch   hard  memlock unlimited
+elasticsearch	-     nproc	  5000
+
+Uncomment /etc/pam.d/su on Ubuntu - you need to do that on Unbuntu or it won't use limits.conf
+session    required   pam_limits.so
 ```
 
 ## Configuration
