@@ -2,7 +2,7 @@
 
 ## Installation
 
-Make sure you install Elasticsearch 5.4.1 and Kibana 5.4.1
+Make sure you install Elasticsearch 5.4.1 and Kibana 5.4.1. Kibana is optional.
 
 This works on Brightspot 3.3
 
