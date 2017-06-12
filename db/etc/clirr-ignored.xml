@@ -25,6 +25,12 @@
     </difference>
 
     <difference>
+        <className>com/psddev/dari/db/Database</className>
+        <differenceType>7012</differenceType>
+        <method>void resetThreadLocals()</method>
+    </difference>
+
+    <difference>
         <className>com/psddev/dari/db/ObjectStruct</className>
         <differenceType>7012</differenceType>
         <method>java.util.List findIndexedFields(com.psddev.dari.db.ObjectStruct)</method>
