@@ -2,6 +2,7 @@ package com.psddev.dari.db;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -331,6 +332,80 @@ public class SimpleIndexTest {
             assertNotNull(actual);
             assertEquals(actual, expected);
             assertEquals(actual.testLocale, expected.testLocale);
+        }
+    }
+
+    @Test
+    public void testPhrase() {
+        String test = "Hubble Astronomers Develop is a big item";
+
+        for (Database db : DATABASES) {
+            if (db instanceof SolrDatabase) {
+
+//                db.getEnvironment().refreshGlobals();
+//                db.getEnvironment().refreshTypes();
+//                db.getEnvironment().refreshGlobals();
+//                db.getEnvironment().refreshTypes();
+
+                TestRecord expected = TestRecord.getInstance(db);
+                expected.testString = test;
+                expected.save();
+
+                TestRecord actual = Query.from(TestRecord.class).using(db).where("testString matches ?", test).first();
+                assertNotNull(actual);
+                assertEquals(actual, expected);
+                assertEquals(actual.testString, expected.testString);
+
+                TestRecord actual2 = Query.from(TestRecord.class).using(db).where("testString matches ?", "develop").first();
+                assertNotNull(actual2);
+                assertEquals(actual2, expected);
+                assertEquals(actual2.testString, expected.testString);
+
+                QueryPhrase qp = new QueryPhrase();
+                qp.setPhrase("Hubble Astronomers Develop");
+                TestRecord actual1 = Query.from(TestRecord.class).using(db).where("testString matches ?", qp).first();
+                assertNotNull(actual1);
+                assertEquals(actual1, expected);
+                assertEquals(actual1.testString, expected.testString);
+
+                qp.setPhrase("Astronomers Develop");
+                TestRecord actual4 = Query.from(TestRecord.class).using(db).where("testString matches ?", qp).first();
+                assertNotNull(actual4);
+                assertEquals(actual4, expected);
+                assertEquals(actual4.testString, expected.testString);
+
+                qp.setPhrase("Develop Astronomers");
+                TestRecord actual5 = Query.from(TestRecord.class).using(db).where("testString matches ?", qp).first();
+                assertNull(actual5);
+
+                qp.setPhrase("Develop Astronomers");
+                qp.setSlop(2.0f);
+                TestRecord actual6 = Query.from(TestRecord.class).using(db).where("testString matches ?", qp).first();
+                assertNotNull(actual6);
+                assertEquals(actual6, expected);
+                assertEquals(actual6.testString, expected.testString);
+
+                qp.setPhrase("Develop item");
+                qp.setSlop(3.0f);
+                TestRecord actual7 = Query.from(TestRecord.class).using(db).where("testString matches ?", qp).first();
+                assertNotNull(actual7);
+                assertEquals(actual7, expected);
+                assertEquals(actual7.testString, expected.testString);
+
+                TestRecord expected2 = TestRecord.getInstance(db);
+                expected2.testString = "Hubble are Astronomers that eat";
+                expected2.save();
+
+                qp.setPhrase("Hubble Astronomers");
+                qp.setSlop(1.0f);
+                qp.setBoost(10.0f);
+                TestRecord actual8 = Query.from(TestRecord.class).using(db).where("testString matches ?", qp).
+                        or("testString matches ?", "eat")
+                        .sortRelevant(10.0d, "testString matches ?", qp).first();
+                assertNotNull(actual8);
+                assertEquals(actual8, expected);
+                assertEquals(actual8.testString, expected.testString);
+            }
         }
     }
 

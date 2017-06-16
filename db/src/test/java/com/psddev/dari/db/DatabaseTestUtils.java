@@ -46,7 +46,8 @@ public class DatabaseTestUtils {
         if (klass.equals(SqlDatabase.class)) {
             return getSqlTestDatabase();
         } else if (klass.equals(SolrDatabase.class)) {
-            return getSolrTestDatabase();
+            //return getSolrTestDatabase();
+            return getSolrLocalTestDatabase();
         } else {
             return null;
         }
@@ -76,19 +77,61 @@ public class DatabaseTestUtils {
         };
     }
 
+    public static TestDatabase getSolrLocalTestDatabase() {
+
+        String dbName = UuidUtils.createSequentialUuid().toString().replaceAll("-", "");
+
+        Map<String, Object> settings = new HashMap<String, Object>();
+
+        Settings.setOverride("dari/defaultDatabase", "solr");
+        String prefix = "dari/database/solr";
+        Settings.setOverride(prefix + "/class", SolrDatabase.class.getName());
+        Settings.setOverride(prefix + "/" + SolrDatabase.SERVER_URL_SUB_SETTING, "http://localhost:8080/solr/collection1");
+        Settings.setOverride(prefix + "/" + SolrDatabase.READ_SERVER_URL_SUB_SETTING, "http://localhost:8080/solr/collection1");
+        Settings.setOverride(prefix + "/" + SolrDatabase.VERSION_SUB_SETTING, "4.8.1");
+
+        settings.put(SolrDatabase.SERVER_URL_SUB_SETTING, "http://localhost:8080/solr/collection1");
+        settings.put(SolrDatabase.READ_SERVER_URL_SUB_SETTING, "http://localhost:8080/solr/collection1");
+        settings.put(SolrDatabase.VERSION_SUB_SETTING, "4.8.1");
+
+        final SolrDatabase solrDb = new SolrDatabase();
+        solrDb.setName("JUnit Test Solr DB " + dbName);
+        solrDb.doInitialize(null, settings);
+        solrDb.deleteByQuery(Query.fromAll());
+        solrDb.commit();
+
+        return new TestDatabase() {
+            @Override
+            public Database get() {
+                return solrDb;
+            }
+
+            @Override
+            public void close() {
+
+            }
+        };
+    }
+
     public static TestDatabase getSolrTestDatabase() {
 
+        String path = null;
         String dbName = "solr_" + UuidUtils.createSequentialUuid().toString().replaceAll("-", "");
         final File solrHome = new File(System.getProperty("java.io.tmpdir"), dbName);
         try {
-            System.setProperty("solr.solr.home", solrHome.getCanonicalPath());
-            LOGGER.info("Setting Solr Home to: " + solrHome.getCanonicalPath());
+            path = solrHome.getCanonicalPath();
+            System.setProperty("solr.solr.home", path);
+            LOGGER.info("Setting Solr Home to: " + path);
         } catch (IOException e1) {
             e1.printStackTrace();
             return null;
         }
 
-        CoreContainer coreContainer = new CoreContainer();
+        Settings.setOverride("dbName", dbName);
+        Settings.setOverride("solrHome", path);
+
+        CoreContainer coreContainer = new CoreContainer(path);
+        coreContainer.load();
         Map<String,Exception> coreInitFailures = coreContainer.getCoreInitFailures();
         if(coreInitFailures != null) {
             Set<String> keys = coreInitFailures.keySet();
@@ -107,6 +150,8 @@ public class DatabaseTestUtils {
         solrDb.setName("JUnit Test Solr DB " + dbName);
         solrDb.setServer(server);
         solrDb.setVersion("4.8.1");
+        solrDb.deleteByQuery(Query.fromAll());
+        solrDb.commit();
 
         return new TestDatabase() {
             @Override

@@ -451,9 +451,11 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
 
         if (!query.isFromAll()) {
             Set<ObjectType> types = query.getConcreteTypes(getEnvironment());
-
-            if (!isAllTypes(types)) {
-                if (types.isEmpty()) {
+            if (types.size() == 0) {
+                // this happens when bootstrapping do not return anything
+                queryBuilder.append("NOT *:*");
+            } else {
+                if (!isAllTypes(types) && types.isEmpty()) {
                     if (queryBuilder.length() > 0) {
                         queryBuilder.insert(0, '(');
                         queryBuilder.append(") && ");
@@ -809,6 +811,14 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
             for (Object value : values) {
                 if (ObjectUtils.isBlank(value)) {
                     comparisonBuilder.append("(*:* && -*:*)");
+                } else if (value instanceof QueryPhrase) {
+                    comparisonBuilder.append("\"").append(((QueryPhrase) value).getPhrase()).append("\"");
+                    if (((QueryPhrase) value).getSlop() != null) {
+                        comparisonBuilder.append("~").append(((QueryPhrase) value).getSlop());
+                    }
+                    if (((QueryPhrase) value).getBoost() != null) {
+                        comparisonBuilder.append("^").append(((QueryPhrase) value).getBoost());
+                    }
                 } else {
                     addValue(comparisonBuilder, solrField, value);
                 }
@@ -1206,13 +1216,13 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
     }
 
     private void doCommit(SolrServer server) {
-        if (isAutoCommit()) {
-            return;
-        }
-
         Throwable error = null;
 
         try {
+            if (isAutoCommit()) {
+                return;
+            }
+
             Stats.Timer timer = STATS.startTimer();
             Profiler.Static.startThreadEvent(COMMIT_PROFILER_EVENT);
 
@@ -1301,6 +1311,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         SolrQuery solrQuery = buildQuery(query);
         solrQuery.setStart(0);
         solrQuery.setRows(INITIAL_FETCH_SIZE);
+        LOGGER.debug("SolrAll: " + solrQuery.toString());
 
         PaginatedResult<T> result = queryPartialWithOptions(solrQuery, query);
         int count = (int) result.getCount();
@@ -1321,6 +1332,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         SolrQuery solrQuery = buildQuery(query);
         solrQuery.setStart(0);
         solrQuery.setRows(0);
+        LOGGER.debug("SolrCount: " + solrQuery.toString());
         SolrDocumentList documents = queryWithOptions(solrQuery, query).getResults();
         return documents != null ? documents.getNumFound() : 0L;
     }
@@ -1330,6 +1342,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         SolrQuery solrQuery = buildQuery(query);
         solrQuery.setStart(0);
         solrQuery.setRows(1);
+        LOGGER.debug("SolrFirst: " + solrQuery.toString());
         SolrDocumentList documents = queryWithOptions(solrQuery, query).getResults();
         if (documents != null) {
             for (SolrDocument document : documents) {
@@ -1341,7 +1354,8 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
 
     @Override
     public Date readLastUpdate(Query<?> query) {
-        throw new UnsupportedOperationException();
+        //throw new UnsupportedOperationException();
+        return new Date();
     }
 
     @Override
@@ -1349,6 +1363,7 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         SolrQuery solrQuery = buildQuery(query);
         solrQuery.setStart((int) offset);
         solrQuery.setRows(limit);
+        LOGGER.debug("SolrPartial: " + solrQuery.toString());
         return queryPartialWithOptions(solrQuery, query);
     }
 
@@ -1490,7 +1505,9 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
         for (State state : states) {
             ObjectType type = state.getType();
 
-            if (type != null) {
+            if (state.getId().equals(new UUID(-1L, -1L))) {
+                // Allow Globals though
+            } else if (type != null) {
                 boolean savable = false;
 
                 for (String typeGroup : type.getGroups()) {
@@ -1520,33 +1537,35 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                 document.setField(DATA_FIELD, ObjectUtils.toJson(stateValues));
             }
 
-            if (schema.get().version >= 10) {
-                Set<String> typeAheadFields = type.as(TypeModification.class).getTypeAheadFields();
-                Map<String, List<String>> typeAheadFieldsMap = type.as(TypeModification.class).getTypeAheadFieldsMap();
+            if (type != null) {
+                if (schema.get().version >= 10) {
+                    Set<String> typeAheadFields = type.as(TypeModification.class).getTypeAheadFields();
+                    Map<String, List<String>> typeAheadFieldsMap = type.as(TypeModification.class).getTypeAheadFieldsMap();
 
-                if (!typeAheadFields.isEmpty()) {
-                    for (String typeAheadField : typeAheadFields) {
-                        String value = ObjectUtils.to(String.class, state.getByPath(typeAheadField));
+                    if (!typeAheadFields.isEmpty()) {
+                        for (String typeAheadField : typeAheadFields) {
+                            String value = ObjectUtils.to(String.class, state.getByPath(typeAheadField));
 
-                        // Hack for a client.
-                        if (!ObjectUtils.isBlank(value)) {
-                            value = value.replaceAll("\\{", "").replaceAll("\\}", "");
-                            document.setField(SUGGESTION_FIELD, value);
+                            // Hack for a client.
+                            if (!ObjectUtils.isBlank(value)) {
+                                value = value.replaceAll("\\{", "").replaceAll("\\}", "");
+                                document.setField(SUGGESTION_FIELD, value);
+                            }
                         }
                     }
-                }
 
-                if (!typeAheadFieldsMap.isEmpty()) {
-                    for (Map.Entry<String, List<String>> entry : typeAheadFieldsMap.entrySet()) {
-                        String typeAheadField = entry.getKey();
-                        List<String> targetFields = entry.getValue();
-                        String value = ObjectUtils.to(String.class, state.getByPath(typeAheadField));
+                    if (!typeAheadFieldsMap.isEmpty()) {
+                        for (Map.Entry<String, List<String>> entry : typeAheadFieldsMap.entrySet()) {
+                            String typeAheadField = entry.getKey();
+                            List<String> targetFields = entry.getValue();
+                            String value = ObjectUtils.to(String.class, state.getByPath(typeAheadField));
 
-                        if (!ObjectUtils.isBlank(targetFields)) {
-                            for (String targetField : targetFields) {
-                                if (!ObjectUtils.isBlank(value)) {
-                                    value = value.replaceAll("\\{", "").replaceAll("\\}", "");
-                                    document.setField("_e_" + targetField, value);
+                            if (!ObjectUtils.isBlank(targetFields)) {
+                                for (String targetField : targetFields) {
+                                    if (!ObjectUtils.isBlank(value)) {
+                                        value = value.replaceAll("\\{", "").replaceAll("\\}", "");
+                                        document.setField("_e_" + targetField, value);
+                                    }
                                 }
                             }
                         }
@@ -1572,17 +1591,19 @@ public class SolrDatabase extends AbstractDatabase<SolrServer> {
                         entry.getValue());
             }
 
-            List<ObjectMethod> methods = new ArrayList<>(state.getType().getMethods());
-            methods.addAll(getEnvironment().getMethods());
-            for (ObjectMethod method : methods) {
-                addDocumentValues(
-                        document,
-                        allBuilder,
-                        true,
-                        method,
-                        method.getUniqueName(),
-                        Static.getStateMethodValue(state, method)
-                        );
+            if (type != null) {
+                List<ObjectMethod> methods = new ArrayList<>(state.getType().getMethods());
+                methods.addAll(getEnvironment().getMethods());
+                for (ObjectMethod method : methods) {
+                    addDocumentValues(
+                            document,
+                            allBuilder,
+                            true,
+                            method,
+                            method.getUniqueName(),
+                            Static.getStateMethodValue(state, method)
+                    );
+                }
             }
 
             document.setField(ALL_FIELD, allBuilder.toString());
