@@ -6,6 +6,13 @@ public class QueryPhrase {
     private Float slop = null;
     private Float boost = null;
 
+    public QueryPhrase() {
+    }
+
+    public QueryPhrase(String phrase) {
+        this.phrase = phrase;
+    }
+
     public String getPhrase() {
         return phrase;
     }

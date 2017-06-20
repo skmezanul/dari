@@ -77,6 +77,8 @@ public class QueryDebugServlet extends HttpServlet {
         private Database database;
         private final ObjectType type;
         private final String where;
+        private final String phraseQuery;
+        private final String phraseSlop;
         private final String sortField;
         private final SortOrder sortOrder;
         private final String additionalFieldsString;
@@ -97,6 +99,8 @@ public class QueryDebugServlet extends HttpServlet {
             database = Database.Static.getInstance(databaseName);
             type = database.getEnvironment().getTypeById(page.param(UUID.class, "from"));
             where = page.paramOrDefault(String.class, "where", "").trim();
+            phraseQuery = page.param(String.class, "phraseQuery");
+            phraseSlop = page.param(String.class, "phraseSlop");
             sortField = page.param(String.class, "sortField");
             sortOrder = page.paramOrDefault(SortOrder.class, "sortOrder", SortOrder.ASCENDING);
             additionalFieldsString = page.param(String.class, "additionalFields");
@@ -161,8 +165,7 @@ public class QueryDebugServlet extends HttpServlet {
 
                 if (!ObjectUtils.isBlank(where)) {
                     if (visibilityFilters.isEmpty()) {
-                        query.where(where);
-
+                        addPhrase(query, where, phraseQuery, phraseSlop);
                     } else {
                         query.where(getFullyQualifiedPredicateForType(type, PredicateParser.Static.parse(where)));
                     }
@@ -191,6 +194,17 @@ public class QueryDebugServlet extends HttpServlet {
             caching.setDelegate(database);
             query.using(caching);
             query.resolveInvisible();
+        }
+
+        private void addPhrase(Query<Object> query, String where, String phrase, String slop) {
+
+            QueryPhrase qp = new QueryPhrase();
+            qp.setPhrase(phrase);
+            if (!ObjectUtils.isBlank(slop)) {
+                qp.setSlop(Float.valueOf(slop));
+            }
+            // must have ?
+            query.where(where, qp);
         }
 
         @SuppressWarnings("deprecation")
@@ -670,6 +684,7 @@ public class QueryDebugServlet extends HttpServlet {
                             writeElement("input", "class", "btn btn-primary", "type", "submit", "name", "action", "value", "Run");
                         writeEnd();
 
+                        boolean isSolrDatabase = false;
                         writeStart("div", "class", "span6");
                             writeStart("select", "name", "db", "style", "margin-bottom: 4px;");
                                 writeStart("option",
@@ -680,6 +695,9 @@ public class QueryDebugServlet extends HttpServlet {
 
                                 for (Database db : Database.Static.getAll()) {
                                     String dbName = db.getName();
+                                    if (db instanceof SolrDatabase) {
+                                        isSolrDatabase = true;
+                                    }
                                     writeStart("option",
                                             "value", dbName,
                                             "selected", dbName.equals(databaseName) ? "selected" : null);
@@ -688,6 +706,22 @@ public class QueryDebugServlet extends HttpServlet {
                                 }
                             writeEnd();
 
+                            if (isSolrDatabase) {
+                                writeElement("br");
+                                writeElement("input",
+                                        "class", "input-medium",
+                                        "name", "phraseQuery",
+                                        "type", "text",
+                                        "placeholder", "Solr Phrase",
+                                        "value", phraseQuery);
+                                writeHtml(' ');
+                                writeElement("input",
+                                        "class", "input-small",
+                                        "name", "phraseSlop",
+                                        "type", "text",
+                                        "placeholder", "Solr Slop",
+                                        "value", phraseSlop);
+                            }
                             writeElement("br");
                             writeElement("input",
                                     "class", "input-small",
@@ -911,6 +945,7 @@ public class QueryDebugServlet extends HttpServlet {
                             writeElement("input", "class", "btn btn-primary", "type", "submit", "name", "action", "value", "Run");
                         writeEnd();
 
+                        boolean isSolrDatabase = false;
                         writeStart("div", "class", "span6");
                             writeStart("select", "name", "db", "style", "margin-bottom: 4px;");
                                 writeStart("option",
@@ -921,6 +956,9 @@ public class QueryDebugServlet extends HttpServlet {
 
                                 for (Database db : Database.Static.getAll()) {
                                     String dbName = db.getName();
+                                    if (db instanceof SolrDatabase) {
+                                        isSolrDatabase = true;
+                                    }
                                     writeStart("option",
                                             "value", dbName,
                                             "selected", dbName.equals(databaseName) ? "selected" : null);
@@ -929,6 +967,22 @@ public class QueryDebugServlet extends HttpServlet {
                                 }
                             writeEnd();
 
+                            if (isSolrDatabase) {
+                                writeElement("br");
+                                writeElement("input",
+                                        "class", "input-medium",
+                                        "name", "phraseQuery",
+                                        "type", "text",
+                                        "placeholder", "Solr Phrase",
+                                        "value", phraseQuery);
+                                writeHtml(' ');
+                                writeElement("input",
+                                        "class", "input-small",
+                                        "name", "phraseSlop",
+                                        "type", "text",
+                                        "placeholder", "Solr Slop",
+                                        "value", phraseSlop);
+                            }
                             writeElement("br");
                             writeElement("input",
                                     "class", "input-small",
