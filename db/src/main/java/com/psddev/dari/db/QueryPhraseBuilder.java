@@ -1,10 +1,13 @@
 package com.psddev.dari.db;
 
-class QueryPhraseBuilder {
+public final class QueryPhraseBuilder {
 
     private String phrase;
     private int proximity;
     private double weight;
+
+    QueryPhraseBuilder() {
+    }
 
     public QueryPhraseBuilder phrase(String phrase) {
         this.phrase = phrase;

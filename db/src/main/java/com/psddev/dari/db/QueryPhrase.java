@@ -1,6 +1,6 @@
 package com.psddev.dari.db;
 
-public class QueryPhrase {
+public final class QueryPhrase {
 
     private String phrase;
     private int proximity;
