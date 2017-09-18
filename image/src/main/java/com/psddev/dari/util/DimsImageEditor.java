@@ -7,6 +7,7 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
@@ -283,6 +284,8 @@ public class DimsImageEditor extends AbstractUrlImageEditor {
                 }
             }
 
+            dimsUrl.fixCommandOrder();
+
             newImage = dimsUrl.toStorageItem();
         }
 
@@ -490,23 +493,51 @@ public class DimsImageEditor extends AbstractUrlImageEditor {
             return commands;
         }
 
-        /** Inserts all ResizingCommands which can change the dimensions
-         *  of the image after the last ResizingCommand found, and appends
-         *  all other commands to the end of the list. */
+        /** Adds the given {@code command} to the end of the list. */
         private void addCommand(Command command) {
-            List<Command> commands = getCommands();
-            if (!commands.isEmpty() && command instanceof ResizingCommand) {
-                int lastResizeIndex = 0;
-                for (Command cmd : commands) {
-                    if (cmd instanceof ResizingCommand) {
-                        lastResizeIndex++;
-                    } else {
-                        break;
+            getCommands().add(command);
+        }
+
+        // Reorders the commands so that format and quality come immediately
+        // after the last resizing command, or at the beginning if there are
+        // none. This is to preserve the ordering of commands as closely as
+        // possible to the way it was before the #addCommand API was fixed to
+        // honor the command order given to it. This will ensure minimal cache
+        // misses for existing DIMS URLs stored on CDNs. BSP-3532
+        private void fixCommandOrder() {
+
+            Command lastResizeCommand = getLastResizeCommand();
+
+            if (lastResizeCommand != null) {
+                List<Command> formatAndQualityCommands = new ArrayList<>();
+
+                List<Command> commands = getCommands();
+
+                for (Iterator<Command> it = commands.iterator(); it.hasNext();) {
+                    Command c = it.next();
+
+                    if (c instanceof FormatCommand || c instanceof QualityCommand) {
+                        it.remove();
+                        formatAndQualityCommands.add(c);
                     }
                 }
-                commands.add(lastResizeIndex, command);
-            } else {
-                commands.add(command);
+
+                if (!formatAndQualityCommands.isEmpty()) {
+                    int index = 0;
+                    int lastResizeCommandIndex = -1;
+
+                    for (Command c : commands) {
+                        // identity comparison is intentional here since equals
+                        // has not been implemented on any of the commands.
+                        if (c == lastResizeCommand) {
+                            lastResizeCommandIndex = index;
+                            break;
+                        }
+                        index++;
+                    }
+
+                    commands.addAll(lastResizeCommandIndex + 1, formatAndQualityCommands);
+                }
             }
         }
 
